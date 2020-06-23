@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2015",
+    "module": "commonjs",
+
+    "outDir": "./build",
+    "rootDir": ".",
+    "declaration": true,
+
+    "strict": true,
+
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "moduleResolution": "node",
+
+    "baseUrl": "./src",
+    "paths": {
+      "@jackson": ["../node_modules/@outfoxx/jackson-js/*"]
+    },
+
+    "esModuleInterop": true,
+
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  },
+  "exclude": ["node_modules","dist"]
+}
