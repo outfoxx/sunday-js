@@ -1,6 +1,6 @@
 {
   "name": "@outfoxx/sunday",
-  "version": "1.0.0-alpha.6",
+  "version": "1.0.0-rc.1",
   "description": "Sunday - The framework of REST 🙏",
   "main": "dist/index.js",
   "scripts": {
