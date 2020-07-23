@@ -25,7 +25,7 @@
   "author": "kdubb",
   "license": "outfox",
   "dependencies": {
-    "@outfoxx/jackson-js": "^1.2.11",
+    "@outfoxx/jackson-js": "^1.2.15",
     "luxon": "^1.24.1",
     "rxjs": "^6.5.5",
     "uri-template-lite": "^20.5.0"
