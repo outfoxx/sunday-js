@@ -35,13 +35,9 @@ export class JSONEncoder implements MediaTypeEncoder {
   }
 
   encode<T>(value: T, type?: AnyType): string {
-    if (!type?.length || type[0] === Object) {
-      return JSON.stringify(value);
-    }
-
     return this.stringifier.stringify(value, {
       serializers: this.customSerializers,
-      mainCreator: () => type,
+      mainCreator: () => type ?? [Object],
     });
   }
 
