@@ -10,7 +10,7 @@ export async function validate(
     if (
       mediaType(response.headers.get('content-type')) !== MediaType.PROBLEM_JSON
     ) {
-      await response.body?.cancel();
+      await response.body?.cancel?.();
       throw new HttpError(
         'Unacceptable response status code',
         response.status,
