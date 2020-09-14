@@ -54,7 +54,8 @@ export class FetchRequestManager implements RequestManager {
       requestSpec.pathTemplate,
       requestSpec.pathParameters ?? {}
     );
-    const url = new URL(pathUrl, baseUrl);
+    const url = new URL(pathUrl.startsWith('/') ? pathUrl.substr(1) : pathUrl,
+                        baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`);
 
     if (requestSpec.queryParameters) {
       const encoder = this.mediaTypeEncoders.find(

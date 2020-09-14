@@ -25,6 +25,56 @@ describe('FetchRequestManager', () => {
     ).resolves.toMatchObject({ url: 'http://example.com/api/12345/contents' });
   });
 
+  it('generates normalized urls', async () => {
+    const fetchReqMgr = new FetchRequestManager('http://example.com/api/v{ver}');
+    await expect(
+      fetchReqMgr
+        .request({
+                   method: 'GET',
+                   pathTemplate: '/{id}/contents',
+                   pathParameters: { id: '12345', ver: 1 },
+                 })
+        .pipe(first())
+        .toPromise(),
+    ).resolves.toMatchObject({ url: 'http://example.com/api/v1/12345/contents' });
+
+    const fetchReqMgr2 = new FetchRequestManager('http://example.com/api/v{ver}');
+    await expect(
+      fetchReqMgr2
+        .request({
+                   method: 'GET',
+                   pathTemplate: '{id}/contents',
+                   pathParameters: { id: '12345', ver: 1 },
+                 })
+        .pipe(first())
+        .toPromise(),
+    ).resolves.toMatchObject({ url: 'http://example.com/api/v1/12345/contents' });
+
+    const fetchReqMgr3 = new FetchRequestManager('http://example.com/api/v{ver}/');
+    await expect(
+      fetchReqMgr3
+        .request({
+                   method: 'GET',
+                   pathTemplate: '/{id}/contents',
+                   pathParameters: { id: '12345', ver: 1 },
+                 })
+        .pipe(first())
+        .toPromise(),
+    ).resolves.toMatchObject({ url: 'http://example.com/api/v1/12345/contents' });
+
+    const fetchReqMgr4 = new FetchRequestManager('http://example.com/api/v{ver}/');
+    await expect(
+      fetchReqMgr4
+        .request({
+                   method: 'GET',
+                   pathTemplate: '{id}/contents',
+                   pathParameters: { id: '12345', ver: 1 },
+                 })
+        .pipe(first())
+        .toPromise(),
+    ).resolves.toMatchObject({ url: 'http://example.com/api/v1/12345/contents' });
+  });
+
   it('adds encoded query parameters', async () => {
     await expect(
       fetchReqMgr
