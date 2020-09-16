@@ -198,6 +198,8 @@ export class FetchRequestManager implements RequestManager {
         };
       }
 
+      eventSource.connect();
+
       return () => {
         eventSource.close();
       };
