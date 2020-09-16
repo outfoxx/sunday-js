@@ -176,7 +176,7 @@ export class FetchRequestManager implements RequestManager {
           'application/json'
         ) as JSONDecoder;
         const msgEvent = event as MessageEvent;
-        const deserializedEvent = await decoder.decode(
+        const deserializedEvent = await decoder.decodeText(
           msgEvent.data,
           eventType
         );
