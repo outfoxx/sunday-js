@@ -71,6 +71,7 @@ export class FetchRequestManager implements RequestManager {
 
     const headers = new Headers(requestSpec.headers);
 
+    // Determine & add accept header
     const supportedAcceptTypes = requestSpec.acceptTypes?.filter((type) =>
       this.mediaTypeDecoders.supports(type)
     );
@@ -80,16 +81,23 @@ export class FetchRequestManager implements RequestManager {
       headers.set('accept', accept);
     }
 
+    // Determine content type
+    const contentType = requestSpec.contentTypes?.find((type) =>
+      this.mediaTypeEncoders.supports(type)
+    );
+
+    // If matched, add content type (even if body is nil, to match any expected server requirements)
+    if (contentType) {
+      headers.set('content-type', contentType);
+    }
+
+    // Encode & add body data
     let body: BodyInit | undefined;
     if (requestSpec.body) {
-      const contentType = requestSpec.contentTypes?.find((type) =>
-        this.mediaTypeEncoders.supports(type)
-      );
       if (!contentType) {
         throw Error('Unsupported content-type for request body');
       }
 
-      headers.set('content-type', contentType);
       body = this.mediaTypeEncoders
         .find(contentType)
         .encode(requestSpec.body, requestSpec.bodyType);
