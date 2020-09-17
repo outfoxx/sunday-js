@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "test": "TZ=UTC jest",
-    "test:watch": "jest --watch",
+    "test:watch": "TZ=UTC jest --watch",
     "build": "tsc --build tsconfig.dist.json",
     "clean": "rimraf build dist",
     "prepublish": "npm run clean && npm run pretty -- -c && npm run build",
