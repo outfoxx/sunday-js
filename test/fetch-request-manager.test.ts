@@ -1,18 +1,18 @@
 import { JsonClassType, JsonProperty } from '@outfoxx/jackson-js';
 import { first } from 'rxjs/operators';
-import { FetchRequestManager } from '../src';
+import { FetchRequestFactory } from '../src';
 import { MediaType } from '../src/media-type';
 
-describe('FetchRequestManager', () => {
+describe('FetchRequestFactory', () => {
   beforeEach(() => {
     fetchMock.resetMocks();
   });
 
-  const fetchReqMgr = new FetchRequestManager('http://example.com');
+  const fetchRequestFactory = new FetchRequestFactory('http://example.com');
 
   it('replaces path template parameters', async () => {
     await expect(
-      fetchReqMgr
+      fetchRequestFactory
         .request({
           method: 'GET',
           pathTemplate: '/api/{id}/contents',
@@ -25,7 +25,7 @@ describe('FetchRequestManager', () => {
 
   it('adds encoded query parameters', async () => {
     await expect(
-      fetchReqMgr
+      fetchRequestFactory
         .request({
           method: 'GET',
           pathTemplate: '/api/{id}/contents',
@@ -43,7 +43,7 @@ describe('FetchRequestManager', () => {
   });
 
   it('attaches encoded body based on content-type', async () => {
-    const request: Request = await fetchReqMgr
+    const request: Request = await fetchRequestFactory
       .request({
         method: 'POST',
         pathTemplate: '/api/contents',
@@ -59,7 +59,7 @@ describe('FetchRequestManager', () => {
   });
 
   it('attaches encoded content-type when body is nil', async () => {
-    const request: Request = await fetchReqMgr
+    const request: Request = await fetchRequestFactory
       .request({
         method: 'POST',
         pathTemplate: '/api/contents',
@@ -96,7 +96,7 @@ describe('FetchRequestManager', () => {
     });
 
     await expect(
-      fetchReqMgr
+      fetchRequestFactory
         .result({ method: 'GET', pathTemplate: '' }, [Test])
         .pipe(first())
         .toPromise()

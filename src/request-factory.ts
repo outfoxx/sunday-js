@@ -4,7 +4,7 @@ import { AnyType } from './any-type';
 import { MediaType } from './media-type';
 import { URLTemplate } from './url-template';
 
-export interface RequestManager {
+export interface RequestFactory {
   readonly baseUrl: URLTemplate;
 
   request(requestSpec: RequestSpec<unknown>): Observable<Request>;
