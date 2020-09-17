@@ -1,11 +1,11 @@
-import { Observable } from 'rxjs';
-import { MediaType } from './media-type';
-import { URI } from 'uri-template-lite';
-import { AnyType } from './any-type';
 import { ClassType } from '@outfoxx/jackson-js/dist/@types';
+import { Observable } from 'rxjs';
+import { AnyType } from './any-type';
+import { MediaType } from './media-type';
+import { URLTemplate } from './url-template';
 
 export interface RequestManager {
-  readonly baseUrl: URI.Template;
+  readonly baseUrl: URLTemplate;
 
   request(requestSpec: RequestSpec<unknown>): Observable<Request>;
 
@@ -17,15 +17,19 @@ export interface RequestManager {
     requestSpec: RequestSpec<B>,
     resultType: [ClassType<R>]
   ): Observable<R>;
+
   result<B, R>(
     requestSpec: RequestSpec<B>,
     resultType: [ClassType<Array<unknown>>, ClassType<R>]
   ): Observable<Array<R>>;
+
   result<B, R>(
     requestSpec: RequestSpec<B>,
     resultType: [ClassType<Set<unknown>>, ClassType<R>]
   ): Observable<Set<R>>;
+
   result<B, R>(requestSpec: RequestSpec<B>, resultType: AnyType): Observable<R>;
+
   result<B>(requestSpec: RequestSpec<B>): Observable<void>;
 
   events(requestSpec: RequestSpec<void>): ExtEventSource;

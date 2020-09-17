@@ -1,32 +1,32 @@
-import { Logger } from './logger';
 import { EMPTY, Observable, of, Subscriber } from 'rxjs';
+import { switchMap } from 'rxjs/operators';
+import { AnyType } from './any-type';
+import { validate } from './fetch';
+import { FetchEventSource } from './fetch-event-source';
+import { JSONDecoder } from './json-decoder';
+import { Logger } from './logger';
+import { mediaType, MediaType } from './media-type';
+import { MediaTypeDecoders } from './media-type-decoders';
+import { isURLQueryParamsEncoder } from './media-type-encoder';
+import { MediaTypeEncoders } from './media-type-encoders';
 import {
+  EventTypes,
+  ExtEventSource,
   RequestAdapter,
   RequestManager,
   RequestSpec,
-  EventTypes,
-  ExtEventSource,
 } from './request-manager';
-import { MediaTypeEncoders } from './media-type-encoders';
-import { MediaTypeDecoders } from './media-type-decoders';
-import { mediaType, MediaType } from './media-type';
-import { isURLQueryParamsEncoder } from './media-type-encoder';
-import { switchMap } from 'rxjs/operators';
-import { validate } from './fetch';
-import { FetchEventSource } from './fetch-event-source';
-import { URI } from 'uri-template-lite';
-import { AnyType } from './any-type';
-import { JSONDecoder } from './json-decoder';
+import { URLTemplate } from './url-template';
 
 export class FetchRequestManager implements RequestManager {
-  public baseUrl: URI.Template;
+  public baseUrl: URLTemplate;
   public adapter?: RequestAdapter;
   public mediaTypeEncoders: MediaTypeEncoders;
   public mediaTypeDecoders: MediaTypeDecoders;
   public logger: Logger;
 
   constructor(
-    baseUrl: string | URI.Template,
+    baseUrl: string | URLTemplate,
     options?: {
       adapter?: RequestAdapter;
       mediaTypeEncoders?: MediaTypeEncoders;
@@ -35,7 +35,7 @@ export class FetchRequestManager implements RequestManager {
     }
   ) {
     this.baseUrl =
-      typeof baseUrl === 'string' ? new URI.Template(baseUrl) : baseUrl;
+      typeof baseUrl === 'string' ? new URLTemplate(baseUrl) : baseUrl;
     this.adapter = options?.adapter;
     this.mediaTypeEncoders =
       options?.mediaTypeEncoders ?? MediaTypeEncoders.DEFAULT;
@@ -49,13 +49,10 @@ export class FetchRequestManager implements RequestManager {
     requestInit?: RequestInit
   ): Observable<Request> {
     //
-    const baseUrl = this.baseUrl.expand(requestSpec.pathParameters ?? {});
-    const pathUrl = URI.expand(
+    const url = this.baseUrl.complete(
       requestSpec.pathTemplate,
       requestSpec.pathParameters ?? {}
     );
-    const url = new URL(pathUrl.startsWith('/') ? pathUrl.substr(1) : pathUrl,
-                        baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`);
 
     if (requestSpec.queryParameters) {
       const encoder = this.mediaTypeEncoders.find(
