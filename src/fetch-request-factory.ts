@@ -13,12 +13,12 @@ import {
   EventTypes,
   ExtEventSource,
   RequestAdapter,
-  RequestManager,
+  RequestFactory,
   RequestSpec,
-} from './request-manager';
+} from './request-factory';
 import { URLTemplate } from './url-template';
 
-export class FetchRequestManager implements RequestManager {
+export class FetchRequestFactory implements RequestFactory {
   public baseUrl: URLTemplate;
   public adapter?: RequestAdapter;
   public mediaTypeEncoders: MediaTypeEncoders;

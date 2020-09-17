@@ -1,7 +1,7 @@
 export * from './problem';
 export * from './any-type';
-export * from './request-manager';
-export * from './fetch-request-manager';
+export * from './request-factory';
+export * from './fetch-request-factory';
 
 export { nullifyNotFound } from './util/rxjs';
 

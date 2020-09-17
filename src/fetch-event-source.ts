@@ -3,7 +3,7 @@ import { switchMap, tap } from 'rxjs/operators';
 import { validate } from './fetch';
 import { Logger } from './logger';
 import { MediaType } from './media-type';
-import { ExtEventSource } from './request-manager';
+import { ExtEventSource } from './request-factory';
 import { fromStreamReader } from './util/rxjs';
 
 export class FetchEventSource extends EventTarget implements ExtEventSource {
