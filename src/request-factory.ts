@@ -1,6 +1,6 @@
-import { ClassType } from '@outfoxx/jackson-js/dist/@types';
 import { Observable } from 'rxjs';
 import { AnyType } from './any-type';
+import { ClassType } from './class-type';
 import { MediaType } from './media-type';
 import { URLTemplate } from './url-template';
 

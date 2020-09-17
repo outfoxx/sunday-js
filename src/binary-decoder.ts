@@ -1,6 +1,5 @@
 import { MediaTypeDecoder } from './media-type-decoder';
 import { AnyType } from './any-type';
-import { ClassType } from '@outfoxx/jackson-js/dist/@types';
 
 export class BinaryDecoder implements MediaTypeDecoder {
   static default = new BinaryDecoder();
