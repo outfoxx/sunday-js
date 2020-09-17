@@ -14,11 +14,9 @@ describe('JSONDecoder', () => {
     class Sub {
       constructor(
         @JsonProperty()
-        public value: number,
-      ) {
-      }
+        public value: number
+      ) {}
     }
-
 
     class Test {
       constructor(
@@ -26,15 +24,13 @@ describe('JSONDecoder', () => {
         public test: string,
         @JsonProperty()
         @JsonClassType({ type: () => [Sub] })
-        public sub: Sub,
-      ) {
-      }
+        public sub: Sub
+      ) {}
     }
-
 
     fetchMock.mockResponseOnce('{"test":"a","sub":{"value":5}}');
     await expect(
-      JSONDecoder.default.decode(await fetch('http://example.com'), [Test]),
+      JSONDecoder.default.decode(await fetch('http://example.com'), [Test])
     ).resolves.toStrictEqual(new Test('a', new Sub(5)));
   });
 
@@ -43,11 +39,9 @@ describe('JSONDecoder', () => {
     class Sub {
       constructor(
         @JsonProperty()
-        public value: number,
-      ) {
-      }
+        public value: number
+      ) {}
     }
-
 
     class Test {
       constructor(
@@ -55,14 +49,12 @@ describe('JSONDecoder', () => {
         public test: string,
         @JsonProperty()
         @JsonClassType({ type: () => [Sub] })
-        public sub: Sub,
-      ) {
-      }
+        public sub: Sub
+      ) {}
     }
 
-
     expect(
-      JSONDecoder.default.decodeText('{"test":"a","sub":{"value":5}}', [Test]),
+      JSONDecoder.default.decodeText('{"test":"a","sub":{"value":5}}', [Test])
     ).toStrictEqual(new Test('a', new Sub(5)));
   });
 
@@ -72,14 +64,12 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [URL] })
-        public test: URL,
-      ) {
-      }
+        public test: URL
+      ) {}
     }
 
-
     expect(
-      JSONDecoder.default.decodeText('{"test":"http://example.com"}', [Test]),
+      JSONDecoder.default.decodeText('{"test":"http://example.com"}', [Test])
     ).toStrictEqual(new Test(new URL('http://example.com')));
   });
 
@@ -89,14 +79,14 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [DateTime] })
-        public test: DateTime,
-      ) {
-      }
+        public test: DateTime
+      ) {}
     }
 
-
     expect(
-      JSONDecoder.default.decodeText('{"test":"2002-01-01T00:00:00.000Z"}', [Test]),
+      JSONDecoder.default.decodeText('{"test":"2002-01-01T00:00:00.000Z"}', [
+        Test,
+      ])
     ).toStrictEqual(new Test(DateTime.fromISO('2002-01-01T00:00:00.000Z')));
   });
 
@@ -106,14 +96,14 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [DateTime] })
-        public test: DateTime,
-      ) {
-      }
+        public test: DateTime
+      ) {}
     }
 
-
     expect(
-      new JSONDecoder(NumericDateDecoding.SECONDS_SINCE_EPOCH).decodeText('{"test":981173106.789}', [Test]),
+      new JSONDecoder(
+        NumericDateDecoding.SECONDS_SINCE_EPOCH
+      ).decodeText('{"test":981173106.789}', [Test])
     ).toStrictEqual(new Test(DateTime.fromISO('2001-02-03T04:05:06.789Z')));
   });
 
@@ -123,14 +113,14 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [DateTime] })
-        public test: DateTime,
-      ) {
-      }
+        public test: DateTime
+      ) {}
     }
 
-
     expect(
-      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText('{"test":981173106789}', [Test]),
+      new JSONDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
+      ).decodeText('{"test":981173106789}', [Test])
     ).toStrictEqual(new Test(DateTime.fromISO('2001-02-03T04:05:06.789Z')));
   });
 
@@ -140,14 +130,14 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Date] })
-        public test: Date,
-      ) {
-      }
+        public test: Date
+      ) {}
     }
 
-
     expect(
-      JSONDecoder.default.decodeText('{"test":"2001-02-03T04:05:06.789Z"}', [Test]),
+      JSONDecoder.default.decodeText('{"test":"2001-02-03T04:05:06.789Z"}', [
+        Test,
+      ])
     ).toStrictEqual(new Test(DateTime.fromSeconds(981173106.789).toJSDate()));
   });
 
@@ -157,14 +147,14 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Date] })
-        public test: Date,
-      ) {
-      }
+        public test: Date
+      ) {}
     }
 
-
     expect(
-      new JSONDecoder(NumericDateDecoding.SECONDS_SINCE_EPOCH).decodeText('{"test":981173106.789}', [Test]),
+      new JSONDecoder(
+        NumericDateDecoding.SECONDS_SINCE_EPOCH
+      ).decodeText('{"test":981173106.789}', [Test])
     ).toStrictEqual(new Test(DateTime.fromSeconds(981173106.789).toJSDate()));
   });
 
@@ -174,14 +164,14 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Date] })
-        public test: Date,
-      ) {
-      }
+        public test: Date
+      ) {}
     }
 
-
     expect(
-      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText('{"test":981173106789}', [Test]),
+      new JSONDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
+      ).decodeText('{"test":981173106789}', [Test])
     ).toStrictEqual(new Test(DateTime.fromMillis(981173106789).toJSDate()));
   });
 
@@ -191,16 +181,14 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [ArrayBuffer] })
-        public test: ArrayBuffer,
-      ) {
-      }
+        public test: ArrayBuffer
+      ) {}
     }
-
 
     const bin = Base64.encode(new Uint8Array([10, 9, 8, 7, 6, 5, 4, 3, 2, 1]));
 
     expect(
-      JSONDecoder.default.decodeText(`{"test":"${bin}"}`, [Test]),
+      JSONDecoder.default.decodeText(`{"test":"${bin}"}`, [Test])
     ).toStrictEqual(new Test(Base64.decode(bin)));
   });
 });

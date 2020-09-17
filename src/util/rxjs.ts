@@ -27,15 +27,17 @@ export function fromStreamReader(
   });
 }
 
-export function nullifyNotFound<T>(): (source: Observable<T>) => Observable<T | null> {
-  return function<T>(source: Observable<T>): Observable<T | null> {
+export function nullifyNotFound<T>(): (
+  source: Observable<T>
+) => Observable<T | null> {
+  return function <T>(source: Observable<T>): Observable<T | null> {
     return source.pipe(
-      catchError(error => {
+      catchError((error) => {
         if (!(error instanceof Problem) || error.status !== 404) {
           return throwError(error);
         }
         return from([null]);
       })
     );
-  }
+  };
 }
