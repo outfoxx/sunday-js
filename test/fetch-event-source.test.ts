@@ -15,7 +15,7 @@ describe('FetchEventSource', () => {
       .mockImplementation((arg) => fromBuffer(arg));
 
     const eventStream = Buffer.from(
-      'event: hello\nid: 12345\ndata: Hello World!\n\n',
+      'event: hello\nid: 12345\ndata: Hello World!\n\n'
     );
 
     fetchMock.mockResponse((eventStream as unknown) as string, {

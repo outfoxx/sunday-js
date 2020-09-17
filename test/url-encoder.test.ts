@@ -6,11 +6,11 @@ describe('URLEncoder', () => {
     const encoder = new URLEncoder(
       URLEncoder.ArrayEncoding.UNBRACKETED,
       URLEncoder.BoolEncoding.NUMERIC,
-      URLEncoder.DateEncoding.ISO8601,
+      URLEncoder.DateEncoding.ISO8601
     );
 
     expect(encoder.encodeQueryString({ 'test/data': [1, 2, 3] })).toBe(
-      'test%2Fdata=1&test%2Fdata=2&test%2Fdata=3',
+      'test%2Fdata=1&test%2Fdata=2&test%2Fdata=3'
     );
   });
 
@@ -18,11 +18,11 @@ describe('URLEncoder', () => {
     const encoder = new URLEncoder(
       URLEncoder.ArrayEncoding.UNBRACKETED,
       URLEncoder.BoolEncoding.NUMERIC,
-      URLEncoder.DateEncoding.ISO8601,
+      URLEncoder.DateEncoding.ISO8601
     );
 
     expect(encoder.encodeQueryString({ test: ['1/1', '1/2', '1/3'] })).toBe(
-      'test=1%2F1&test=1%2F2&test=1%2F3',
+      'test=1%2F1&test=1%2F2&test=1%2F3'
     );
   });
 
@@ -30,27 +30,31 @@ describe('URLEncoder', () => {
     const encoder = URLEncoder.default;
 
     expect(encoder.encodeQueryString({ test: { a: 1, b: 2 }, c: '3' })).toBe(
-      'c=3&test%5Ba%5D=1&test%5Bb%5D=2',
+      'c=3&test%5Ba%5D=1&test%5Bb%5D=2'
     );
   });
 
   it('filters undefined values from complex objects', () => {
     const encoder = URLEncoder.default;
 
-    expect(encoder.encodeQueryString({ test: { a: 1, b: 2, nope: undefined }, c: '3', other: undefined })).toBe(
-      'c=3&test%5Ba%5D=1&test%5Bb%5D=2',
-    );
+    expect(
+      encoder.encodeQueryString({
+        test: { a: 1, b: 2, nope: undefined },
+        c: '3',
+        other: undefined,
+      })
+    ).toBe('c=3&test%5Ba%5D=1&test%5Bb%5D=2');
   });
 
   it('encodes array values in bracketed form', () => {
     const encoder = new URLEncoder(
       URLEncoder.ArrayEncoding.BRACKETED,
       URLEncoder.BoolEncoding.NUMERIC,
-      URLEncoder.DateEncoding.ISO8601,
+      URLEncoder.DateEncoding.ISO8601
     );
 
     expect(encoder.encodeQueryString({ test: [1, 2, 3] })).toBe(
-      'test%5B%5D=1&test%5B%5D=2&test%5B%5D=3',
+      'test%5B%5D=1&test%5B%5D=2&test%5B%5D=3'
     );
   });
 
@@ -58,11 +62,11 @@ describe('URLEncoder', () => {
     const encoder = new URLEncoder(
       URLEncoder.ArrayEncoding.UNBRACKETED,
       URLEncoder.BoolEncoding.NUMERIC,
-      URLEncoder.DateEncoding.ISO8601,
+      URLEncoder.DateEncoding.ISO8601
     );
 
     expect(encoder.encodeQueryString({ test: [1, 2, 3] })).toBe(
-      'test=1&test=2&test=3',
+      'test=1&test=2&test=3'
     );
   });
 
@@ -70,11 +74,11 @@ describe('URLEncoder', () => {
     const encoder = new URLEncoder(
       URLEncoder.ArrayEncoding.UNBRACKETED,
       URLEncoder.BoolEncoding.NUMERIC,
-      URLEncoder.DateEncoding.ISO8601,
+      URLEncoder.DateEncoding.ISO8601
     );
 
     expect(encoder.encodeQueryString({ test: [true, false] })).toBe(
-      'test=1&test=0',
+      'test=1&test=0'
     );
   });
 
@@ -82,11 +86,11 @@ describe('URLEncoder', () => {
     const encoder = new URLEncoder(
       URLEncoder.ArrayEncoding.UNBRACKETED,
       URLEncoder.BoolEncoding.LITERAL,
-      URLEncoder.DateEncoding.ISO8601,
+      URLEncoder.DateEncoding.ISO8601
     );
 
     expect(encoder.encodeQueryString({ test: [true, false] })).toBe(
-      'test=true&test=false',
+      'test=true&test=false'
     );
   });
 
@@ -97,14 +101,14 @@ describe('URLEncoder', () => {
     const encoder = new URLEncoder(
       URLEncoder.ArrayEncoding.UNBRACKETED,
       URLEncoder.BoolEncoding.LITERAL,
-      URLEncoder.DateEncoding.ISO8601,
+      URLEncoder.DateEncoding.ISO8601
     );
 
     const date1Val = encodeURIComponent(date1.toISO());
     const date2Val = encodeURIComponent(date2.toISO());
 
     expect(encoder.encodeQueryString({ test: [date1, date2] })).toBe(
-      `test=${date1Val}&test=${date2Val}`,
+      `test=${date1Val}&test=${date2Val}`
     );
   });
 
@@ -112,14 +116,14 @@ describe('URLEncoder', () => {
     const encoder = new URLEncoder(
       URLEncoder.ArrayEncoding.UNBRACKETED,
       URLEncoder.BoolEncoding.LITERAL,
-      URLEncoder.DateEncoding.SECONDS_SINCE_EPOCH,
+      URLEncoder.DateEncoding.SECONDS_SINCE_EPOCH
     );
 
     const date1Val = encodeURIComponent(date1.toSeconds());
     const date2Val = encodeURIComponent(date2.toSeconds());
 
     expect(encoder.encodeQueryString({ test: [date1, date2] })).toBe(
-      `test=${date1Val}&test=${date2Val}`,
+      `test=${date1Val}&test=${date2Val}`
     );
   });
 
@@ -127,14 +131,14 @@ describe('URLEncoder', () => {
     const encoder = new URLEncoder(
       URLEncoder.ArrayEncoding.UNBRACKETED,
       URLEncoder.BoolEncoding.LITERAL,
-      URLEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH,
+      URLEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
     );
 
     const date1Val = encodeURIComponent(date1.toMillis());
     const date2Val = encodeURIComponent(date2.toMillis());
 
     expect(encoder.encodeQueryString({ test: [date1, date2] })).toBe(
-      `test=${date1Val}&test=${date2Val}`,
+      `test=${date1Val}&test=${date2Val}`
     );
   });
 });

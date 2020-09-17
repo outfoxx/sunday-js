@@ -8,7 +8,8 @@
     "test:watch": "jest --watch",
     "build": "tsc --build tsconfig.dist.json",
     "clean": "rimraf build dist",
-    "prepublish": "npm run clean && npm run build"
+    "prepublish": "npm run clean && npm run pretty -- -c && npm run build",
+    "pretty": "prettier src test"
   },
   "husky": {
     "hooks": {
