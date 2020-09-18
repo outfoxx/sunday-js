@@ -1,6 +1,4 @@
-import { JSONEncoder } from '../src/json-encoder';
-import { isURLQueryParamsEncoder } from '../src/media-type-encoder';
-import { URLEncoder } from '../src/url-encoder';
+import { isURLQueryParamsEncoder, JSONEncoder, URLEncoder } from '../src';
 
 describe('MediaTypeEncoder', () => {
   describe('type guards', () => {

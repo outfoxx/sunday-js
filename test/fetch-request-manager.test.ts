@@ -1,7 +1,6 @@
 import { JsonClassType, JsonProperty } from '@outfoxx/jackson-js';
 import { first } from 'rxjs/operators';
-import { FetchRequestFactory } from '../src';
-import { MediaType } from '../src/media-type';
+import { FetchRequestFactory, MediaType } from '../src';
 
 describe('FetchRequestFactory', () => {
   beforeEach(() => {

@@ -1,6 +1,6 @@
 import { JsonClassType, JsonProperty } from '@outfoxx/jackson-js';
 import { DateTime } from 'luxon';
-import { JSONEncoder } from '../src/json-encoder';
+import { JSONEncoder } from '../src';
 
 describe('JSONEncoder', () => {
   it('encodes jackson-js types from fetch response', () => {

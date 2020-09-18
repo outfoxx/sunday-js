@@ -1,4 +1,4 @@
-import { URLTemplate } from '../src/url-template';
+import { URLTemplate } from '../src';
 
 describe('URLTemplate', () => {
   beforeEach(() => {

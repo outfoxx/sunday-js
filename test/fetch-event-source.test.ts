@@ -1,5 +1,4 @@
-import { FetchEventSource } from '../src/fetch-event-source';
-import { MediaType } from '../src/media-type';
+import { FetchEventSource, MediaType } from '../src';
 import * as utilRxjs from '../src/util/rxjs';
 import { fromBuffer } from './rxjs';
 
