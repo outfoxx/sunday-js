@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
+// noinspection NpmUsedModulesInstalled
 const Environment = require('jest-environment-jsdom');
 
 /**
