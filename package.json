@@ -39,6 +39,7 @@
     "@types/jest": "^26.0.14",
     "@types/jsdom": "^16.2.4",
     "@types/luxon": "^1.24.4",
+    "@types/node": "^14.11.1",
     "@types/node-fetch": "^2.5.7",
     "@types/prettier": "^2.1.1",
     "@types/rimraf": "^3.0.0",
