@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2015",
-    "module": "commonjs",
+    "module": "ES2020",
 
     "outDir": "./build",
     "rootDir": ".",
@@ -16,9 +16,6 @@
     "moduleResolution": "node",
 
     "baseUrl": "./src",
-    "paths": {
-      "@jackson": ["../node_modules/@outfoxx/jackson-js/*"]
-    },
 
     "esModuleInterop": true,
 

@@ -1,11 +1,6 @@
-const { pathsToModuleNameMapper } = require('ts-jest/utils');
-const { compilerOptions } = require('./tsconfig');
-
-module.exports = {
+// noinspection JSUnusedGlobalSymbols
+export default {
   preset: 'ts-jest',
-  testEnvironment: './test/env.js',
-  moduleNameMapper: pathsToModuleNameMapper(compilerOptions.paths, {
-    prefix: '<rootDir>/src/',
-  }),
+  testEnvironment: './test/env.cjs',
   setupFiles: ['./test/setup.ts'],
 };

@@ -1,7 +1,6 @@
 import { JsonClassType, JsonProperty } from '@outfoxx/jackson-js';
 import { DateTime } from 'luxon';
-import { Base64 } from '../src';
-import { JSONDecoder } from '../src/json-decoder';
+import { Base64, JSONDecoder } from '../src';
 import NumericDateDecoding = JSONDecoder.NumericDateDecoding;
 
 describe('JSONDecoder', () => {

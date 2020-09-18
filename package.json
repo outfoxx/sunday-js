@@ -3,6 +3,8 @@
   "version": "1.0.0-alpha.6",
   "description": "Sunday - The framework of REST 🙏",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
   "scripts": {
     "test": "TZ=UTC jest",
     "test:watch": "TZ=UTC jest --watch",
@@ -27,12 +29,9 @@
   "license": "outfox",
   "dependencies": {
     "@outfoxx/jackson-js": "^1.2.15",
-    "luxon": "^1.24.1",
-    "rxjs": "^6.5.5",
+    "luxon": "^1.25.0",
+    "rxjs": "^6.6.3",
     "uri-template-lite": "^20.5.0"
-  },
-  "peerDependencies": {
-    "rxjs": "^6.5.0"
   },
   "devDependencies": {
     "@types/eslint": "^7.2.0",
@@ -51,14 +50,14 @@
     "eslint-plugin-prettier": "^3.1.4",
     "event-target-shim": "^5.0.1",
     "husky": "^4.2.5",
-    "jest": "^26.1.0",
+    "jest": "^26.4.2",
     "jest-fetch-mock": "^3.0.3",
     "jsdom": "^16.2.2",
     "lint-staged": "^10.2.11",
     "prettier": "^2.0.5",
     "pretty-quick": "^2.0.1",
     "rimraf": "^3.0.2",
-    "ts-jest": "^26.1.1",
+    "ts-jest": "^26.3.0",
     "typescript": "^3.9.5",
     "web-streams-polyfill": "^2.1.1"
   },
