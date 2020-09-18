@@ -2,7 +2,7 @@
 const Environment = require('jest-environment-jsdom');
 
 /**
- * A custom environment to set the TextEncoder that is required by TensorFlow.js.
+ * A custom environment to setup TextEncoder/TextDecoder.
  */
 module.exports = class CustomTestEnvironment extends Environment {
   async setup() {

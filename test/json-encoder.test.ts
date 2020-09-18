@@ -59,7 +59,7 @@ describe('JSONEncoder', () => {
         new Test(DateTime.fromISO('2002-01-01T00:00:00.000Z')),
         [Test]
       )
-    ).toStrictEqual('{"test":"2002-01-01T00:00:00.000-00:00"}');
+    ).toStrictEqual('{"test":"2002-01-01T00:00:00.000+00:00"}');
   });
 
   it('encodes DateTime values as numbers (seconds)', async () => {
