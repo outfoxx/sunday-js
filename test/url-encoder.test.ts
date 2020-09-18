@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { URLEncoder } from '../src/url-encoder';
+import { URLEncoder } from '../src';
 
 describe('URLEncoder', () => {
   it('percent encodes keys', () => {
