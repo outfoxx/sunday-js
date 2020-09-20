@@ -199,7 +199,7 @@ export class FetchRequestFactory implements RequestFactory {
         );
 
         eventSource.onerror = (event) => {
-          this.logger.error({ event }, 'event source error');
+          this.logger.error?.({ event }, 'event source error');
         };
       }
 

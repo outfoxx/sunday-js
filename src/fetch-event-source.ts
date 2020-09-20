@@ -134,12 +134,12 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       error instanceof DOMException &&
       error.code === DOMException.ABORT_ERR
     ) {
-      this.logger.debug('aborted');
+      this.logger.debug?.('aborted');
 
       return;
     }
 
-    this.logger.debug({ err: error }, 'received error');
+    this.logger.debug?.({ err: error }, 'received error');
 
     this.scheduleReconnect();
 
@@ -150,7 +150,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   }
 
   private receivedComplete() {
-    this.logger.debug('received complete');
+    this.logger.debug?.('received complete');
 
     if (this.readyState !== this.CLOSED) {
       this.scheduleReconnect();
@@ -158,11 +158,11 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       return;
     }
 
-    this.logger.debug('disconnected');
+    this.logger.debug?.('disconnected');
   }
 
   private scheduleReconnect() {
-    this.logger.debug({ retryTime: this.retryTime }, 'scheduling reconnect');
+    this.logger.debug?.({ retryTime: this.retryTime }, 'scheduling reconnect');
 
     setTimeout(() => this.connect(), this.retryTime);
   }
@@ -196,7 +196,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
           parsedEvent.event != null ||
           parsedEvent.data != null
         ) {
-          this.logger.debug(
+          this.logger.debug?.(
             { parsedEvent },
             'ignoring invalid retry timeout event'
           );
