@@ -1,4 +1,5 @@
 import { BinaryDecoder } from './binary-decoder';
+import { CBORDecoder } from './cbor-decoder';
 import { JSONDecoder } from './json-decoder';
 import { MediaType } from './media-type';
 import { MediaTypeDecoder } from './media-type-decoder';
@@ -13,10 +14,9 @@ export class MediaTypeDecoders {
     }
 
     addDefaults(): Builder {
-      return this.add(MediaType.JSON, JSONDecoder.default).add(
-        MediaType.OCTET_STREAM,
-        new BinaryDecoder()
-      );
+      return this.add(MediaType.JSON, JSONDecoder.default)
+        .add(MediaType.OCTET_STREAM, new BinaryDecoder())
+        .add(MediaType.CBOR, CBORDecoder.default);
     }
 
     build(): MediaTypeDecoders {

@@ -1,3 +1,4 @@
+import { CBOREncoder } from './cbor-encoder';
 import { MediaTypeEncoder } from './media-type-encoder';
 import { MediaType } from './media-type';
 import { JSONEncoder } from './json-encoder';
@@ -16,7 +17,8 @@ export class MediaTypeEncoders {
     addDefaults(): Builder {
       return this.add(MediaType.JSON, JSONEncoder.default)
         .add(MediaType.OCTET_STREAM, BinaryEncoder.default)
-        .add(MediaType.WWW_URL_FORM_ENCODED, URLEncoder.default);
+        .add(MediaType.WWW_URL_FORM_ENCODED, URLEncoder.default)
+        .add(MediaType.CBOR, CBOREncoder.default);
     }
 
     build(): MediaTypeEncoders {
