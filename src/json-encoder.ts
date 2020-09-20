@@ -41,6 +41,13 @@ export class JSONEncoder implements MediaTypeEncoder {
     });
   }
 
+  encodeJSON<T>(value: T, type?: AnyType): any {
+    return this.stringifier.transform(value, {
+      serializers: this.customSerializers,
+      mainCreator: () => type ?? [Object],
+    });
+  }
+
   private dateTimeSerializer: Serializer = (key: string, value: DateTime) => {
     if (value == null) {
       return null;
