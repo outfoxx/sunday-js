@@ -17,6 +17,7 @@ export * from './url-encoder';
 export * from './logger';
 export * from './http-error';
 export * from './problem';
+export * from './date-time-types';
 
 export { nullifyNotFound } from './util/rxjs';
 
