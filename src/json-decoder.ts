@@ -37,10 +37,7 @@ export class JSONDecoder implements MediaTypeDecoder {
   }
 
   async decode<T>(response: Response, type: AnyType): Promise<T> {
-    return this.parser.transform(await response.json(), {
-      deserializers: this.customDeserializers,
-      mainCreator: () => type,
-    });
+    return this.decodeJSON(await response.json(), type);
   }
 
   decodeText<T>(text: string, type: AnyType): T {
@@ -48,6 +45,13 @@ export class JSONDecoder implements MediaTypeDecoder {
       deserializers: this.customDeserializers,
       mainCreator: () => type,
     }) as T;
+  }
+
+  decodeJSON<T, U>(value: T, type: AnyType): Promise<U> {
+    return this.parser.transform(value, {
+      deserializers: this.customDeserializers,
+      mainCreator: () => type,
+    });
   }
 
   private dateTimeDeserializer: Deserializer = (key: string, value: any) => {
