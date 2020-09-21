@@ -141,7 +141,7 @@ export class FetchRequestFactory implements RequestFactory {
             const decoder = this.mediaTypeDecoders.find(contentType);
             return decoder.decode(response, responseType);
           } catch (error) {
-            return HttpError.fromResponse(
+            throw await HttpError.fromResponse(
               error.message ?? 'Unknown Error',
               response
             );
