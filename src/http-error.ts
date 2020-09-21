@@ -37,7 +37,7 @@ export class HttpError extends Error {
     HTTP/?.? ${response.status} ${response.statusText}
     ${Array.from(response.headers.entries())
       .map(([name, value]) => `${name}: ${value}`)
-      .join('\n')}
+      .join('\n    ')}
     ${body ?? '<none>'}
     
     ########### END REQUEST ###########  
