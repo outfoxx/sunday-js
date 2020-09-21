@@ -4,17 +4,16 @@ import { Problem } from './problem';
 
 export async function validate(
   response: Response,
-  valueExpected: boolean
+  dataExpected: boolean
 ): Promise<Response> {
   if (response.status < 200 || response.status >= 300) {
     if (
       mediaType(response.headers.get('content-type')) !== MediaType.PROBLEM_JSON
     ) {
       await response.body?.cancel?.();
-      throw new HttpError(
+      throw await HttpError.fromResponse(
         'Unacceptable response status code',
-        response.status,
-        response.statusText
+        response
       );
     }
 
@@ -23,12 +22,8 @@ export async function validate(
     throw new Problem(problemData as Problem);
   }
 
-  if (valueExpected && (response.status === 204 || response.status === 205)) {
-    throw new HttpError(
-      'Unexpected empty response',
-      response.status,
-      response.statusText
-    );
+  if (dataExpected && (response.status === 204 || response.status === 205)) {
+    throw await HttpError.fromResponse('Unexpected empty response', response);
   }
 
   return response;
