@@ -143,7 +143,7 @@ export class FetchRequestFactory implements RequestFactory {
               MediaType.OCTET_STREAM
             );
             const decoder = this.mediaTypeDecoders.find(contentType);
-            return decoder.decode(response, responseType);
+            return await decoder.decode(response, responseType);
           } catch (error) {
             throw await HttpError.fromResponse(
               error.message ?? 'Unknown Error',
