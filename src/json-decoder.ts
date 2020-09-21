@@ -59,25 +59,25 @@ export class JSONDecoder implements MediaTypeDecoder {
       return value;
     }
     if (value instanceof Date) {
-      return DateTime.fromJSDate(value);
+      return DateTime.fromJSDate(value, { zone: 'UTC' });
     }
     if (typeof value === 'number') {
       if (
         this.numericDateEncoding ===
         JSONDecoder.NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
       ) {
-        return DateTime.fromMillis(value);
+        return DateTime.fromMillis(value, { zone: 'UTC' });
       } else if (
         this.numericDateEncoding ===
         JSONDecoder.NumericDateDecoding.SECONDS_SINCE_EPOCH
       ) {
-        return DateTime.fromSeconds(value);
+        return DateTime.fromSeconds(value, { zone: 'UTC' });
       } else {
         console.error('Unsupported date decoding format');
       }
     }
     if (typeof value === 'string') {
-      return DateTime.fromISO(value);
+      return DateTime.fromISO(value, { setZone: true });
     }
     throw new Error(`Invalid date value for property ${key}`);
   };

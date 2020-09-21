@@ -56,10 +56,12 @@ describe('JSONEncoder', () => {
 
     expect(
       JSONEncoder.default.encode(
-        new Test(DateTime.fromISO('2002-01-01T00:00:00.000Z')),
+        new Test(
+          DateTime.fromISO('2002-01-01T00:00:00.000Z', { setZone: true })
+        ),
         [Test]
       )
-    ).toStrictEqual('{"test":"2002-01-01T00:00:00.000+00:00"}');
+    ).toStrictEqual('{"test":"2002-01-01T00:00:00.000Z"}');
   });
 
   it('encodes DateTime values as numbers (seconds)', async () => {
@@ -108,7 +110,11 @@ describe('JSONEncoder', () => {
 
     expect(
       JSONEncoder.default.encode(
-        new Test(DateTime.fromISO('2002-01-01T00:00:00.000Z').toJSDate()),
+        new Test(
+          DateTime.fromISO('2002-01-01T00:00:00.000Z', {
+            setZone: true,
+          }).toJSDate()
+        ),
         [Test]
       )
     ).toStrictEqual('{"test":"2002-01-01T00:00:00.000Z"}');
