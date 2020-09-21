@@ -55,6 +55,9 @@ export class JSONDecoder implements MediaTypeDecoder {
   }
 
   private dateTimeDeserializer: Deserializer = (key: string, value: any) => {
+    if (value == null) {
+      return value;
+    }
     if (DateTime.isDateTime(value)) {
       return value;
     }
@@ -83,6 +86,9 @@ export class JSONDecoder implements MediaTypeDecoder {
   };
 
   private dateDeserializer: Deserializer = (key: string, value: any) => {
+    if (value == null) {
+      return value;
+    }
     if (value instanceof Date) {
       return value;
     }
@@ -109,7 +115,7 @@ export class JSONDecoder implements MediaTypeDecoder {
 
   private urlDeserializer: Deserializer = (key: string, value: any) => {
     if (value == null) {
-      return null;
+      return value;
     }
     if (value instanceof URL) {
       return value;
@@ -122,7 +128,7 @@ export class JSONDecoder implements MediaTypeDecoder {
 
   private arrayBufferDeserializer: Deserializer = (key: string, value: any) => {
     if (value == null) {
-      return null;
+      return value;
     }
     if (value instanceof ArrayBuffer) {
       return value;
