@@ -3,6 +3,7 @@ import { switchMap } from 'rxjs/operators';
 import { AnyType } from './any-type';
 import { validate } from './fetch';
 import { FetchEventSource } from './fetch-event-source';
+import { HttpError } from './http-error';
 import { JSONDecoder } from './json-decoder';
 import { Logger } from './logger';
 import { mediaType, MediaType } from './media-type';
@@ -132,12 +133,19 @@ export class FetchRequestFactory implements RequestFactory {
     } else {
       return response$.pipe(
         switchMap(async (response) => {
-          const contentType = mediaType(
-            response.headers.get('content-type'),
-            MediaType.OCTET_STREAM
-          );
-          const decoder = this.mediaTypeDecoders.find(contentType);
-          return decoder.decode(response, responseType);
+          try {
+            const contentType = mediaType(
+              response.headers.get('content-type'),
+              MediaType.OCTET_STREAM
+            );
+            const decoder = this.mediaTypeDecoders.find(contentType);
+            return decoder.decode(response, responseType);
+          } catch (error) {
+            return HttpError.fromResponse(
+              error.message ?? 'Unknown Error',
+              response
+            );
+          }
         })
       );
     }
