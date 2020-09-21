@@ -54,8 +54,6 @@ export class CBOREncoder implements MediaTypeEncoder {
     switch (this.dateEncoding) {
       case CBOREncoder.DateEncoding.ISO8601:
         return new TaggedValue(value.toISO(), isoDateTag);
-      case CBOREncoder.DateEncoding.FRACTIONAL_SECONDS_SINCE_EPOCH:
-        return new TaggedValue(value.toMillis() / 1000.0, epochDateTag);
       case CBOREncoder.DateEncoding.SECONDS_SINCE_EPOCH:
         return new TaggedValue(value.toSeconds(), epochDateTag);
     }
@@ -69,13 +67,8 @@ export class CBOREncoder implements MediaTypeEncoder {
     switch (this.dateEncoding) {
       case CBOREncoder.DateEncoding.ISO8601:
         return new TaggedValue(value.toISOString(), isoDateTag);
-      case CBOREncoder.DateEncoding.FRACTIONAL_SECONDS_SINCE_EPOCH:
-        return new TaggedValue(value.getTime() / 1000.0, epochDateTag);
       case CBOREncoder.DateEncoding.SECONDS_SINCE_EPOCH:
-        return new TaggedValue(
-          Math.trunc(value.getTime() / 1000.0),
-          epochDateTag
-        );
+        return new TaggedValue(value.getTime() / 1000.0, epochDateTag);
     }
   };
 
@@ -103,12 +96,7 @@ export namespace CBOREncoder {
     /**
      * Encode `Date`/`DateTime` values as a UNIX timestamp (floating point seconds since epoch).
      */
-    SECONDS_SINCE_EPOCH = 'int',
-
-    /**
-     * Encode `Date`/`DateTime` values as UNIX millisecond timestamp (integer milliseconds since epoch).
-     */
-    FRACTIONAL_SECONDS_SINCE_EPOCH = 'float',
+    SECONDS_SINCE_EPOCH = 'float',
 
     /**
      * Encode `Date`/`DateTime` values as an ISO-8601-formatted string (in RFC 3339 format). This is the default behavior.
