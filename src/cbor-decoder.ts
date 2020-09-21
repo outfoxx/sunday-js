@@ -42,6 +42,7 @@ export class CBORDecoder implements MediaTypeDecoder {
 
   decodeData<T>(buffer: ArrayBuffer, type: AnyType): Promise<T> {
     return this.parser.transform(CBOR.decode(buffer, CBORDecoder.untag), {
+      deserializers: this.customDeserializers,
       mainCreator: () => type,
     });
   }
@@ -57,7 +58,7 @@ export class CBORDecoder implements MediaTypeDecoder {
         if (typeof value !== 'number') {
           throw Error('Invalid epoch date value');
         }
-        return DateTime.fromSeconds(value * 1000, { zone: 'UTC' });
+        return DateTime.fromSeconds(value, { zone: 'UTC' });
       case uriTag:
         if (typeof value !== 'string') {
           throw Error('Invalid URI value');
@@ -125,6 +126,12 @@ export class CBORDecoder implements MediaTypeDecoder {
     }
     if (value instanceof ArrayBuffer) {
       return value;
+    }
+    if (ArrayBuffer.isView(value)) {
+      return value.buffer.slice(
+        value.byteOffset,
+        value.byteOffset + value.byteLength
+      );
     }
     if (typeof value === 'string') {
       return b64decode(value);
