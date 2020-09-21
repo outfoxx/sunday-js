@@ -28,10 +28,6 @@ export class CBOREncoder implements MediaTypeEncoder {
         type: () => URL,
         mapper: this.urlSerializer,
       },
-      {
-        type: () => ArrayBuffer,
-        mapper: this.arrayBufferSerializer,
-      },
     ];
   }
 
@@ -78,13 +74,6 @@ export class CBOREncoder implements MediaTypeEncoder {
     }
 
     return new TaggedValue(value.toString(), uriTag);
-  };
-
-  private arrayBufferSerializer: Serializer = (
-    key: string,
-    value: ArrayBuffer
-  ) => {
-    return value;
   };
 }
 
