@@ -83,10 +83,12 @@ describe('JSONDecoder', () => {
     }
 
     expect(
-      JSONDecoder.default.decodeText('{"test":"2002-01-01T00:00:00.000Z"}', [
+      JSONDecoder.default.decodeText('{"test":"2002-01-01T01:02:03.004Z"}', [
         Test,
       ])
-    ).toStrictEqual(new Test(DateTime.fromISO('2002-01-01T00:00:00.000Z')));
+    ).toStrictEqual(
+      new Test(DateTime.fromISO('2002-01-01T01:02:03.004Z', { setZone: true }))
+    );
   });
 
   it('decodes DateTime values from number (seconds)', async () => {
@@ -103,7 +105,9 @@ describe('JSONDecoder', () => {
       new JSONDecoder(
         NumericDateDecoding.SECONDS_SINCE_EPOCH
       ).decodeText('{"test":981173106.789}', [Test])
-    ).toStrictEqual(new Test(DateTime.fromISO('2001-02-03T04:05:06.789Z')));
+    ).toStrictEqual(
+      new Test(DateTime.fromISO('2001-02-03T04:05:06.789Z', { setZone: true }))
+    );
   });
 
   it('decodes DateTime values from number (milliseconds)', async () => {
@@ -120,7 +124,9 @@ describe('JSONDecoder', () => {
       new JSONDecoder(
         NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
       ).decodeText('{"test":981173106789}', [Test])
-    ).toStrictEqual(new Test(DateTime.fromISO('2001-02-03T04:05:06.789Z')));
+    ).toStrictEqual(
+      new Test(DateTime.fromISO('2001-02-03T04:05:06.789Z', { setZone: true }))
+    );
   });
 
   it('decodes Date values from string', async () => {
@@ -137,7 +143,9 @@ describe('JSONDecoder', () => {
       JSONDecoder.default.decodeText('{"test":"2001-02-03T04:05:06.789Z"}', [
         Test,
       ])
-    ).toStrictEqual(new Test(DateTime.fromSeconds(981173106.789).toJSDate()));
+    ).toStrictEqual(
+      new Test(DateTime.fromSeconds(981173106.789, { zone: 'UTC' }).toJSDate())
+    );
   });
 
   it('decodes Date values from number (seconds)', async () => {
@@ -154,7 +162,9 @@ describe('JSONDecoder', () => {
       new JSONDecoder(
         NumericDateDecoding.SECONDS_SINCE_EPOCH
       ).decodeText('{"test":981173106.789}', [Test])
-    ).toStrictEqual(new Test(DateTime.fromSeconds(981173106.789).toJSDate()));
+    ).toStrictEqual(
+      new Test(DateTime.fromSeconds(981173106.789, { zone: 'UTC' }).toJSDate())
+    );
   });
 
   it('decodes Date values from number (milliseconds)', async () => {
@@ -171,7 +181,9 @@ describe('JSONDecoder', () => {
       new JSONDecoder(
         NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
       ).decodeText('{"test":981173106789}', [Test])
-    ).toStrictEqual(new Test(DateTime.fromMillis(981173106789).toJSDate()));
+    ).toStrictEqual(
+      new Test(DateTime.fromMillis(981173106789, { zone: 'UTC' }).toJSDate())
+    );
   });
 
   it('decodes ArrayBuffer values from Base64 encoded text', async () => {

@@ -94,8 +94,8 @@ describe('URLEncoder', () => {
     );
   });
 
-  const date1 = DateTime.fromISO('2017-05-15T08:30:00Z');
-  const date2 = DateTime.fromISO('2018-06-16T09:40:10+7:00');
+  const date1 = DateTime.fromISO('2017-05-15T08:30:00Z', { setZone: true });
+  const date2 = DateTime.fromISO('2018-06-16T09:40:10+7:00', { setZone: true });
 
   it('encodes date values in ISO form', () => {
     const encoder = new URLEncoder(
