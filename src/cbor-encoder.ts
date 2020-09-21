@@ -8,7 +8,7 @@ import { MediaTypeEncoder } from './media-type-encoder';
 
 export class CBOREncoder implements MediaTypeEncoder {
   static get default() {
-    return new CBOREncoder(CBOREncoder.DateEncoding.ISO8601);
+    return new CBOREncoder(CBOREncoder.DateEncoding.SECONDS_SINCE_EPOCH);
   }
 
   private readonly customSerializers: CustomMapper<Serializer>[];
