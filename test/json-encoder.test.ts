@@ -3,7 +3,7 @@ import { DateTime } from 'luxon';
 import { JSONEncoder } from '../src';
 
 describe('JSONEncoder', () => {
-  it('encodes jackson-js types from fetch response', () => {
+  it('encodes jackson-js object trees', () => {
     //
     class Sub {
       constructor(
