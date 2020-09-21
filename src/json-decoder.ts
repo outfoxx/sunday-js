@@ -15,7 +15,7 @@ export class JSONDecoder implements MediaTypeDecoder {
   private readonly customDeserializers: CustomMapper<Deserializer>[];
   private readonly parser = new JsonParser();
 
-  constructor(readonly numericDateEncoding: JSONDecoder.NumericDateDecoding) {
+  constructor(readonly numericDateDecoding: JSONDecoder.NumericDateDecoding) {
     this.customDeserializers = [
       {
         type: () => Date,
@@ -63,12 +63,12 @@ export class JSONDecoder implements MediaTypeDecoder {
     }
     if (typeof value === 'number') {
       if (
-        this.numericDateEncoding ===
+        this.numericDateDecoding ===
         JSONDecoder.NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
       ) {
         return DateTime.fromMillis(value, { zone: 'UTC' });
       } else if (
-        this.numericDateEncoding ===
+        this.numericDateDecoding ===
         JSONDecoder.NumericDateDecoding.SECONDS_SINCE_EPOCH
       ) {
         return DateTime.fromSeconds(value, { zone: 'UTC' });
@@ -88,12 +88,12 @@ export class JSONDecoder implements MediaTypeDecoder {
     }
     if (typeof value === 'number') {
       if (
-        this.numericDateEncoding ===
+        this.numericDateDecoding ===
         JSONDecoder.NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
       ) {
         return new Date(value);
       } else if (
-        this.numericDateEncoding ===
+        this.numericDateDecoding ===
         JSONDecoder.NumericDateDecoding.SECONDS_SINCE_EPOCH
       ) {
         return new Date(value * 1000);
