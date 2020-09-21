@@ -6,6 +6,7 @@
     "outDir": "./build",
     "rootDir": ".",
     "declaration": true,
+    "sourceMap": true,
 
     "strict": true,
 
