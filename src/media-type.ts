@@ -1,4 +1,6 @@
 export enum MediaType {
+  TEXT = 'text/plain',
+  HTML = 'text/html',
   JSON = 'application/json',
   YAML = 'application/yaml',
   CBOR = 'application/cbor',

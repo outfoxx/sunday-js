@@ -112,10 +112,16 @@ export class FetchRequestFactory implements RequestFactory {
     return this.adapter?.(request) ?? of(request);
   }
 
-  response(request: Request | RequestSpec<unknown>): Observable<Response> {
+  response(
+    request: Request | RequestSpec<unknown>,
+    dataExpected: boolean
+  ): Observable<Response> {
     const request$ =
       request instanceof Request ? of(request) : this.request(request);
-    return request$.pipe(switchMap((req) => fetch(req)));
+    return request$.pipe(
+      switchMap((req) => fetch(req)),
+      switchMap((response) => validate(response, dataExpected))
+    );
   }
 
   result<B, R>(requestSpec: RequestSpec<B>, resultType: AnyType): Observable<R>;
@@ -124,9 +130,7 @@ export class FetchRequestFactory implements RequestFactory {
     request: RequestSpec<unknown>,
     responseType?: AnyType
   ): Observable<unknown> {
-    const response$ = this.response(request).pipe(
-      switchMap((response) => validate(response, !!responseType))
-    );
+    const response$ = this.response(request, !!responseType);
 
     if (!responseType) {
       return response$.pipe(switchMap(() => EMPTY));
