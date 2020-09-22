@@ -4,7 +4,7 @@ import { validate } from './fetch';
 import { Logger } from './logger';
 import { MediaType } from './media-type';
 import { ExtEventSource } from './request-factory';
-import { fromStreamReader } from './util/rxjs';
+import { fromStream } from './util/stream-rxjs';
 
 export class FetchEventSource extends EventTarget implements ExtEventSource {
   private static LAST_EVENT_ID_HEADER = 'last-event-id';
@@ -80,7 +80,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
             return EMPTY;
           }
 
-          return fromStreamReader(body);
+          return fromStream(body);
         }),
         tap((value) => this.receivedData(value))
       )

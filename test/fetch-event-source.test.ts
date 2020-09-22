@@ -1,6 +1,4 @@
 import { FetchEventSource, MediaType } from '../src';
-import * as utilRxjs from '../src/util/rxjs';
-import { fromBuffer } from './rxjs';
 
 describe('FetchEventSource', () => {
   beforeAll(() => {
@@ -9,10 +7,6 @@ describe('FetchEventSource', () => {
   });
 
   it('dispatches events', (done) => {
-    jest
-      .spyOn(utilRxjs, 'fromStreamReader')
-      .mockImplementation((arg) => fromBuffer(arg));
-
     const eventStream = Buffer.from(
       'event: hello\nid: 12345\ndata: Hello World!\n\n'
     );
