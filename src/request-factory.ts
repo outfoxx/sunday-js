@@ -9,7 +9,7 @@ export interface RequestFactory {
 
   request(requestSpec: RequestSpec<unknown>): Observable<Request>;
 
-  response(request: Request, dataExpected: boolean): Observable<Response>;
+  response(request: Request): Observable<Response>;
 
   response<B>(
     requestSpec: RequestSpec<B>,

@@ -114,13 +114,13 @@ export class FetchRequestFactory implements RequestFactory {
 
   response(
     request: Request | RequestSpec<unknown>,
-    dataExpected: boolean
+    dataExpected?: boolean
   ): Observable<Response> {
     const request$ =
       request instanceof Request ? of(request) : this.request(request);
     return request$.pipe(
       switchMap((req) => fetch(req)),
-      switchMap((response) => validate(response, dataExpected))
+      switchMap((response) => validate(response, dataExpected ?? false))
     );
   }
 
