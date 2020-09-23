@@ -24,7 +24,8 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     url: string,
     requestInit: RequestInit
   ) => Observable<Request>;
-  private connection?: Unsubscribable;
+  private connectionFetch?: AbortController;
+  private connectionSubscription?: Unsubscribable;
   private decoder: TextDecoder = new TextDecoder('utf-8');
   private received?: string;
   private retryTime = 3000;
@@ -69,7 +70,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       signal: abort.signal,
     };
 
-    this.connection = this.adapter(this.url, requestInit)
+    this.connectionSubscription = this.adapter(this.url, requestInit)
       .pipe(
         switchMap((request) => fetch(request)),
         switchMap((response) => validate(response, true)),
@@ -99,8 +100,11 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   close(): void {
     this.readyState = this.CLOSED;
 
-    this.connection?.unsubscribe();
-    this.connection = undefined;
+    this.connectionSubscription?.unsubscribe();
+    this.connectionSubscription = undefined;
+
+    this.connectionFetch?.abort();
+    this.connectionFetch = undefined;
   }
 
   private receivedHeaders() {
