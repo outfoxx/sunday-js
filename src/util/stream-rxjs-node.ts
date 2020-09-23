@@ -45,6 +45,7 @@ export function fromStream(
       stream.removeListener(dataEventName, dataHandler);
       stream.removeListener('error', errorHandler);
       stream.removeListener(finishEventName, endHandler);
+      stream.destroy();
     };
   }).pipe(share());
 }
