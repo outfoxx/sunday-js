@@ -61,13 +61,13 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       headers.append(FetchEventSource.LAST_EVENT_ID_HEADER, this.lastEventId);
     }
 
-    const abort = new AbortController();
+    this.connectionFetch = new AbortController();
 
     const requestInit: RequestInit = {
       headers,
       cache: 'no-store',
       redirect: 'follow',
-      signal: abort.signal,
+      signal: this.connectionFetch.signal,
     };
 
     this.connectionSubscription = this.adapter(this.url, requestInit)
@@ -87,11 +87,11 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       )
       .subscribe({
         error: (error: unknown) => {
-          abort.abort();
+          this.connectionFetch?.abort();
           this.receivedError(error);
         },
         complete: () => {
-          abort.abort();
+          this.connectionFetch?.abort();
           this.receivedComplete();
         },
       });
