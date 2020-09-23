@@ -1,13 +1,13 @@
 import { Observable } from 'rxjs';
 import { share } from 'rxjs/operators';
-import { Duplex, Readable } from 'stream';
+import { Readable } from 'stream';
 
 export function fromNative(bufferOrStream: unknown): Observable<ArrayBuffer> {
   if (bufferOrStream instanceof Readable) {
     return fromStream(bufferOrStream);
   }
 
-  const stream = new Duplex();
+  const stream = new Readable();
   stream.push(bufferOrStream);
   stream.push(null);
   return fromStream(stream);
