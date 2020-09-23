@@ -1,4 +1,4 @@
-import { EMPTY, Observable, of, Unsubscribable } from 'rxjs';
+import { EMPTY, Observable, of, Subscription } from 'rxjs';
 import { switchMap, tap } from 'rxjs/operators';
 import { validate } from './fetch';
 import { Logger } from './logger';
@@ -24,8 +24,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     url: string,
     requestInit: RequestInit
   ) => Observable<Request>;
-  private connectionFetch?: AbortController;
-  private connectionSubscription?: Unsubscribable;
+  private connectionSubscription?: Subscription;
   private decoder: TextDecoder = new TextDecoder('utf-8');
   private received?: string;
   private retryTime = 3000;
@@ -61,13 +60,13 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       headers.append(FetchEventSource.LAST_EVENT_ID_HEADER, this.lastEventId);
     }
 
-    this.connectionFetch = new AbortController();
+    const abort = new AbortController();
 
     const requestInit: RequestInit = {
       headers,
       cache: 'no-store',
       redirect: 'follow',
-      signal: this.connectionFetch.signal,
+      signal: abort.signal,
     };
 
     this.connectionSubscription = this.adapter(this.url, requestInit)
@@ -87,14 +86,15 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       )
       .subscribe({
         error: (error: unknown) => {
-          this.connectionFetch?.abort();
+          abort.abort();
           this.receivedError(error);
         },
         complete: () => {
-          this.connectionFetch?.abort();
+          abort.abort();
           this.receivedComplete();
         },
       });
+    this.connectionSubscription.add(() => abort.abort());
   }
 
   close(): void {
@@ -102,9 +102,6 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
     this.connectionSubscription?.unsubscribe();
     this.connectionSubscription = undefined;
-
-    this.connectionFetch?.abort();
-    this.connectionFetch = undefined;
   }
 
   private receivedHeaders() {
@@ -192,7 +189,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
         continue;
       }
 
-      const parsedEvent = this.parseEvent(eventString);
+      const parsedEvent = FetchEventSource.parseEvent(eventString);
 
       if (parsedEvent.retry) {
         if (
@@ -228,7 +225,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     }
   }
 
-  private parseEvent(eventString: string): EventInfo {
+  private static parseEvent(eventString: string): EventInfo {
     const event: EventInfo = {};
 
     for (const line of eventString.split('\n')) {
