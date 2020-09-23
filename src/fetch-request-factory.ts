@@ -24,7 +24,7 @@ export class FetchRequestFactory implements RequestFactory {
   public adapter?: RequestAdapter;
   public mediaTypeEncoders: MediaTypeEncoders;
   public mediaTypeDecoders: MediaTypeDecoders;
-  public logger: Logger;
+  public logger?: Logger;
 
   constructor(
     baseUrl: string | URLTemplate,
@@ -211,7 +211,7 @@ export class FetchRequestFactory implements RequestFactory {
         );
 
         eventSource.onerror = (event) => {
-          this.logger.error?.({ event }, 'event source error');
+          this.logger?.error?.({ event }, 'event source error');
         };
       }
 
