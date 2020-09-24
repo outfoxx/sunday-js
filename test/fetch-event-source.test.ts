@@ -1,3 +1,4 @@
+import { Readable } from 'stream';
 import { FetchEventSource, MediaType } from '../src';
 
 describe('FetchEventSource', () => {
@@ -7,8 +8,8 @@ describe('FetchEventSource', () => {
   });
 
   it('dispatches events', (done) => {
-    const eventStream = Buffer.from(
-      'event: hello\nid: 12345\ndata: Hello World!\n\n'
+    const eventStream = Readable.from(
+      Buffer.from('event: hello\nid: 12345\ndata: Hello World!\n\n')
     );
 
     fetchMock.mockResponse((eventStream as unknown) as string, {

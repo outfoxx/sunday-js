@@ -1,6 +1,6 @@
 import { Observable } from 'rxjs';
 
-export function fromStreamReader(
+export function fromWebStream(
   stream: ReadableStream<Uint8Array>
 ): Observable<ArrayBuffer> {
   return new Observable((subscriber) => {
