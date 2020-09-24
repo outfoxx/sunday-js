@@ -1,3 +1,4 @@
+import fetchMock from 'fetch-mock';
 import { JsonClassType, JsonProperty } from '@outfoxx/jackson-js';
 import { DateTime } from 'luxon';
 import { Base64, JSONDecoder } from '../src';
@@ -6,6 +7,9 @@ import NumericDateDecoding = JSONDecoder.NumericDateDecoding;
 describe('JSONDecoder', () => {
   beforeAll(() => {
     process.env.TZ = 'UTC';
+  });
+  beforeEach(() => {
+    fetchMock.reset();
   });
 
   it('decodes jackson-js types from fetch response', async () => {
@@ -27,10 +31,10 @@ describe('JSONDecoder', () => {
       ) {}
     }
 
-    fetchMock.mockResponseOnce('{"test":"a","sub":{"value":5}}');
-    await expect(
+    fetchMock.getOnce('http://example.com', '{"test":"a","sub":{"value":5}}');
+    await expectAsync(
       JSONDecoder.default.decode(await fetch('http://example.com'), [Test])
-    ).resolves.toStrictEqual(new Test('a', new Sub(5)));
+    ).toBeResolvedTo(new Test('a', new Sub(5)));
   });
 
   it('decodes jackson-js types from string', async () => {
@@ -54,7 +58,7 @@ describe('JSONDecoder', () => {
 
     expect(
       JSONDecoder.default.decodeText('{"test":"a","sub":{"value":5}}', [Test])
-    ).toStrictEqual(new Test('a', new Sub(5)));
+    ).toEqual(new Test('a', new Sub(5)));
   });
 
   it('decodes URL values from string', async () => {
@@ -69,7 +73,7 @@ describe('JSONDecoder', () => {
 
     expect(
       JSONDecoder.default.decodeText('{"test":"http://example.com"}', [Test])
-    ).toStrictEqual(new Test(new URL('http://example.com')));
+    ).toEqual(new Test(new URL('http://example.com')));
   });
 
   it('decodes DateTime values from string', async () => {
@@ -86,7 +90,7 @@ describe('JSONDecoder', () => {
       JSONDecoder.default.decodeText('{"test":"2002-01-01T01:02:03.004Z"}', [
         Test,
       ])
-    ).toStrictEqual(
+    ).toEqual(
       new Test(DateTime.fromISO('2002-01-01T01:02:03.004Z', { setZone: true }))
     );
   });
@@ -105,7 +109,7 @@ describe('JSONDecoder', () => {
       new JSONDecoder(
         NumericDateDecoding.SECONDS_SINCE_EPOCH
       ).decodeText('{"test":981173106.789}', [Test])
-    ).toStrictEqual(
+    ).toEqual(
       new Test(DateTime.fromISO('2001-02-03T04:05:06.789Z', { setZone: true }))
     );
   });
@@ -124,7 +128,7 @@ describe('JSONDecoder', () => {
       new JSONDecoder(
         NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
       ).decodeText('{"test":981173106789}', [Test])
-    ).toStrictEqual(
+    ).toEqual(
       new Test(DateTime.fromISO('2001-02-03T04:05:06.789Z', { setZone: true }))
     );
   });
@@ -143,7 +147,7 @@ describe('JSONDecoder', () => {
       JSONDecoder.default.decodeText('{"test":"2001-02-03T04:05:06.789Z"}', [
         Test,
       ])
-    ).toStrictEqual(
+    ).toEqual(
       new Test(DateTime.fromSeconds(981173106.789, { zone: 'UTC' }).toJSDate())
     );
   });
@@ -162,7 +166,7 @@ describe('JSONDecoder', () => {
       new JSONDecoder(
         NumericDateDecoding.SECONDS_SINCE_EPOCH
       ).decodeText('{"test":981173106.789}', [Test])
-    ).toStrictEqual(
+    ).toEqual(
       new Test(DateTime.fromSeconds(981173106.789, { zone: 'UTC' }).toJSDate())
     );
   });
@@ -181,7 +185,7 @@ describe('JSONDecoder', () => {
       new JSONDecoder(
         NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
       ).decodeText('{"test":981173106789}', [Test])
-    ).toStrictEqual(
+    ).toEqual(
       new Test(DateTime.fromMillis(981173106789, { zone: 'UTC' }).toJSDate())
     );
   });
@@ -198,8 +202,8 @@ describe('JSONDecoder', () => {
 
     const bin = Base64.encode(new Uint8Array([10, 9, 8, 7, 6, 5, 4, 3, 2, 1]));
 
-    expect(
-      JSONDecoder.default.decodeText(`{"test":"${bin}"}`, [Test])
-    ).toStrictEqual(new Test(Base64.decode(bin)));
+    expect(JSONDecoder.default.decodeText(`{"test":"${bin}"}`, [Test])).toEqual(
+      new Test(Base64.decode(bin))
+    );
   });
 });

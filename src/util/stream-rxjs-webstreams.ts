@@ -10,7 +10,9 @@ export function fromWebStream(
         reader = stream.getReader();
         while (true) {
           const { done, value } = await reader.read();
-          subscriber.next(value);
+          if (value !== undefined) {
+            subscriber.next(value);
+          }
 
           if (done) {
             subscriber.complete();

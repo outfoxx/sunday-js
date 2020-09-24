@@ -5,7 +5,7 @@ import { AnyType } from './any-type';
 import { epochDateTag, isoDateTag, uriTag } from './cbor-tags';
 import { DateTime } from './date-time-types';
 import { MediaTypeDecoder } from './media-type-decoder';
-import { decode as b64decode } from './util/base64';
+import { Base64 } from './util/base64';
 
 export class CBORDecoder implements MediaTypeDecoder {
   static get default() {
@@ -40,7 +40,7 @@ export class CBORDecoder implements MediaTypeDecoder {
     return this.decodeData(await response.arrayBuffer(), type);
   }
 
-  decodeData<T>(buffer: ArrayBuffer, type: AnyType): Promise<T> {
+  decodeData<T>(buffer: ArrayBuffer, type: AnyType): T {
     return this.parser.transform(CBOR.decode(buffer, CBORDecoder.untag), {
       deserializers: this.customDeserializers,
       mainCreator: () => type,
@@ -134,7 +134,7 @@ export class CBORDecoder implements MediaTypeDecoder {
       );
     }
     if (typeof value === 'string') {
-      return b64decode(value);
+      return Base64.decode(value);
     }
     throw Error(`Invalid ArrayBuffer value for property ${key}`);
   };

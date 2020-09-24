@@ -41,7 +41,7 @@ describe('JSONEncoder', () => {
       JSONEncoder.default.encode(new Test(new URL('http://example.com')), [
         Test,
       ])
-    ).toStrictEqual('{"test":"http://example.com/"}');
+    ).toEqual('{"test":"http://example.com/"}');
   });
 
   it('encodes DateTime values as strings', async () => {
@@ -61,7 +61,7 @@ describe('JSONEncoder', () => {
         ),
         [Test]
       )
-    ).toStrictEqual('{"test":"2002-01-01T00:00:00.000Z"}');
+    ).toEqual('{"test":"2002-01-01T00:00:00.000Z"}');
   });
 
   it('encodes DateTime values as numbers (seconds)', async () => {
@@ -78,7 +78,7 @@ describe('JSONEncoder', () => {
       new JSONEncoder(
         JSONEncoder.DateEncoding.SECONDS_SINCE_EPOCH
       ).encode(new Test(DateTime.fromSeconds(981173106.789)), [Test])
-    ).toStrictEqual('{"test":981173106.789}');
+    ).toEqual('{"test":981173106.789}');
   });
 
   it('encodes DateTime values as numbers (seconds)', async () => {
@@ -95,7 +95,7 @@ describe('JSONEncoder', () => {
       new JSONEncoder(
         JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
       ).encode(new Test(DateTime.fromMillis(981173106789)), [Test])
-    ).toStrictEqual('{"test":981173106789}');
+    ).toEqual('{"test":981173106789}');
   });
 
   it('encodes Date values as strings', async () => {
@@ -117,7 +117,7 @@ describe('JSONEncoder', () => {
         ),
         [Test]
       )
-    ).toStrictEqual('{"test":"2002-01-01T00:00:00.000Z"}');
+    ).toEqual('{"test":"2002-01-01T00:00:00.000Z"}');
   });
 
   it('encodes Date values as numbers (seconds)', async () => {
@@ -134,7 +134,7 @@ describe('JSONEncoder', () => {
       new JSONEncoder(
         JSONEncoder.DateEncoding.SECONDS_SINCE_EPOCH
       ).encode(new Test(DateTime.fromSeconds(981173106.789).toJSDate()), [Test])
-    ).toStrictEqual('{"test":981173106.789}');
+    ).toEqual('{"test":981173106.789}');
   });
 
   it('encodes Date values as numbers (seconds)', async () => {
@@ -151,7 +151,7 @@ describe('JSONEncoder', () => {
       new JSONEncoder(
         JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
       ).encode(new Test(DateTime.fromMillis(981173106789).toJSDate()), [Test])
-    ).toStrictEqual('{"test":981173106789}');
+    ).toEqual('{"test":981173106789}');
   });
 
   it('encodes ArrayBuffer values as Base64', () => {
@@ -166,6 +166,6 @@ describe('JSONEncoder', () => {
 
     expect(
       JSONEncoder.default.encode(new Test(new ArrayBuffer(5)), [Test])
-    ).toStrictEqual('{"test":"AAAAAAA="}');
+    ).toEqual('{"test":"AAAAAAA="}');
   });
 });

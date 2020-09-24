@@ -1,20 +1,22 @@
-import { Readable } from 'stream';
+import fetchMock from 'fetch-mock';
 import { FetchEventSource, MediaType } from '../src';
 
 describe('FetchEventSource', () => {
   beforeAll(() => {
-    jest.resetAllMocks();
-    fetchMock.resetMocks();
+    fetchMock.reset();
   });
 
   it('dispatches events', (done) => {
-    const eventStream = Readable.from(
-      Buffer.from('event: hello\nid: 12345\ndata: Hello World!\n\n')
-    );
+    const eventStream = new TextEncoder().encode(
+      'event: hello\nid: 12345\ndata: Hello World!\n\n'
+    ).buffer;
 
-    fetchMock.mockResponse((eventStream as unknown) as string, {
-      headers: { 'content-type': MediaType.EVENT_STREAM },
-    });
+    fetchMock.getOnce(
+      'http://example.com',
+      new Response(new Blob([eventStream]), {
+        headers: { 'content-type': MediaType.EVENT_STREAM },
+      })
+    );
 
     const eventSource = new FetchEventSource('http://example.com');
     eventSource.onmessage = (ev) => {
