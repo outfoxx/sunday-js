@@ -1,23 +1,7 @@
 import { Observable } from 'rxjs';
 import { share } from 'rxjs/operators';
-import { Readable } from 'stream';
 
-export function fromNative(bufferOrStream: unknown): Observable<ArrayBuffer> {
-  if (bufferOrStream instanceof Readable) {
-    return fromStream(bufferOrStream);
-  }
-
-  const stream = new Readable();
-  stream.push(bufferOrStream);
-  stream.push(null);
-  return fromStream(stream);
-}
-
-export function fromStream(
-  stream: Readable,
-  finishEventName = 'end',
-  dataEventName = 'data'
-): Observable<ArrayBuffer> {
+export function fromNodeStream(stream: any): Observable<ArrayBuffer> {
   stream.pause();
 
   return new Observable<ArrayBuffer>((subscriber) => {
@@ -35,16 +19,16 @@ export function fromStream(
       subscriber.complete();
     }
 
-    stream.addListener(dataEventName, dataHandler);
+    stream.addListener('data', dataHandler);
     stream.addListener('error', errorHandler);
-    stream.addListener(finishEventName, endHandler);
+    stream.addListener('end', endHandler);
 
     stream.resume();
 
     return () => {
-      stream.removeListener(dataEventName, dataHandler);
+      stream.removeListener('data', dataHandler);
       stream.removeListener('error', errorHandler);
-      stream.removeListener(finishEventName, endHandler);
+      stream.removeListener('end', endHandler);
       stream.destroy();
     };
   }).pipe(share());
