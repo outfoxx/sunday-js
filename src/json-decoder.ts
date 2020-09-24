@@ -1,9 +1,9 @@
-import { decode as b64decode } from './util/base64';
 import { JsonParser } from '@outfoxx/jackson-js';
 import { CustomMapper, Deserializer } from '@outfoxx/jackson-js/dist/@types';
 import { DateTime } from 'luxon';
 import { AnyType } from './any-type';
 import { MediaTypeDecoder } from './media-type-decoder';
+import { Base64 } from './util/base64';
 
 export class JSONDecoder implements MediaTypeDecoder {
   static get default() {
@@ -134,7 +134,7 @@ export class JSONDecoder implements MediaTypeDecoder {
       return value;
     }
     if (typeof value === 'string') {
-      return b64decode(value);
+      return Base64.decode(value);
     }
     throw Error(`Invalid ArrayBuffer value for property ${key}`);
   };

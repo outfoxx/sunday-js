@@ -1,16 +1,18 @@
+import fetchMock from 'fetch-mock';
 import { JsonClassType, JsonProperty } from '@outfoxx/jackson-js';
 import { first } from 'rxjs/operators';
 import { FetchRequestFactory, MediaType } from '../src';
+import objectContaining = jasmine.objectContaining;
 
 describe('FetchRequestFactory', () => {
   beforeEach(() => {
-    fetchMock.resetMocks();
+    fetchMock.reset();
   });
 
   const fetchRequestFactory = new FetchRequestFactory('http://example.com');
 
   it('replaces path template parameters', async () => {
-    await expect(
+    await expectAsync(
       fetchRequestFactory
         .request({
           method: 'GET',
@@ -19,11 +21,13 @@ describe('FetchRequestFactory', () => {
         })
         .pipe(first())
         .toPromise()
-    ).resolves.toMatchObject({ url: 'http://example.com/api/12345/contents' });
+    ).toBeResolvedTo(
+      objectContaining({ url: 'http://example.com/api/12345/contents' })
+    );
   });
 
   it('adds encoded query parameters', async () => {
-    await expect(
+    await expectAsync(
       fetchRequestFactory
         .request({
           method: 'GET',
@@ -36,9 +40,11 @@ describe('FetchRequestFactory', () => {
         })
         .pipe(first())
         .toPromise()
-    ).resolves.toMatchObject({
-      url: 'http://example.com/api/12345/contents?limit=5&search=1%20%26%202',
-    });
+    ).toBeResolvedTo(
+      objectContaining({
+        url: 'http://example.com/api/12345/contents?limit=5&search=1%20%26%202',
+      })
+    );
   });
 
   it('attaches encoded body based on content-type', async () => {
@@ -53,7 +59,7 @@ describe('FetchRequestFactory', () => {
       .pipe(first())
       .toPromise();
     expect(request.url).toBe('http://example.com/api/contents');
-    await expect(request.text()).resolves.toBe('{"a":5}');
+    await expectAsync(request.text()).toBeResolvedTo('{"a":5}');
     expect(request.headers.get('Content-Type')).toBe(MediaType.JSON);
   });
 
@@ -90,15 +96,16 @@ describe('FetchRequestFactory', () => {
       ) {}
     }
 
-    fetchMock.mockResponseOnce('{"test":"a","sub":{"value":5}}', {
-      headers: { 'Content-Type': MediaType.JSON },
+    fetchMock.getOnce('http://example.com', {
+      body: '{"test":"a","sub":{"value":5}}',
+      headers: { 'content-type': MediaType.JSON },
     });
 
-    await expect(
-      fetchRequestFactory
+    expect(
+      await fetchRequestFactory
         .result({ method: 'GET', pathTemplate: '' }, [Test])
         .pipe(first())
         .toPromise()
-    ).resolves.toStrictEqual(new Test('a', new Sub(5)));
+    ).toEqual(new Test('a', new Sub(5)));
   });
 });

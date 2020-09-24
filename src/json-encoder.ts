@@ -1,9 +1,9 @@
 import { CustomMapper, Serializer } from '@outfoxx/jackson-js/dist/@types';
 import { DateTime } from 'luxon';
-import { encode as b64encode } from './util/base64';
 import { MediaTypeEncoder } from './media-type-encoder';
 import { AnyType } from './any-type';
 import { JsonStringifier } from '@outfoxx/jackson-js';
+import { Base64 } from './util/base64';
 
 export class JSONEncoder implements MediaTypeEncoder {
   static get default() {
@@ -94,7 +94,7 @@ export class JSONEncoder implements MediaTypeEncoder {
       return null;
     }
 
-    return b64encode(value);
+    return Base64.encode(value);
   };
 }
 

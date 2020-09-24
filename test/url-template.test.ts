@@ -1,9 +1,7 @@
 import { URLTemplate } from '../src';
 
 describe('URLTemplate', () => {
-  beforeEach(() => {
-    fetchMock.resetMocks();
-  });
+  beforeEach(() => {});
 
   it('replaces path template parameters', () => {
     const base = new URLTemplate('http://{env}.example.com/api/v{ver}', {

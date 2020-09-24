@@ -1,4 +1,4 @@
-import { BinaryEncoder } from '../src/binary-encoder';
+import { BinaryEncoder } from '../src';
 
 describe('BinaryEncoder', () => {
   it('disallows encoding from non-binary types (e.g. String)', async () => {
