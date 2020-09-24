@@ -1,9 +1,28 @@
 import { Observable } from 'rxjs';
-import { fromWebStream } from './stream-rxjs-webstreams';
 
-export function fromStream(stream: ReadableStream): Observable<ArrayBuffer> {
-  if (typeof stream.getReader !== 'function') {
-    return require('./stream-rxjs-node').fromNodeStream(stream);
-  }
-  return fromWebStream(stream);
+export function fromStream(
+  stream: ReadableStream<Uint8Array>
+): Observable<ArrayBuffer> {
+  return new Observable((subscriber) => {
+    let reader: ReadableStreamDefaultReader | undefined;
+    (async function readLoop() {
+      try {
+        reader = stream.getReader();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (value !== undefined) {
+            subscriber.next(value);
+          }
+
+          if (done) {
+            subscriber.complete();
+            return;
+          }
+        }
+      } catch (e) {
+        subscriber.error(e);
+      }
+    })();
+    return () => reader?.cancel();
+  });
 }
