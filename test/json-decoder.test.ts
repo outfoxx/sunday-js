@@ -5,9 +5,6 @@ import { Base64, JSONDecoder } from '../src';
 import NumericDateDecoding = JSONDecoder.NumericDateDecoding;
 
 describe('JSONDecoder', () => {
-  beforeAll(() => {
-    process.env.TZ = 'UTC';
-  });
   beforeEach(() => {
     fetchMock.reset();
   });

@@ -30,6 +30,7 @@ beforeAll(() => {
   jasmine.addMatchers({
     toHaveBytes(util: MatchersUtil): CustomMatcher {
       return {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         compare(actual: any, expected: any): CustomMatcherResult {
           if (!(actual instanceof ArrayBuffer)) {
             const type =

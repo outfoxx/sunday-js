@@ -5,9 +5,6 @@ import { CBORDecoder } from '../src/cbor-decoder';
 import { Hex } from '../src/util/hex';
 
 describe('CBORDecoder', () => {
-  beforeAll(() => {
-    process.env.TZ = 'UTC';
-  });
   beforeEach(() => {
     fetchMock.reset();
   });
@@ -61,7 +58,7 @@ describe('CBORDecoder', () => {
       ) {}
     }
 
-    await expect(
+    expect(
       CBORDecoder.default.decodeData(
         Hex.decode('A2 64 74657374 61 61 63 737562 A1 65 76616C7565 05'),
         [Test]
@@ -79,7 +76,7 @@ describe('CBORDecoder', () => {
       ) {}
     }
 
-    await expect(
+    expect(
       CBORDecoder.default.decodeData(
         Hex.decode('A1 64 74657374 73 687474703A2F2F6578616D706C652E636F6D2F'),
         [Test]
@@ -97,7 +94,7 @@ describe('CBORDecoder', () => {
       ) {}
     }
 
-    await expect(
+    expect(
       CBORDecoder.default.decodeData(
         Hex.decode(
           'A1 64 74657374 D8 20 72 687474703A2F2F6578616D706C652E636F6D'
@@ -117,7 +114,7 @@ describe('CBORDecoder', () => {
       ) {}
     }
 
-    await expect(
+    expect(
       CBORDecoder.default.decodeData(
         Hex.decode(
           'A1 64 74657374 78 18 323030322D30312D30315430313A30323A30332E3030345A'
@@ -139,7 +136,7 @@ describe('CBORDecoder', () => {
       ) {}
     }
 
-    await expect(
+    expect(
       CBORDecoder.default.decodeData(
         Hex.decode(
           'A1 64 74657374 C0 78 18 323030322D30312D30315430313A30323A30332E3030345A'
@@ -161,7 +158,7 @@ describe('CBORDecoder', () => {
       ) {}
     }
 
-    await expect(
+    expect(
       CBORDecoder.default.decodeData(
         Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'),
         [Test]
@@ -181,7 +178,7 @@ describe('CBORDecoder', () => {
       ) {}
     }
 
-    await expect(
+    expect(
       CBORDecoder.default.decodeData(
         Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'),
         [Test]
@@ -201,7 +198,7 @@ describe('CBORDecoder', () => {
       ) {}
     }
 
-    await expect(
+    expect(
       CBORDecoder.default.decodeData(
         Hex.decode(
           'A1 64 74657374 78 18 323030312D30322D30335430343A30353A30362E3738395A'
@@ -223,7 +220,7 @@ describe('CBORDecoder', () => {
       ) {}
     }
 
-    await expect(
+    expect(
       CBORDecoder.default.decodeData(
         Hex.decode(
           'A1 64 74657374 C0 78 18 323030312D30322D30335430343A30353A30362E3738395A'
@@ -245,7 +242,7 @@ describe('CBORDecoder', () => {
       ) {}
     }
 
-    await expect(
+    expect(
       CBORDecoder.default.decodeData(
         Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'),
         [Test]
@@ -265,7 +262,7 @@ describe('CBORDecoder', () => {
       ) {}
     }
 
-    await expect(
+    expect(
       CBORDecoder.default.decodeData(
         Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'),
         [Test]
@@ -285,7 +282,7 @@ describe('CBORDecoder', () => {
       ) {}
     }
 
-    await expect(
+    expect(
       CBORDecoder.default.decodeData(
         Hex.decode(`A1 64 74657374 70 534756736247386751304A5055694568`),
         [Test]
@@ -303,7 +300,7 @@ describe('CBORDecoder', () => {
       ) {}
     }
 
-    await expect(
+    expect(
       CBORDecoder.default.decodeData(
         Hex.decode(`A1 64 74657374 4C 48656C6C6F2043424F522121`),
         [Test]

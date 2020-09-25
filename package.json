@@ -11,6 +11,7 @@
     "build": "tsc --build tsconfig.dist.json",
     "clean": "rimraf build dist",
     "prepublish": "npm run clean && npm run pretty -- -c && npm run build && npm run test",
+    "lint": "eslint src test",
     "pretty": "prettier src test"
   },
   "husky": {
@@ -20,8 +21,7 @@
   },
   "lint-staged": {
     "*.{ts,js,tsx,jsx}": [
-      "eslint",
-      "jest --coverage --findRelatedTests"
+      "eslint"
     ]
   },
   "keywords": [],
@@ -29,7 +29,7 @@
   "license": "outfox",
   "dependencies": {
     "@outfoxx/cbor-redux": "^0.3.1",
-    "@outfoxx/jackson-js": "^1.2.15",
+    "@outfoxx/jackson-js": "^1.2.16",
     "luxon": "^1.25.0",
     "rxjs": "^6.6.3",
     "uri-template-lite": "^20.5.0"

@@ -7,7 +7,7 @@ export namespace Hex {
     return new Uint8Array(values.map((b) => parseInt(b, 16))).buffer;
   }
 
-  export function encode(buffer: ArrayBuffer, separator: string = '') {
+  export function encode(buffer: ArrayBuffer, separator = ''): string {
     return Array.from(new Uint8Array(buffer))
       .map((value) => value.toString(16).padStart(2, '0'))
       .join(separator);

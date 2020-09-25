@@ -1,6 +1,6 @@
 .*rc
 .eslintignore
-.eslintrc.js
+.eslintrc.cjs
 jest.config.js
 *.json
 node_modules

@@ -7,7 +7,7 @@ import { epochDateTag, isoDateTag, uriTag } from './cbor-tags';
 import { MediaTypeEncoder } from './media-type-encoder';
 
 export class CBOREncoder implements MediaTypeEncoder {
-  static get default() {
+  static get default(): CBOREncoder {
     return new CBOREncoder(CBOREncoder.DateEncoding.SECONDS_SINCE_EPOCH);
   }
 
@@ -35,7 +35,7 @@ export class CBOREncoder implements MediaTypeEncoder {
     return CBOR.encode(this.encodeJSON(value, type));
   }
 
-  private encodeJSON<T>(value: T, type?: AnyType): any {
+  private encodeJSON<T>(value: T, type?: AnyType): Record<string, unknown> {
     return this.stringifier.transform(value, {
       serializers: this.customSerializers,
       mainCreator: () => type ?? [Object],
