@@ -1,3 +1,4 @@
+import { ClassList } from '@outfoxx/jackson-js/dist/@types';
 import { Observable } from 'rxjs';
 import { AnyType } from './any-type';
 import { ClassType } from './class-type';
@@ -69,7 +70,7 @@ export interface RequestSpec<B> {
 }
 
 export interface EventTypes<E> {
-  [key: string]: AnyType;
+  [key: string]: ClassList<ClassType<E>>;
 }
 
 export type RequestAdapter = (request: Request) => Observable<Request>;

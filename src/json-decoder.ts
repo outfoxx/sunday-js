@@ -6,7 +6,7 @@ import { MediaTypeDecoder } from './media-type-decoder';
 import { Base64 } from './util/base64';
 
 export class JSONDecoder implements MediaTypeDecoder {
-  static get default() {
+  static get default(): JSONDecoder {
     return new JSONDecoder(
       JSONDecoder.NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
     );
@@ -54,7 +54,10 @@ export class JSONDecoder implements MediaTypeDecoder {
     });
   }
 
-  private dateTimeDeserializer: Deserializer = (key: string, value: any) => {
+  private dateTimeDeserializer: Deserializer = (
+    key: string,
+    value: unknown
+  ) => {
     if (value == null) {
       return value;
     }
@@ -85,7 +88,7 @@ export class JSONDecoder implements MediaTypeDecoder {
     throw new Error(`Invalid date value for property ${key}`);
   };
 
-  private dateDeserializer: Deserializer = (key: string, value: any) => {
+  private dateDeserializer: Deserializer = (key: string, value: unknown) => {
     if (value == null) {
       return value;
     }
@@ -113,7 +116,7 @@ export class JSONDecoder implements MediaTypeDecoder {
     throw new Error(`Invalid date value for property ${key}`);
   };
 
-  private urlDeserializer: Deserializer = (key: string, value: any) => {
+  private urlDeserializer: Deserializer = (key: string, value: unknown) => {
     if (value == null) {
       return value;
     }
@@ -126,7 +129,10 @@ export class JSONDecoder implements MediaTypeDecoder {
     throw Error(`Invalid URL value for property ${key}`);
   };
 
-  private arrayBufferDeserializer: Deserializer = (key: string, value: any) => {
+  private arrayBufferDeserializer: Deserializer = (
+    key: string,
+    value: unknown
+  ) => {
     if (value == null) {
       return value;
     }

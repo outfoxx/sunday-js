@@ -6,7 +6,7 @@ import { JsonStringifier } from '@outfoxx/jackson-js';
 import { Base64 } from './util/base64';
 
 export class JSONEncoder implements MediaTypeEncoder {
-  static get default() {
+  static get default(): JSONEncoder {
     return new JSONEncoder(JSONEncoder.DateEncoding.ISO8601);
   }
 
@@ -41,7 +41,7 @@ export class JSONEncoder implements MediaTypeEncoder {
     });
   }
 
-  encodeJSON<T>(value: T, type?: AnyType): any {
+  encodeJSON<T>(value: T, type?: AnyType): Record<string, unknown> {
     return this.stringifier.transform(value, {
       serializers: this.customSerializers,
       mainCreator: () => type ?? [Object],

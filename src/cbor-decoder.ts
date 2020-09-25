@@ -8,7 +8,7 @@ import { MediaTypeDecoder } from './media-type-decoder';
 import { Base64 } from './util/base64';
 
 export class CBORDecoder implements MediaTypeDecoder {
-  static get default() {
+  static get default(): CBORDecoder {
     return new CBORDecoder();
   }
 
@@ -47,6 +47,7 @@ export class CBORDecoder implements MediaTypeDecoder {
     });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private static untag = (value: any, tag: number) => {
     switch (tag) {
       case isoDateTag:
@@ -69,7 +70,10 @@ export class CBORDecoder implements MediaTypeDecoder {
     }
   };
 
-  private dateTimeDeserializer: Deserializer = (key: string, value: any) => {
+  private dateTimeDeserializer: Deserializer = (
+    key: string,
+    value: unknown
+  ) => {
     if (value == null) {
       return value;
     }
@@ -88,7 +92,7 @@ export class CBORDecoder implements MediaTypeDecoder {
     throw new Error(`Invalid date value for property ${key}`);
   };
 
-  private dateDeserializer: Deserializer = (key: string, value: any) => {
+  private dateDeserializer: Deserializer = (key: string, value: unknown) => {
     if (value == null) {
       return value;
     }
@@ -107,7 +111,7 @@ export class CBORDecoder implements MediaTypeDecoder {
     throw new Error(`Invalid date value for property ${key}`);
   };
 
-  private urlDeserializer: Deserializer = (key: string, value: any) => {
+  private urlDeserializer: Deserializer = (key: string, value: unknown) => {
     if (value == null) {
       return value;
     }
@@ -120,7 +124,10 @@ export class CBORDecoder implements MediaTypeDecoder {
     throw Error(`Invalid URL value for property ${key}`);
   };
 
-  private arrayBufferDeserializer: Deserializer = (key: string, value: any) => {
+  private arrayBufferDeserializer: Deserializer = (
+    key: string,
+    value: unknown
+  ) => {
     if (value == null) {
       return value;
     }

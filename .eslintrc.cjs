@@ -13,6 +13,7 @@ module.exports = {
   },
   rules: {
     // Special ESLint rules or overrides go here.
-    '@typescript-eslint/no-namespace': [0]
+    '@typescript-eslint/await-thenable': 'error',
+    '@typescript-eslint/no-namespace': 'off',
   },
-}
+};
