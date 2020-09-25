@@ -40,6 +40,8 @@ export namespace Base64 {
   }
 
   export function decode(base64: string): ArrayBuffer {
+    base64 = base64.replace(/[ \n]/g, '');
+
     const len = base64.length;
     let bufferLength = base64.length * 0.75;
     let i: number;
