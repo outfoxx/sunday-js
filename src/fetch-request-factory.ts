@@ -1,5 +1,5 @@
-import { EMPTY, Observable, of, Subscriber } from 'rxjs';
-import { switchMap } from 'rxjs/operators';
+import { Observable, of, Subscriber } from 'rxjs';
+import { mapTo, switchMap } from 'rxjs/operators';
 import { AnyType } from './any-type';
 import { validate } from './fetch';
 import { FetchEventSource } from './fetch-event-source';
@@ -133,7 +133,7 @@ export class FetchRequestFactory implements RequestFactory {
     const response$ = this.response(request, !!responseType);
 
     if (!responseType) {
-      return response$.pipe(switchMap(() => EMPTY));
+      return response$.pipe(mapTo(undefined));
     } else {
       return response$.pipe(
         switchMap(async (response) => {
