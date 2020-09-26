@@ -40,10 +40,10 @@ export namespace Base64 {
   }
 
   export function decode(base64: string): ArrayBuffer {
-    base64 = base64.replace(/[ \n]/g, '');
+    base64 = base64.replace(/[ \n]+/g, '');
 
-    const len = base64.length;
-    let bufferLength = base64.length * 0.75;
+    const length = base64.length;
+    let bufferLength = Math.floor(length * 0.75);
     let i: number;
     let p = 0;
     let encoded1: number;
@@ -51,9 +51,9 @@ export namespace Base64 {
     let encoded3: number;
     let encoded4: number;
 
-    if (base64[base64.length - 1] === '=') {
+    if (base64[length - 1] === '=') {
       bufferLength--;
-      if (base64[base64.length - 2] === '=') {
+      if (base64[length - 2] === '=') {
         bufferLength--;
       }
     }
@@ -61,7 +61,7 @@ export namespace Base64 {
     const arrayBuffer = new ArrayBuffer(bufferLength);
     const bytes = new Uint8Array(arrayBuffer);
 
-    for (i = 0; i < len; i += 4) {
+    for (i = 0; i < length; i += 4) {
       encoded1 = lookup[base64.charCodeAt(i)];
       encoded2 = lookup[base64.charCodeAt(i + 1)];
       encoded3 = lookup[base64.charCodeAt(i + 2)];
