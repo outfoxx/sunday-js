@@ -35,7 +35,7 @@ export class CBOREncoder implements MediaTypeEncoder {
     return CBOR.encode(this.encodeJSON(value, type));
   }
 
-  private encodeJSON<T>(value: T, type?: AnyType): Record<string, unknown> {
+  private encodeJSON<T>(value: T, type?: AnyType): unknown {
     return this.stringifier.transform(value, {
       serializers: this.customSerializers,
       mainCreator: () => type ?? [Object],
