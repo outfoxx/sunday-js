@@ -41,7 +41,7 @@ export class JSONEncoder implements MediaTypeEncoder {
     });
   }
 
-  encodeJSON<T>(value: T, type?: AnyType): Record<string, unknown> {
+  encodeJSON<T>(value: T, type?: AnyType): unknown {
     return this.stringifier.transform(value, {
       serializers: this.customSerializers,
       mainCreator: () => type ?? [Object],
