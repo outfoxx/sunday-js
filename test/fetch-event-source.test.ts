@@ -51,5 +51,5 @@ describe('FetchEventSource', () => {
       eventSource.close();
       eventSource.connect();
     }, 5000);
-  }, 300000);
+  }, 600000);
 });

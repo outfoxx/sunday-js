@@ -7,8 +7,10 @@ import { ExtEventSource } from './request-factory';
 import { fromStream } from './util/stream-rxjs';
 
 export class FetchEventSource extends EventTarget implements ExtEventSource {
-  private static LAST_EVENT_ID_HEADER = 'last-event-id';
+  private static LAST_EVENT_ID_HEADER = 'Last-Event-ID';
   private static MAX_RETRY_TIME_MULTIPLE = 30;
+  private static EVENT_TIMEOUT_DEFAULT = 75;
+  private static EVENT_TIMEOUT_CHECK_INTERVAL = 1;
 
   CONNECTING = 0;
   OPEN = 1;
@@ -34,11 +36,15 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   private logger?: Logger;
   private unprocessedBuffers: ArrayBuffer[] = [];
   private unprocessedText = '';
+  private eventTimeout?: number;
+  private eventTimeoutCheckHandle?: number;
+  private lastEventTime?: number;
 
   constructor(
     url: string,
     eventSourceInit?: EventSourceInit & {
       adapter?: (url: string, requestInit: RequestInit) => Observable<Request>;
+      eventTimeout?: number;
       logger?: Logger;
     }
   ) {
@@ -47,12 +53,15 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     this.adapter =
       eventSourceInit?.adapter ??
       ((_url, requestInit) => of(new Request(_url, requestInit)));
+    this.eventTimeout =
+      eventSourceInit?.eventTimeout ??
+      FetchEventSource.EVENT_TIMEOUT_DEFAULT * 1000;
     this.logger = eventSourceInit?.logger;
   }
 
   connect(): void {
     if (this.readyState === this.CONNECTING || this.readyState === this.OPEN) {
-      this.logger?.trace?.('skipping connect', { state: this.readyState });
+      // this.logger?.debug?.('skipping connect', { state: this.readyState });
       return;
     }
 
@@ -115,8 +124,54 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
     this.readyState = this.CLOSED;
 
+    this.internalClose();
+  }
+
+  private internalClose() {
     this.connectionSubscription?.unsubscribe();
     this.connectionSubscription = undefined;
+
+    this.stopEventTimeoutCheck();
+  }
+
+  private startEventTimeoutCheck() {
+    if (!this.eventTimeout) {
+      return;
+    }
+
+    // this.logger?.debug?.('starting event timeout checks');
+
+    this.eventTimeoutCheckHandle = setInterval(
+      () => this.checkEventTimeout(),
+      FetchEventSource.EVENT_TIMEOUT_CHECK_INTERVAL
+    );
+  }
+
+  private stopEventTimeoutCheck() {
+    // this.logger?.debug?.('stopping event timeout checks');
+
+    clearInterval(this.eventTimeoutCheckHandle);
+  }
+
+  private checkEventTimeout() {
+    if (!this.eventTimeout) {
+      this.stopEventTimeoutCheck();
+      return;
+    }
+
+    // this.logger?.debug?.('checking event timeout');
+
+    // Check elapsed time since last received event
+    const elapsed = Date.now() - (this.lastEventTime ?? 0);
+    if (elapsed > this.eventTimeout) {
+      this.logger?.debug?.('event timeout reached', {
+        elapsed,
+      });
+
+      this.internalClose();
+
+      this.scheduleReconnect();
+    }
   }
 
   private receivedHeaders() {
@@ -125,8 +180,12 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       throw Error('Invalid readyState');
     }
 
+    this.logger?.debug?.('connected');
+
     this.retryAttempt = 0;
     this.readyState = this.OPEN;
+
+    this.startEventTimeoutCheck();
 
     const event = new Event('open');
     this.onopen?.(event);
@@ -178,12 +237,12 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       error instanceof DOMException &&
       error.code === DOMException.ABORT_ERR
     ) {
-      this.logger?.debug?.('aborted');
+      // this.logger?.debug?.('aborted');
 
       return;
     }
 
-    this.logger?.debug?.({ err: error }, 'received error');
+    this.logger?.debug?.('received error', { error });
 
     this.scheduleReconnect();
 
@@ -194,7 +253,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   }
 
   private receivedComplete() {
-    this.logger?.debug?.('completed');
+    this.logger?.debug?.('received complete');
 
     if (this.readyState !== this.CLOSED) {
       this.scheduleReconnect();
@@ -249,26 +308,36 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       const parsedEvent = FetchEventSource.parseEvent(eventString);
 
       if (parsedEvent.retry) {
-        if (
-          parsedEvent.id != null ||
-          parsedEvent.event != null ||
-          parsedEvent.data != null
-        ) {
-          this.logger?.debug?.(
-            { parsedEvent },
-            'ignoring invalid retry timeout event'
-          );
-          continue;
-        }
-
         const retryTime = Number.parseInt(parsedEvent.retry, 10);
-        this.retryTime = retryTime ?? this.retryTime;
+
+        if (
+          Number.isSafeInteger(retryTime) &&
+          parsedEvent.id == null &&
+          parsedEvent.event == null &&
+          parsedEvent.data == null
+        ) {
+          this.logger?.debug?.('updating retry timeout', { retryTime });
+
+          this.retryTime = retryTime;
+        } else {
+          this.logger?.debug?.('ignoring invalid retry timeout event', {
+            parsedEvent,
+          });
+        }
 
         continue;
       }
 
+      this.lastEventTime = Date.now();
       this.lastEventId = parsedEvent.id ?? this.lastEventId;
 
+      // Skip empty or comment only events
+      if (!parsedEvent.id && !parsedEvent.event && !parsedEvent.data) {
+        // this.logger?.debug?.('skipping empty event');
+        continue;
+      }
+
+      // Dispatch event
       const event = new MessageEvent(parsedEvent.event ?? 'message', {
         data: parsedEvent.data,
         lastEventId: this.lastEventId,
@@ -284,10 +353,19 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
     for (const line of eventString.split('\n')) {
       const fields = line.split(':');
-      const key = fields[0];
+      const key = fields[0].trim();
       const value = fields.splice(1).join(':');
 
-      (event as Record<string, string>)[key] = value.trim();
+      switch (key) {
+        case 'retry':
+          event.retry = value;
+          break;
+        case '':
+          // comment do nothing
+          break;
+        default:
+          (event as Record<string, string>)[key] = value.trim();
+      }
     }
 
     return event;
