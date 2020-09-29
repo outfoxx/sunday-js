@@ -1,5 +1,5 @@
 import { EMPTY, Observable, of, Subscription } from 'rxjs';
-import { switchMap, tap } from 'rxjs/operators';
+import { map, switchMap, tap } from 'rxjs/operators';
 import { validate } from './fetch';
 import { Logger } from './logger';
 import { MediaType } from './media-type';
@@ -8,6 +8,7 @@ import { fromStream } from './util/stream-rxjs';
 
 export class FetchEventSource extends EventTarget implements ExtEventSource {
   private static LAST_EVENT_ID_HEADER = 'last-event-id';
+  private static MAX_RETRY_TIME_MULTIPLE = 30;
 
   CONNECTING = 0;
   OPEN = 1;
@@ -26,10 +27,13 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   ) => Observable<Request>;
   private connectionSubscription?: Subscription;
   private decoder: TextDecoder = new TextDecoder('utf-8');
-  private received?: string;
-  private retryTime = 3000;
+  private retryTime = 100;
+  private retryAttempt = 0;
+  private connectionAttemptTime = 0;
   private lastEventId?: string;
   private logger?: Logger;
+  private unprocessedBuffers: ArrayBuffer[] = [];
+  private unprocessedText = '';
 
   constructor(
     url: string,
@@ -48,8 +52,15 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
   connect(): void {
     if (this.readyState === this.CONNECTING || this.readyState === this.OPEN) {
+      this.logger?.trace?.('skipping connect', { state: this.readyState });
       return;
     }
+
+    this.internalConnect();
+  }
+
+  private internalConnect() {
+    this.logger?.debug?.('connecting');
 
     this.readyState = this.CONNECTING;
 
@@ -69,6 +80,8 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       signal: abort.signal,
     };
 
+    this.connectionAttemptTime = Date.now();
+
     this.connectionSubscription = this.adapter(this.url, requestInit)
       .pipe(
         switchMap((request) => fetch(request)),
@@ -82,7 +95,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
           return fromStream(body);
         }),
-        tap((value) => this.receivedData(value))
+        map((value) => this.receivedData(value))
       )
       .subscribe({
         error: (error: unknown) => {
@@ -98,6 +111,8 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   }
 
   close(): void {
+    this.logger?.debug?.('closed');
+
     this.readyState = this.CLOSED;
 
     this.connectionSubscription?.unsubscribe();
@@ -110,23 +125,51 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       throw Error('Invalid readyState');
     }
 
+    this.retryAttempt = 0;
     this.readyState = this.OPEN;
 
-    this.onopen?.(new Event('open'));
+    const event = new Event('open');
+    this.onopen?.(event);
+    this.dispatchEvent(event);
   }
 
   private receivedData(value: ArrayBuffer) {
-    let text = this.decoder.decode(value, { stream: true });
-    if (!text.length) {
-      return;
-    }
+    this.unprocessedBuffers.push(value);
 
+    while (this.unprocessedBuffers.length) {
+      const latest = this.unprocessedBuffers[
+        this.unprocessedBuffers.length - 1
+      ];
+      const latestBytes = new Uint8Array(latest);
+      const latestNewLine = latestBytes.indexOf(0xa);
+      if (latestNewLine == -1) {
+        return;
+      }
+      const nextLine = latestNewLine + 1;
+
+      const readyToProcess = this.unprocessedBuffers.slice(0, -1);
+      readyToProcess.push(latest.slice(0, nextLine));
+
+      const leftOver = latest.slice(nextLine);
+      this.unprocessedBuffers = leftOver.byteLength ? [leftOver] : [];
+
+      let text = '';
+      for (const buffer of readyToProcess) {
+        text += this.decoder.decode(buffer, { stream: true });
+      }
+
+      this.receivedText(text);
+    }
+  }
+
+  private receivedText(text: string) {
     // Clear out carriage returns
     text = text.replace('\r\n', '\n');
 
-    this.received = (this.received ?? '') + text;
+    this.unprocessedText += text;
 
     const eventStrings = this.extractEventStrings();
+
     this.parseEvents(eventStrings);
   }
 
@@ -151,33 +194,47 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   }
 
   private receivedComplete() {
-    this.logger?.debug?.('received complete');
+    this.logger?.debug?.('completed');
 
     if (this.readyState !== this.CLOSED) {
       this.scheduleReconnect();
 
       return;
     }
-
-    this.logger?.debug?.('disconnected');
   }
 
   private scheduleReconnect() {
-    this.logger?.debug?.({ retryTime: this.retryTime }, 'scheduling reconnect');
+    // calculate total delay
+    const backOffDelay = Math.pow(this.retryAttempt, 2) * this.retryTime;
+    let retryDelay = Math.min(
+      this.retryTime + backOffDelay,
+      this.retryTime * FetchEventSource.MAX_RETRY_TIME_MULTIPLE
+    );
 
-    setTimeout(() => this.connect(), this.retryTime);
+    // Adjust delay by amount of time last reconnect cycle took, except
+    // on the first attempt
+    if (this.retryAttempt > 0) {
+      const connectionTime = Date.now() - this.connectionAttemptTime;
+      retryDelay = Math.max(retryDelay - connectionTime, 0);
+    }
+
+    this.retryAttempt++;
+
+    this.logger?.debug?.('scheduling reconnect', { retryDelay });
+
+    setTimeout(() => this.internalConnect(), retryDelay);
   }
 
   private extractEventStrings(): string[] {
-    const received = this.received;
-    if (!received) {
+    const received = this.unprocessedText;
+    if (!received.length) {
       return [];
     }
 
     const eventStrings = received.split(EVENT_SEPARATOR);
 
     const last = eventStrings.pop();
-    this.received = last?.length ? last : undefined;
+    this.unprocessedText = last?.length ? last : '';
 
     return eventStrings;
   }
@@ -217,11 +274,8 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
         lastEventId: this.lastEventId,
       });
 
-      if (event.type === 'message') {
-        this.onmessage?.(event);
-      } else {
-        this.dispatchEvent(event);
-      }
+      this.onmessage?.(event);
+      this.dispatchEvent(event);
     }
   }
 
