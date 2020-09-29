@@ -27,4 +27,29 @@ describe('FetchEventSource', () => {
     eventSource.addEventListener('hello', () => done());
     eventSource.connect();
   });
+
+  xit('survives disconnections & close/connect cycles', (done) => {
+    let messagesReceived = 0;
+    const eventSource = new FetchEventSource('http://localhost:5555/stream', {
+      logger: console,
+    });
+    eventSource.onopen = function () {
+      console.log({ on: 'open', source: this });
+    };
+    eventSource.onmessage = function (ev) {
+      console.log({ on: 'message', event: ev, source: this });
+      if (messagesReceived++ >= 50) {
+        done();
+      }
+    };
+    eventSource.onerror = function (err) {
+      console.log({ on: 'error', err, source: this });
+    };
+    eventSource.connect();
+
+    setTimeout(() => {
+      eventSource.close();
+      eventSource.connect();
+    }, 5000);
+  }, 300000);
 });
