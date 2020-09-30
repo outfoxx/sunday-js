@@ -10,7 +10,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   private static LAST_EVENT_ID_HEADER = 'Last-Event-ID';
   private static MAX_RETRY_TIME_MULTIPLE = 30;
   private static EVENT_TIMEOUT_DEFAULT = 75;
-  private static EVENT_TIMEOUT_CHECK_INTERVAL = 1;
+  private static EVENT_TIMEOUT_CHECK_INTERVAL = 2;
 
   CONNECTING = 0;
   OPEN = 1;
@@ -143,7 +143,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
     this.eventTimeoutCheckHandle = setInterval(
       () => this.checkEventTimeout(),
-      FetchEventSource.EVENT_TIMEOUT_CHECK_INTERVAL
+      FetchEventSource.EVENT_TIMEOUT_CHECK_INTERVAL * 1000
     );
   }
 
