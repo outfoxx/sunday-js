@@ -29,7 +29,7 @@
   "license": "outfox",
   "dependencies": {
     "@outfoxx/cbor-redux": "^0.3.1",
-    "@outfoxx/jackson-js": "^1.2.16",
+    "@outfoxx/jackson-js": "^1.2.19",
     "luxon": "^1.25.0",
     "rxjs": "^6.6.3",
     "uri-template-lite": "^20.5.0"
