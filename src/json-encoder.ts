@@ -4,6 +4,7 @@ import { MediaTypeEncoder } from './media-type-encoder';
 import { AnyType } from './any-type';
 import { JsonStringifier } from '@outfoxx/jackson-js';
 import { Base64 } from './util/base64';
+import 'reflect-metadata';
 
 export class JSONEncoder implements MediaTypeEncoder {
   static get default(): JSONEncoder {
@@ -35,6 +36,17 @@ export class JSONEncoder implements MediaTypeEncoder {
   }
 
   encode<T>(value: T, type?: AnyType): string {
+    // Use natural type when subtypes exist
+    if (
+      Reflect.hasMetadata(
+        'jackson:defaultContextGroup:JsonSubTypes',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (value as any).constructor ?? {}
+      )
+    ) {
+      type = [Object];
+    }
+
     return this.stringifier.stringify(value, {
       serializers: this.customSerializers,
       mainCreator: () => type ?? [Object],
@@ -42,6 +54,17 @@ export class JSONEncoder implements MediaTypeEncoder {
   }
 
   encodeJSON<T>(value: T, type?: AnyType): unknown {
+    // Use natural type when subtypes exist
+    if (
+      Reflect.hasMetadata(
+        'jackson:defaultContextGroup:JsonSubTypes',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (value as any).constructor ?? {}
+      )
+    ) {
+      type = [Object];
+    }
+
     return this.stringifier.transform(value, {
       serializers: this.customSerializers,
       mainCreator: () => type ?? [Object],
