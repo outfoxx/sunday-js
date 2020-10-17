@@ -1,20 +1,35 @@
-import { CBOREncoder } from './cbor-encoder';
-import { MediaTypeEncoder } from './media-type-encoder';
-import { MediaType } from './media-type';
-import { JSONEncoder } from './json-encoder';
 import { BinaryEncoder } from './binary-encoder';
+import { CBOREncoder } from './cbor-encoder';
+import { JSONEncoder } from './json-encoder';
+import { MediaType } from './media-type';
+import { MediaTypeEncoder } from './media-type-encoder';
 import { URLEncoder } from './url-encoder';
 
+export interface MediaTypeEncodersBuilder {
+  addDefaults(): MediaTypeEncodersBuilder;
+
+  add(mediaType: string, encoder: MediaTypeEncoder): MediaTypeEncodersBuilder;
+
+  build(): MediaTypeEncoders;
+}
+export interface MediaTypeEncodersBuilderConstructor {
+  new (): MediaTypeEncodersBuilder;
+}
+
 export class MediaTypeEncoders {
-  static Builder = class Builder {
+  static Builder: MediaTypeEncodersBuilderConstructor = class Builder
+    implements MediaTypeEncodersBuilder {
     encoders = new Map<string, MediaTypeEncoder>();
 
-    add(mediaType: string, encoder: MediaTypeEncoder): Builder {
+    add(
+      mediaType: string,
+      encoder: MediaTypeEncoder
+    ): MediaTypeEncodersBuilder {
       this.encoders.set(mediaType, encoder);
       return this;
     }
 
-    addDefaults(): Builder {
+    addDefaults(): MediaTypeEncodersBuilder {
       return this.add(MediaType.JSON, JSONEncoder.default)
         .add(MediaType.OCTET_STREAM, BinaryEncoder.default)
         .add(MediaType.WWW_URL_FORM_ENCODED, URLEncoder.default)

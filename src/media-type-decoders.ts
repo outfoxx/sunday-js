@@ -4,16 +4,31 @@ import { JSONDecoder } from './json-decoder';
 import { MediaType } from './media-type';
 import { MediaTypeDecoder } from './media-type-decoder';
 
+export interface MediaTypeDecodersBuilder {
+  addDefaults(): MediaTypeDecodersBuilder;
+
+  add(mediaType: string, decoder: MediaTypeDecoder): MediaTypeDecodersBuilder;
+
+  build(): MediaTypeDecoders;
+}
+export interface MediaTypeDecodersBuilderConstructor {
+  new (): MediaTypeDecodersBuilder;
+}
+
 export class MediaTypeDecoders {
-  static Builder = class Builder {
+  static Builder: MediaTypeDecodersBuilderConstructor = class Builder
+    implements MediaTypeDecodersBuilder {
     decoders = new Map<string, MediaTypeDecoder>();
 
-    add(mediaType: string, encoder: MediaTypeDecoder): Builder {
-      this.decoders.set(mediaType, encoder);
+    add(
+      mediaType: string,
+      decoder: MediaTypeDecoder
+    ): MediaTypeDecodersBuilder {
+      this.decoders.set(mediaType, decoder);
       return this;
     }
 
-    addDefaults(): Builder {
+    addDefaults(): MediaTypeDecodersBuilder {
       return this.add(MediaType.JSON, JSONDecoder.default)
         .add(MediaType.OCTET_STREAM, new BinaryDecoder())
         .add(MediaType.CBOR, CBORDecoder.default);
