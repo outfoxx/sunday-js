@@ -4,7 +4,6 @@
 jest.config.js
 *.json
 node_modules
-src
 test
 .idea
 *.code-workspace
