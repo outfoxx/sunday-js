@@ -135,6 +135,8 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   }
 
   private startEventTimeoutCheck() {
+    this.stopEventTimeoutCheck();
+
     if (!this.eventTimeout) {
       return;
     }
@@ -150,7 +152,10 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   private stopEventTimeoutCheck() {
     // this.logger?.debug?.('stopping event timeout checks');
 
-    clearInterval(this.eventTimeoutCheckHandle);
+    if (this.eventTimeoutCheckHandle) {
+      clearInterval(this.eventTimeoutCheckHandle);
+    }
+    this.eventTimeoutCheckHandle = undefined;
   }
 
   private checkEventTimeout() {
