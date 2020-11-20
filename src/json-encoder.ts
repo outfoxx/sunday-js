@@ -2,7 +2,7 @@ import { CustomMapper, Serializer } from '@outfoxx/jackson-js/dist/@types';
 import { DateTime } from 'luxon';
 import { MediaTypeEncoder } from './media-type-encoder';
 import { AnyType } from './any-type';
-import { JsonStringifier } from '@outfoxx/jackson-js';
+import { JsonIncludeType, JsonStringifier } from '@outfoxx/jackson-js';
 import { Base64 } from './util/base64';
 import 'reflect-metadata';
 
@@ -35,7 +35,7 @@ export class JSONEncoder implements MediaTypeEncoder {
     ];
   }
 
-  encode<T>(value: T, type?: AnyType): string {
+  encode<T>(value: T, type?: AnyType, includeNulls = false): string {
     // Use natural type when subtypes exist
     if (
       Reflect.hasMetadata(
@@ -49,11 +49,20 @@ export class JSONEncoder implements MediaTypeEncoder {
 
     return this.stringifier.stringify(value, {
       serializers: this.customSerializers,
+      features: {
+        serialization: {
+          DEFAULT_PROPERTY_INCLUSION: {
+            value: includeNulls
+              ? JsonIncludeType.ALWAYS
+              : JsonIncludeType.NON_NULL,
+          },
+        },
+      },
       mainCreator: () => type ?? [Object],
     });
   }
 
-  encodeJSON<T>(value: T, type?: AnyType): unknown {
+  encodeJSON<T>(value: T, type?: AnyType, includeNulls = false): unknown {
     // Use natural type when subtypes exist
     if (
       Reflect.hasMetadata(
@@ -67,6 +76,15 @@ export class JSONEncoder implements MediaTypeEncoder {
 
     return this.stringifier.transform(value, {
       serializers: this.customSerializers,
+      features: {
+        serialization: {
+          DEFAULT_PROPERTY_INCLUSION: {
+            value: includeNulls
+              ? JsonIncludeType.ALWAYS
+              : JsonIncludeType.NON_NULL,
+          },
+        },
+      },
       mainCreator: () => type ?? [Object],
     });
   }

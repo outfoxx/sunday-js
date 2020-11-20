@@ -168,4 +168,40 @@ describe('JSONEncoder', () => {
       JSONEncoder.default.encode(new Test(new ArrayBuffer(5)), [Test])
     ).toEqual('{"test":"AAAAAAA="}');
   });
+
+  it('excludes null & undefined values by default when encoding', () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [ArrayBuffer] })
+        public test: ArrayBuffer | undefined | null
+      ) {}
+    }
+
+    expect(JSONEncoder.default.encode(new Test(undefined), [Test])).toEqual(
+      '{}'
+    );
+
+    expect(JSONEncoder.default.encode(new Test(null), [Test])).toEqual('{}');
+  });
+
+  it('includes null values when encoding configured', () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [ArrayBuffer] })
+        public test: ArrayBuffer | undefined | null
+      ) {}
+    }
+
+    expect(
+      JSONEncoder.default.encode(new Test(undefined), [Test], true)
+    ).toEqual('{}');
+
+    expect(JSONEncoder.default.encode(new Test(null), [Test], true)).toEqual(
+      '{"test":null}'
+    );
+  });
 });
