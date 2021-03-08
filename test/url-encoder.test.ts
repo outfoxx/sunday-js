@@ -1,4 +1,4 @@
-import { DateTime } from 'luxon';
+import { Instant, OffsetDateTime } from '@js-joda/core';
 import { URLEncoder } from '../src';
 
 describe('URLEncoder', () => {
@@ -94,8 +94,8 @@ describe('URLEncoder', () => {
     );
   });
 
-  const date1 = DateTime.fromISO('2017-05-15T08:30:00Z', { setZone: true });
-  const date2 = DateTime.fromISO('2018-06-16T09:40:10+7:00', { setZone: true });
+  const date1 = Instant.parse('2017-05-15T08:30:00Z');
+  const date2 = OffsetDateTime.parse('2018-06-16T09:40:10+07:00').toInstant();
 
   it('encodes date values in ISO form', () => {
     const encoder = new URLEncoder(
@@ -104,8 +104,8 @@ describe('URLEncoder', () => {
       URLEncoder.DateEncoding.ISO8601
     );
 
-    const date1Val = encodeURIComponent(date1.toISO());
-    const date2Val = encodeURIComponent(date2.toISO());
+    const date1Val = encodeURIComponent(date1.toString());
+    const date2Val = encodeURIComponent(date2.toString());
 
     expect(encoder.encodeQueryString({ test: [date1, date2] })).toBe(
       `test=${date1Val}&test=${date2Val}`
@@ -119,8 +119,8 @@ describe('URLEncoder', () => {
       URLEncoder.DateEncoding.SECONDS_SINCE_EPOCH
     );
 
-    const date1Val = encodeURIComponent(date1.toSeconds());
-    const date2Val = encodeURIComponent(date2.toSeconds());
+    const date1Val = encodeURIComponent(date1.toEpochMilli() / 1000.0);
+    const date2Val = encodeURIComponent(date2.toEpochMilli() / 1000.0);
 
     expect(encoder.encodeQueryString({ test: [date1, date2] })).toBe(
       `test=${date1Val}&test=${date2Val}`
@@ -134,8 +134,8 @@ describe('URLEncoder', () => {
       URLEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
     );
 
-    const date1Val = encodeURIComponent(date1.toMillis());
-    const date2Val = encodeURIComponent(date2.toMillis());
+    const date1Val = encodeURIComponent(date1.toEpochMilli());
+    const date2Val = encodeURIComponent(date2.toEpochMilli());
 
     expect(encoder.encodeQueryString({ test: [date1, date2] })).toBe(
       `test=${date1Val}&test=${date2Val}`

@@ -1,10 +1,23 @@
-import { DateTime as luxonDateTime } from 'luxon';
+import {
+  Duration,
+  Instant,
+  LocalDate,
+  LocalDateTime,
+  LocalTime,
+  OffsetDateTime,
+  OffsetTime,
+  Period,
+  ZonedDateTime,
+} from '@js-joda/core';
 
-export type Date = luxonDateTime;
-export const Date = luxonDateTime;
-
-export type Time = luxonDateTime;
-export const Time = luxonDateTime;
-
-export type DateTime = luxonDateTime;
-export const DateTime = luxonDateTime;
+export {
+  Duration,
+  Instant,
+  LocalDate,
+  LocalTime,
+  LocalDateTime,
+  OffsetDateTime,
+  OffsetTime,
+  Period,
+  ZonedDateTime,
+};

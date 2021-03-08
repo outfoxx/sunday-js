@@ -1,8 +1,17 @@
-import fetchMock from 'fetch-mock';
+import {
+  Instant,
+  LocalDate,
+  LocalDateTime,
+  LocalTime,
+  OffsetDateTime,
+  OffsetTime,
+  ZoneId,
+  ZoneOffset,
+} from '@js-joda/core';
 import { JsonClassType, JsonProperty } from '@outfoxx/jackson-js';
-import { DateTime } from 'luxon';
-import { CBORDecoder } from '../src/cbor-decoder';
-import { Hex } from '../src/util/hex';
+import fetchMock from 'fetch-mock';
+import { CBORDecoder, Hex, ZonedDateTime } from '../src';
+import NumericDateDecoding = CBORDecoder.NumericDateDecoding;
 
 describe('CBORDecoder', () => {
   beforeEach(() => {
@@ -104,13 +113,13 @@ describe('CBORDecoder', () => {
     ).toEqual(new Test(new URL('http://example.com')));
   });
 
-  it('decodes DateTime values from ISO string', async () => {
+  it('decodes Instant values from string', async () => {
     //
     class Test {
       constructor(
         @JsonProperty()
-        @JsonClassType({ type: () => [DateTime] })
-        public test: DateTime
+        @JsonClassType({ type: () => [Instant] })
+        public test: Instant
       ) {}
     }
 
@@ -122,17 +131,19 @@ describe('CBORDecoder', () => {
         [Test]
       )
     ).toEqual(
-      new Test(DateTime.fromISO('2002-01-01T01:02:03.004Z', { setZone: true }))
+      new Test(
+        ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC).toInstant()
+      )
     );
   });
 
-  it('decodes DateTime values from ISO date', async () => {
+  it('decodes Instant values from date tagged string', async () => {
     //
     class Test {
       constructor(
         @JsonProperty()
-        @JsonClassType({ type: () => [DateTime] })
-        public test: DateTime
+        @JsonClassType({ type: () => [Instant] })
+        public test: Instant
       ) {}
     }
 
@@ -144,48 +155,567 @@ describe('CBORDecoder', () => {
         [Test]
       )
     ).toEqual(
-      new Test(DateTime.fromISO('2002-01-01T01:02:03.004Z', { setZone: true }))
+      new Test(
+        ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC).toInstant()
+      )
     );
   });
 
-  it('decodes DateTime values from epoch seconds number', async () => {
+  it('decodes Instant values from number (fractional seconds)', async () => {
     //
     class Test {
       constructor(
         @JsonProperty()
-        @JsonClassType({ type: () => [DateTime] })
-        public test: DateTime
+        @JsonClassType({ type: () => [Instant] })
+        public test: Instant
+      ) {}
+    }
+
+    expect(
+      new CBORDecoder(
+        NumericDateDecoding.FRACTIONAL_SECONDS
+      ).decodeData(Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'), [Test])
+    ).toEqual(
+      new Test(
+        ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC).toInstant()
+      )
+    );
+  });
+
+  it('decodes Instant values from date tagged number (fractional seconds)', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [Instant] })
+        public test: Instant
+      ) {}
+    }
+
+    expect(
+      new CBORDecoder(
+        NumericDateDecoding.FRACTIONAL_SECONDS
+      ).decodeData(Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'), [Test])
+    ).toEqual(
+      new Test(
+        ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC).toInstant()
+      )
+    );
+  });
+
+  it('decodes Instant values from number (milliseconds)', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [Instant] })
+        public test: Instant
+      ) {}
+    }
+
+    expect(
+      new CBORDecoder(NumericDateDecoding.MILLISECONDS).decodeData(
+        Hex.decode('A1 64 74657374 1B 000000E472797865'),
+        [Test]
+      )
+    ).toEqual(
+      new Test(
+        ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC).toInstant()
+      )
+    );
+  });
+
+  it('decodes Instant values from date tagged number (milliseconds)', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [Instant] })
+        public test: Instant
+      ) {}
+    }
+
+    expect(
+      new CBORDecoder(NumericDateDecoding.MILLISECONDS).decodeData(
+        Hex.decode('A1 64 74657374 C1 1B 000000E472797865'),
+        [Test]
+      )
+    ).toEqual(
+      new Test(
+        ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC).toInstant()
+      )
+    );
+  });
+
+  it('decodes ZonedDateTime values from string', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [ZonedDateTime] })
+        public test: ZonedDateTime
       ) {}
     }
 
     expect(
       CBORDecoder.default.decodeData(
-        Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'),
+        Hex.decode(
+          'A1 64 74657374 78 18 323030322D30312D30315430313A30323A30332E3030345A'
+        ),
         [Test]
       )
     ).toEqual(
-      new Test(DateTime.fromISO('2001-02-03T04:05:06.789Z', { setZone: true }))
+      new Test(ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC))
     );
   });
 
-  it('decodes DateTime values from epoch seconds date', async () => {
+  it('decodes ZonedDateTime values from date tagged string', async () => {
     //
     class Test {
       constructor(
         @JsonProperty()
-        @JsonClassType({ type: () => [DateTime] })
-        public test: DateTime
+        @JsonClassType({ type: () => [ZonedDateTime] })
+        public test: ZonedDateTime
       ) {}
     }
 
     expect(
       CBORDecoder.default.decodeData(
-        Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'),
+        Hex.decode(
+          'A1 64 74657374 C0 78 18 323030322D30312D30315430313A30323A30332E3030345A'
+        ),
         [Test]
       )
     ).toEqual(
-      new Test(DateTime.fromISO('2001-02-03T04:05:06.789Z', { setZone: true }))
+      new Test(ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC))
     );
+  });
+
+  it('decodes ZonedDateTime values from number (fractional seconds)', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [ZonedDateTime] })
+        public test: ZonedDateTime
+      ) {}
+    }
+
+    expect(
+      new CBORDecoder(
+        NumericDateDecoding.FRACTIONAL_SECONDS
+      ).decodeData(Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'), [Test])
+    ).toEqual(
+      new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC))
+    );
+  });
+
+  it('decodes ZonedDateTime values from date tagged number (fractional seconds)', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [ZonedDateTime] })
+        public test: ZonedDateTime
+      ) {}
+    }
+
+    expect(
+      new CBORDecoder(
+        NumericDateDecoding.FRACTIONAL_SECONDS
+      ).decodeData(Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'), [Test])
+    ).toEqual(
+      new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC))
+    );
+  });
+
+  it('decodes ZonedDateTime values from number (milliseconds)', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [ZonedDateTime] })
+        public test: ZonedDateTime
+      ) {}
+    }
+
+    expect(
+      new CBORDecoder(NumericDateDecoding.MILLISECONDS).decodeData(
+        Hex.decode('A1 64 74657374 1B 000000E472797865'),
+        [Test]
+      )
+    ).toEqual(
+      new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC))
+    );
+  });
+
+  it('decodes ZonedDateTime values from date tagged number (milliseconds)', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [ZonedDateTime] })
+        public test: ZonedDateTime
+      ) {}
+    }
+
+    expect(
+      new CBORDecoder(NumericDateDecoding.MILLISECONDS).decodeData(
+        Hex.decode('A1 64 74657374 C1 1B 000000E472797865'),
+        [Test]
+      )
+    ).toEqual(
+      new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC))
+    );
+  });
+
+  it('decodes OffsetDateTime values from string', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [OffsetDateTime] })
+        public test: OffsetDateTime
+      ) {}
+    }
+
+    expect(
+      CBORDecoder.default.decodeData(
+        Hex.decode(
+          'A1 64 74657374 78 18 323030322D30312D30315430313A30323A30332E3030345A'
+        ),
+        [Test]
+      )
+    ).toEqual(
+      new Test(OffsetDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneOffset.UTC))
+    );
+  });
+
+  it('decodes OffsetDateTime values from date tagged string', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [OffsetDateTime] })
+        public test: OffsetDateTime
+      ) {}
+    }
+
+    expect(
+      CBORDecoder.default.decodeData(
+        Hex.decode(
+          'A1 64 74657374 C0 78 18 323030322D30312D30315430313A30323A30332E3030345A'
+        ),
+        [Test]
+      )
+    ).toEqual(
+      new Test(OffsetDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneOffset.UTC))
+    );
+  });
+
+  it('decodes OffsetDateTime values from number (fractional seconds)', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [OffsetDateTime] })
+        public test: OffsetDateTime
+      ) {}
+    }
+
+    expect(
+      new CBORDecoder(
+        NumericDateDecoding.FRACTIONAL_SECONDS
+      ).decodeData(Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'), [Test])
+    ).toEqual(
+      new Test(
+        OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC)
+      )
+    );
+  });
+
+  it('decodes OffsetDateTime values from date tagged number (fractional seconds)', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [OffsetDateTime] })
+        public test: OffsetDateTime
+      ) {}
+    }
+
+    expect(
+      new CBORDecoder(
+        NumericDateDecoding.FRACTIONAL_SECONDS
+      ).decodeData(Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'), [Test])
+    ).toEqual(
+      new Test(
+        OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC)
+      )
+    );
+  });
+
+  it('decodes OffsetDateTime values from number (milliseconds)', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [OffsetDateTime] })
+        public test: OffsetDateTime
+      ) {}
+    }
+
+    expect(
+      new CBORDecoder(NumericDateDecoding.MILLISECONDS).decodeData(
+        Hex.decode('A1 64 74657374 1B 000000E472797865'),
+        [Test]
+      )
+    ).toEqual(
+      new Test(
+        OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC)
+      )
+    );
+  });
+
+  it('decodes OffsetDateTime values from date tagged number (milliseconds)', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [OffsetDateTime] })
+        public test: OffsetDateTime
+      ) {}
+    }
+
+    expect(
+      new CBORDecoder(NumericDateDecoding.MILLISECONDS).decodeData(
+        Hex.decode('A1 64 74657374 C1 1B 000000E472797865'),
+        [Test]
+      )
+    ).toEqual(
+      new Test(
+        OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC)
+      )
+    );
+  });
+
+  it('decodes OffsetTime values from string', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [OffsetTime] })
+        public test: OffsetTime
+      ) {}
+    }
+
+    expect(
+      CBORDecoder.default.decodeData(
+        Hex.decode('A1 64 74657374 6D 30313A30323A30332E3030345A'),
+        [Test]
+      )
+    ).toEqual(new Test(OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC)));
+  });
+
+  it('decodes OffsetTime values from number (fractional seconds)', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [OffsetTime] })
+        public test: OffsetTime
+      ) {}
+    }
+
+    expect(
+      new CBORDecoder(
+        NumericDateDecoding.FRACTIONAL_SECONDS
+      ).decodeData(Hex.decode('A1 64 74657374 85 04 05 06 1A 2F072F40 61 5A'), [
+        Test,
+      ])
+    ).toEqual(new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)));
+  });
+
+  it('decodes OffsetTime values from number (milliseconds)', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [OffsetTime] })
+        public test: OffsetTime
+      ) {}
+    }
+
+    expect(
+      new CBORDecoder(NumericDateDecoding.MILLISECONDS).decodeData(
+        Hex.decode('A1 64 74657374 85 04 05 06 19 0315 61 5A'),
+        [Test]
+      )
+    ).toEqual(new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)));
+  });
+
+  it('decodes LocalDateTime values from string', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [LocalDateTime] })
+        public test: LocalDateTime
+      ) {}
+    }
+
+    expect(
+      CBORDecoder.default.decodeData(
+        Hex.decode(
+          'A1 64 74657374 77 323030322D30312D30315430313A30323A30332E303034'
+        ),
+        [Test]
+      )
+    ).toEqual(new Test(LocalDateTime.of(2002, 1, 1, 1, 2, 3, 4000000)));
+  });
+
+  it('decodes LocalDateTime values from number (fractional seconds)', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [LocalDateTime] })
+        public test: LocalDateTime
+      ) {}
+    }
+
+    expect(
+      new CBORDecoder(
+        NumericDateDecoding.FRACTIONAL_SECONDS
+      ).decodeData(
+        Hex.decode('A1 64 74657374 87 19 07D1 02 03 04 05 06 1A 2F072F40'),
+        [Test]
+      )
+    ).toEqual(new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)));
+  });
+
+  it('decodes LocalDateTime values from number (milliseconds)', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [LocalDateTime] })
+        public test: LocalDateTime
+      ) {}
+    }
+
+    expect(
+      new CBORDecoder(NumericDateDecoding.MILLISECONDS).decodeData(
+        Hex.decode('A1 64 74657374 87 19 07D1 02 03 04 05 06 19 0315'),
+        [Test]
+      )
+    ).toEqual(new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)));
+  });
+
+  it('decodes LocalDate values from string', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [LocalDate] })
+        public test: LocalDate
+      ) {}
+    }
+
+    expect(
+      CBORDecoder.default.decodeData(
+        Hex.decode('A1 64 74657374 6A 323030322D30312D3031'),
+        [Test]
+      )
+    ).toEqual(new Test(LocalDate.of(2002, 1, 1)));
+  });
+
+  it('decodes LocalDate values from number (fractional seconds)', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [LocalDate] })
+        public test: LocalDate
+      ) {}
+    }
+
+    expect(
+      new CBORDecoder(
+        NumericDateDecoding.FRACTIONAL_SECONDS
+      ).decodeData(Hex.decode('A1 64 74657374 83 19 07D1 02 03'), [Test])
+    ).toEqual(new Test(LocalDate.of(2001, 2, 3)));
+  });
+
+  it('decodes LocalDate values from number (milliseconds)', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [LocalDate] })
+        public test: LocalDate
+      ) {}
+    }
+
+    expect(
+      new CBORDecoder(NumericDateDecoding.MILLISECONDS).decodeData(
+        Hex.decode('A1 64 74657374 83 19 07D1 02 03'),
+        [Test]
+      )
+    ).toEqual(new Test(LocalDate.of(2001, 2, 3)));
+  });
+
+  it('decodes LocalTime values from string', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [LocalTime] })
+        public test: LocalTime
+      ) {}
+    }
+
+    expect(
+      CBORDecoder.default.decodeData(
+        Hex.decode('A1 64 74657374 6C 30313A30323A30332E303034'),
+        [Test]
+      )
+    ).toEqual(new Test(LocalTime.of(1, 2, 3, 4000000)));
+  });
+
+  it('decodes LocalTime values from number (fractional seconds)', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [LocalTime] })
+        public test: LocalTime
+      ) {}
+    }
+
+    expect(
+      new CBORDecoder(
+        NumericDateDecoding.FRACTIONAL_SECONDS
+      ).decodeData(Hex.decode('A1 64 74657374 84 04 05 06 1A 2F072F40'), [Test])
+    ).toEqual(new Test(LocalTime.of(4, 5, 6, 789000000)));
+  });
+
+  it('decodes LocalTime values from number (milliseconds)', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [LocalTime] })
+        public test: LocalTime
+      ) {}
+    }
+
+    expect(
+      new CBORDecoder(NumericDateDecoding.MILLISECONDS).decodeData(
+        Hex.decode('A1 64 74657374 84 04 05 06 19 0315'),
+        [Test]
+      )
+    ).toEqual(new Test(LocalTime.of(4, 5, 6, 789000000)));
   });
 
   it('decodes Date values from ISO string', async () => {
@@ -206,7 +736,7 @@ describe('CBORDecoder', () => {
         [Test]
       )
     ).toEqual(
-      new Test(DateTime.fromSeconds(981173106.789, { zone: 'UTC' }).toJSDate())
+      new Test(new Date(Instant.ofEpochMilli(981173106789).toString()))
     );
   });
 
@@ -228,11 +758,11 @@ describe('CBORDecoder', () => {
         [Test]
       )
     ).toEqual(
-      new Test(DateTime.fromSeconds(981173106.789, { zone: 'UTC' }).toJSDate())
+      new Test(new Date(Instant.ofEpochMilli(981173106789).toString()))
     );
   });
 
-  it('decodes Date values from epoch seconds number', async () => {
+  it('decodes Date values from numeric epoch (fractional seconds)', async () => {
     //
     class Test {
       constructor(
@@ -243,16 +773,15 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      CBORDecoder.default.decodeData(
-        Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'),
-        [Test]
-      )
+      new CBORDecoder(
+        NumericDateDecoding.FRACTIONAL_SECONDS
+      ).decodeData(Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'), [Test])
     ).toEqual(
-      new Test(DateTime.fromSeconds(981173106.789, { zone: 'UTC' }).toJSDate())
+      new Test(new Date(Instant.ofEpochMilli(981173106789).toString()))
     );
   });
 
-  it('decodes Date values from epoch seconds date', async () => {
+  it('decodes Date values from numeric epoch (milliseconds)', async () => {
     //
     class Test {
       constructor(
@@ -263,12 +792,51 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      CBORDecoder.default.decodeData(
-        Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'),
+      new CBORDecoder(NumericDateDecoding.MILLISECONDS).decodeData(
+        Hex.decode('A1 64 74657374 1B 000000E472797865'),
         [Test]
       )
     ).toEqual(
-      new Test(DateTime.fromSeconds(981173106.789, { zone: 'UTC' }).toJSDate())
+      new Test(new Date(Instant.ofEpochMilli(981173106789).toString()))
+    );
+  });
+
+  it('decodes Date values from epoch date (fractional seconds)', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [Date] })
+        public test: Date
+      ) {}
+    }
+
+    expect(
+      new CBORDecoder(
+        NumericDateDecoding.FRACTIONAL_SECONDS
+      ).decodeData(Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'), [Test])
+    ).toEqual(
+      new Test(new Date(Instant.ofEpochMilli(981173106789).toString()))
+    );
+  });
+
+  it('decodes Date values from epoch date (milliseconds)', async () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [Date] })
+        public test: Date
+      ) {}
+    }
+
+    expect(
+      new CBORDecoder(NumericDateDecoding.MILLISECONDS).decodeData(
+        Hex.decode('A1 64 74657374 C1 1B 000000E472797865'),
+        [Test]
+      )
+    ).toEqual(
+      new Test(new Date(Instant.ofEpochMilli(981173106789).toString()))
     );
   });
 

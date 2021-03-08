@@ -22,6 +22,7 @@ module.exports = function(config) {
         "module": "commonjs",
       },
       bundlerOptions: {
+        sourceMap: true,
         exclude: [
           "@outfoxx/jackson-js/dist/@types",
         ],

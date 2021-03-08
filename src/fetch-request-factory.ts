@@ -1,15 +1,17 @@
 import { Observable, of, Subscriber } from 'rxjs';
 import { mapTo, switchMap } from 'rxjs/operators';
 import { AnyType } from './any-type';
+import { ClassType } from './class-type';
 import { validate } from './fetch';
 import { FetchEventSource } from './fetch-event-source';
 import { HttpError } from './http-error';
-import { JSONDecoder } from './json-decoder';
+import { JSONDecoder } from './media-type-codecs/json-decoder';
 import { Logger } from './logger';
-import { mediaType, MediaType } from './media-type';
-import { MediaTypeDecoders } from './media-type-decoders';
-import { isURLQueryParamsEncoder } from './media-type-encoder';
-import { MediaTypeEncoders } from './media-type-encoders';
+import { MediaType } from './media-type';
+import { MediaTypeDecoders } from './media-type-codecs/media-type-decoders';
+import { isURLQueryParamsEncoder } from './media-type-codecs/media-type-encoder';
+import { MediaTypeEncoders } from './media-type-codecs/media-type-encoders';
+import { Problem, ProblemType } from './problem';
 import {
   EventTypes,
   ExtEventSource,
@@ -24,6 +26,7 @@ export class FetchRequestFactory implements RequestFactory {
   public adapter?: RequestAdapter;
   public mediaTypeEncoders: MediaTypeEncoders;
   public mediaTypeDecoders: MediaTypeDecoders;
+  public problemTypes = new Map<string, ClassType<Problem>>();
   public logger?: Logger;
 
   constructor(
@@ -56,12 +59,10 @@ export class FetchRequestFactory implements RequestFactory {
     );
 
     if (requestSpec.queryParameters) {
-      const encoder = this.mediaTypeEncoders.find(
-        MediaType.WWW_URL_FORM_ENCODED
-      );
+      const encoder = this.mediaTypeEncoders.find(MediaType.WWWFormUrlEncoded);
       if (!isURLQueryParamsEncoder(encoder)) {
         throw Error(
-          `MediaTypeEncoder for ${MediaType.WWW_URL_FORM_ENCODED} must be an instance of URLEncoder`
+          `MediaTypeEncoder for ${MediaType.WWWFormUrlEncoded} must be an instance of URLEncoder`
         );
       }
       url.search = `?${encoder.encodeQueryString(requestSpec.queryParameters)}`;
@@ -86,7 +87,7 @@ export class FetchRequestFactory implements RequestFactory {
 
     // If matched, add content type (even if body is nil, to match any expected server requirements)
     if (contentType) {
-      headers.set('content-type', contentType);
+      headers.set('content-type', contentType.toString());
     }
 
     // Encode & add body data
@@ -138,9 +139,9 @@ export class FetchRequestFactory implements RequestFactory {
       return response$.pipe(
         switchMap(async (response) => {
           try {
-            const contentType = mediaType(
+            const contentType = MediaType.from(
               response.headers.get('content-type'),
-              MediaType.OCTET_STREAM
+              MediaType.OctetStream
             );
             const decoder = this.mediaTypeDecoders.find(contentType);
             return await decoder.decode(response, responseType);
@@ -190,7 +191,7 @@ export class FetchRequestFactory implements RequestFactory {
     ) => {
       return async (event: Event) => {
         const decoder = this.mediaTypeDecoders.find(
-          'application/json'
+          MediaType.JSON
         ) as JSONDecoder;
         const msgEvent = event as MessageEvent;
         const deserializedEvent = await decoder.decodeText(
@@ -221,5 +222,15 @@ export class FetchRequestFactory implements RequestFactory {
         eventSource.close();
       };
     });
+  }
+
+  registerProblem(type: ClassType<Problem>): void {
+    const problemType = (type as unknown) as ProblemType;
+    if (!problemType.TYPE) {
+      throw Error(
+        `Problem type ${type} doesn't have required static 'TYPE' property`
+      );
+    }
+    this.problemTypes.set(problemType.TYPE, type);
   }
 }

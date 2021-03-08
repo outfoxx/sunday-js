@@ -1,5 +1,5 @@
+import { Instant } from '@js-joda/core';
 import { URLQueryParamsEncoder } from './media-type-encoder';
-import { DateTime } from 'luxon';
 import { JsonStringifier } from '@outfoxx/jackson-js';
 
 export class URLEncoder implements URLQueryParamsEncoder {
@@ -51,7 +51,7 @@ export class URLEncoder implements URLQueryParamsEncoder {
           )
         );
       }
-    } else if (DateTime.isDateTime(value) || value instanceof DateTime) {
+    } else if (value instanceof Instant) {
       //
       components.push([
         encodeURIComponent(key),
@@ -106,17 +106,17 @@ function encodeBoolean(
 }
 
 function encodeDate(
-  value: Date | DateTime,
+  value: Date | Instant,
   encoding: URLEncoder.DateEncoding
 ): string {
-  value = value instanceof Date ? DateTime.fromJSDate(value) : value;
+  value = value instanceof Date ? Instant.ofEpochMilli(value.getTime()) : value;
   switch (encoding) {
     case URLEncoder.DateEncoding.SECONDS_SINCE_EPOCH:
-      return `${value.toSeconds()}`;
+      return `${value.toEpochMilli() / 1000.0}`;
     case URLEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH:
-      return `${value.toMillis()}`;
+      return `${value.toEpochMilli()}`;
     case URLEncoder.DateEncoding.ISO8601:
-      return value.toISO();
+      return value.toString();
     default:
       throw new Error('unknown date encoding');
   }

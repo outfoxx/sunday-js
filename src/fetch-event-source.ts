@@ -32,11 +32,12 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   private retryTime = 100;
   private retryAttempt = 0;
   private connectionAttemptTime = 0;
+  private reconnectTimeoutHandle?: number;
   private lastEventId?: string;
   private logger?: Logger;
   private unprocessedBuffers: ArrayBuffer[] = [];
   private unprocessedText = '';
-  private eventTimeout?: number;
+  private readonly eventTimeout?: number;
   private eventTimeoutCheckHandle?: number;
   private lastEventTime?: number;
 
@@ -74,7 +75,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     this.readyState = this.CONNECTING;
 
     const headers = new Headers({
-      accept: MediaType.EVENT_STREAM,
+      accept: MediaType.EventStream.toString(),
     });
     if (this.lastEventId) {
       headers.append(FetchEventSource.LAST_EVENT_ID_HEADER, this.lastEventId);
@@ -130,6 +131,8 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   private internalClose() {
     this.connectionSubscription?.unsubscribe();
     this.connectionSubscription = undefined;
+
+    this.clearReconnect();
 
     this.stopEventTimeoutCheck();
   }
@@ -286,7 +289,17 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
     this.logger?.debug?.('scheduling reconnect', { retryDelay });
 
-    setTimeout(() => this.internalConnect(), retryDelay);
+    this.reconnectTimeoutHandle = setTimeout(
+      () => this.internalConnect(),
+      retryDelay
+    );
+  }
+
+  private clearReconnect() {
+    if (this.reconnectTimeoutHandle) {
+      clearTimeout(this.reconnectTimeoutHandle);
+    }
+    this.reconnectTimeoutHandle = undefined;
   }
 
   private extractEventStrings(): string[] {

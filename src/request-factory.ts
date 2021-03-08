@@ -3,6 +3,7 @@ import { Observable } from 'rxjs';
 import { AnyType } from './any-type';
 import { ClassType } from './class-type';
 import { MediaType } from './media-type';
+import { Problem } from './problem';
 import { URLTemplate } from './url-template';
 
 export interface RequestFactory {
@@ -42,6 +43,8 @@ export interface RequestFactory {
     requestSpec: RequestSpec<void>,
     eventTypes: EventTypes<E>
   ): Observable<E>;
+
+  registerProblem(type: ClassType<Problem>): void;
 }
 
 export interface ExtEventSource extends EventSource {
@@ -64,8 +67,8 @@ export interface RequestSpec<B> {
   queryParameters?: Record<string, unknown>;
   body?: B;
   bodyType?: AnyType;
-  contentTypes?: (MediaType | string)[];
-  acceptTypes?: (MediaType | string)[];
+  contentTypes?: MediaType[];
+  acceptTypes?: MediaType[];
   headers?: HeadersInit;
 }
 
