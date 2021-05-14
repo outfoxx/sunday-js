@@ -156,15 +156,7 @@ export class FetchRequestFactory implements RequestFactory {
     }
   }
 
-  events(requestSpec: RequestSpec<void>): ExtEventSource;
-  events<E>(
-    requestSpec: RequestSpec<void>,
-    eventTypes: EventTypes<E>
-  ): Observable<E>;
-  events(
-    requestSpec: RequestSpec<void>,
-    eventTypes?: EventTypes<unknown>
-  ): ExtEventSource | Observable<unknown> {
+  eventSource(requestSpec: RequestSpec<void>): ExtEventSource {
     //
     const adapter = (
       url: string,
@@ -181,9 +173,14 @@ export class FetchRequestFactory implements RequestFactory {
       adapter,
     });
 
-    if (!eventTypes) {
-      return eventSource;
-    }
+    return eventSource;
+  }
+
+  eventStream<E>(
+    requestSpec: RequestSpec<void>,
+    eventTypes: EventTypes<E>
+  ): Observable<E> {
+    const eventSource = this.eventSource(requestSpec);
 
     const generateEventHandler = (
       eventType: AnyType,

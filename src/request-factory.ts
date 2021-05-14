@@ -37,9 +37,9 @@ export interface RequestFactory {
 
   result<B>(requestSpec: RequestSpec<B>): Observable<void>;
 
-  events(requestSpec: RequestSpec<void>): ExtEventSource;
+  eventSource(requestSpec: RequestSpec<void>): ExtEventSource;
 
-  events<E>(
+  eventStream<E>(
     requestSpec: RequestSpec<void>,
     eventTypes: EventTypes<E>
   ): Observable<E>;
