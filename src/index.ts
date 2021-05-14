@@ -17,7 +17,7 @@ export * from './media-type-codecs/binary-decoder';
 export * from './media-type-codecs/binary-encoder';
 export * from './media-type-codecs/url-encoder';
 export * from './logger';
-export * from './http-error';
+export * from './sunday-error';
 export * from './problem';
 export * from './date-time-types';
 

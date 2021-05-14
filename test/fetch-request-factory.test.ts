@@ -1,7 +1,8 @@
 import fetchMock from 'fetch-mock';
 import { JsonClassType, JsonProperty } from '@outfoxx/jackson-js';
 import { first } from 'rxjs/operators';
-import { FetchRequestFactory, MediaType } from '../src';
+import { FetchRequestFactory, MediaType, Problem, SundayError } from '../src';
+import any = jasmine.any;
 import objectContaining = jasmine.objectContaining;
 
 describe('FetchRequestFactory', () => {
@@ -9,7 +10,21 @@ describe('FetchRequestFactory', () => {
     fetchMock.reset();
   });
 
+  class TestProblem extends Problem {
+    static TYPE = 'http://example.com/test';
+    constructor() {
+      super({
+        type: TestProblem.TYPE,
+        status: 400,
+        title: 'Test Problem',
+        detail: 'This is a test problem.',
+        instance: 'error:12345',
+      });
+    }
+  }
+
   const fetchRequestFactory = new FetchRequestFactory('http://example.com');
+  fetchRequestFactory.registerProblem(TestProblem.TYPE, TestProblem);
 
   it('replaces path template parameters', async () => {
     await expectAsync(
@@ -101,11 +116,54 @@ describe('FetchRequestFactory', () => {
       headers: { 'content-type': MediaType.JSON },
     });
 
-    expect(
-      await fetchRequestFactory
+    await expectAsync(
+      fetchRequestFactory
         .result({ method: 'GET', pathTemplate: '' }, [Test])
         .pipe(first())
         .toPromise()
-    ).toEqual(new Test('a', new Sub(5)));
+    ).toBeResolved(new Test('a', new Sub(5)));
+  });
+
+  it('throws typed problems for application/problem+json', async () => {
+    //
+    const problemJSON = JSON.stringify({
+      type: TestProblem.TYPE,
+      status: 400,
+      title: 'Invalid Id',
+      detail: 'One or more characters is not allowed',
+      instance: 'error:12345',
+    });
+
+    fetchMock.getOnce('http://example.com', {
+      body: problemJSON,
+      status: 400,
+      headers: { 'content-type': MediaType.ProblemJSON.value },
+    });
+
+    await expectAsync(
+      fetchRequestFactory
+        .result({ method: 'GET', pathTemplate: '' })
+        .pipe(first())
+        .toPromise()
+    ).toBeRejectedWith(new TestProblem());
+  });
+
+  it('throws SundayError when decoding fails', async () => {
+    //
+    fetchMock.getOnce(
+      'http://example.com',
+      new Response('<test>Test</test>', {
+        status: 200,
+        statusText: 'OK',
+        headers: { 'content-type': 'application/x-unknown-type' },
+      })
+    );
+
+    await expectAsync(
+      fetchRequestFactory
+        .result({ method: 'GET', pathTemplate: '' }, [String])
+        .pipe(first())
+        .toPromise()
+    ).toBeRejectedWith(any(SundayError));
   });
 });

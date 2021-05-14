@@ -1,17 +1,17 @@
 import { Observable, of, Subscriber } from 'rxjs';
 import { mapTo, switchMap } from 'rxjs/operators';
 import { AnyType } from './any-type';
-import { ClassType } from './class-type';
+import { ConstructableClassType } from './class-type';
 import { validate } from './fetch';
 import { FetchEventSource } from './fetch-event-source';
-import { HttpError } from './http-error';
+import { SundayError } from './sunday-error';
 import { JSONDecoder } from './media-type-codecs/json-decoder';
 import { Logger } from './logger';
 import { MediaType } from './media-type';
 import { MediaTypeDecoders } from './media-type-codecs/media-type-decoders';
 import { isURLQueryParamsEncoder } from './media-type-codecs/media-type-encoder';
 import { MediaTypeEncoders } from './media-type-codecs/media-type-encoders';
-import { Problem, ProblemType } from './problem';
+import { Problem } from './problem';
 import {
   EventTypes,
   ExtEventSource,
@@ -26,7 +26,7 @@ export class FetchRequestFactory implements RequestFactory {
   public adapter?: RequestAdapter;
   public mediaTypeEncoders: MediaTypeEncoders;
   public mediaTypeDecoders: MediaTypeDecoders;
-  public problemTypes = new Map<string, ClassType<Problem>>();
+  public problemTypes = new Map<string, ConstructableClassType<Problem>>();
   public logger?: Logger;
 
   constructor(
@@ -46,6 +46,14 @@ export class FetchRequestFactory implements RequestFactory {
     this.mediaTypeDecoders =
       options?.mediaTypeDecoders ?? MediaTypeDecoders.DEFAULT;
     this.logger = options?.logger ?? console;
+  }
+
+  registerProblem(
+    type: URL | string,
+    problemType: ConstructableClassType<Problem>
+  ): void {
+    const typeStr = type instanceof URL ? type.toString() : type;
+    this.problemTypes.set(typeStr, problemType);
   }
 
   request(
@@ -121,7 +129,9 @@ export class FetchRequestFactory implements RequestFactory {
       request instanceof Request ? of(request) : this.request(request);
     return request$.pipe(
       switchMap((req) => fetch(req)),
-      switchMap((response) => validate(response, dataExpected ?? false))
+      switchMap((response) =>
+        validate(response, dataExpected ?? false, this.problemTypes)
+      )
     );
   }
 
@@ -146,8 +156,8 @@ export class FetchRequestFactory implements RequestFactory {
             const decoder = this.mediaTypeDecoders.find(contentType);
             return await decoder.decode(response, responseType);
           } catch (error) {
-            throw await HttpError.fromResponse(
-              error.message ?? 'Unknown Error',
+            throw await SundayError.fromResponse(
+              error.message ?? 'Response Decoding Failed',
               response
             );
           }
@@ -219,15 +229,5 @@ export class FetchRequestFactory implements RequestFactory {
         eventSource.close();
       };
     });
-  }
-
-  registerProblem(type: ClassType<Problem>): void {
-    const problemType = (type as unknown) as ProblemType;
-    if (!problemType.TYPE) {
-      throw Error(
-        `Problem type ${type} doesn't have required static 'TYPE' property`
-      );
-    }
-    this.problemTypes.set(problemType.TYPE, type);
   }
 }

@@ -1,13 +1,18 @@
 import { ClassList } from '@outfoxx/jackson-js/dist/@types';
 import { Observable } from 'rxjs';
 import { AnyType } from './any-type';
-import { ClassType } from './class-type';
+import { ClassType, ConstructableClassType } from './class-type';
 import { MediaType } from './media-type';
 import { Problem } from './problem';
 import { URLTemplate } from './url-template';
 
 export interface RequestFactory {
   readonly baseUrl: URLTemplate;
+
+  registerProblem(
+    type: URL | string,
+    problemType: ConstructableClassType<Problem>
+  ): void;
 
   request(requestSpec: RequestSpec<unknown>): Observable<Request>;
 
@@ -43,8 +48,6 @@ export interface RequestFactory {
     requestSpec: RequestSpec<void>,
     eventTypes: EventTypes<E>
   ): Observable<E>;
-
-  registerProblem(type: ClassType<Problem>): void;
 }
 
 export interface ExtEventSource extends EventSource {
