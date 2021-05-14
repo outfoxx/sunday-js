@@ -1,4 +1,4 @@
-import { mediaType, MediaType } from './media-type';
+import { MediaType } from './media-type';
 import { HttpError } from './http-error';
 import { Problem } from './problem';
 
@@ -8,7 +8,8 @@ export async function validate(
 ): Promise<Response> {
   if (response.status < 200 || response.status >= 300) {
     if (
-      mediaType(response.headers.get('content-type')) !== MediaType.PROBLEM_JSON
+      MediaType.from(response.headers.get('content-type')) !==
+      MediaType.ProblemJSON
     ) {
       await response.body?.cancel?.();
       throw await HttpError.fromResponse(

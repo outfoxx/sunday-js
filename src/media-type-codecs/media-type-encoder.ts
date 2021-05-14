@@ -1,4 +1,4 @@
-import { AnyType } from './any-type';
+import { AnyType } from '../any-type';
 
 export interface MediaTypeEncoder {
   encode<T = unknown>(value: T, type: AnyType | undefined): BodyInit;

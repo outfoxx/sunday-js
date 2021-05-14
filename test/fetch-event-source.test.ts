@@ -14,7 +14,7 @@ describe('FetchEventSource', () => {
     fetchMock.getOnce(
       'http://example.com',
       new Response(new Blob([eventStream]), {
-        headers: { 'content-type': MediaType.EVENT_STREAM },
+        headers: { 'content-type': MediaType.EventStream.toString() },
       })
     );
 

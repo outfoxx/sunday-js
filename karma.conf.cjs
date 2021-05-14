@@ -1,41 +1,39 @@
 // Karma configuration
 // Generated on Thu Sep 24 2020 06:46:47 GMT-0700 (Mountain Standard Time)
 
-module.exports = function(config) {
+module.exports = function (config) {
   config.set({
     frameworks: ['jasmine', 'karma-typescript'],
 
     basePath: '',
-    files: [
-      'test/matchers.ts',
-      'test/**/*.ts',
-      'src/**/*.ts',
-    ],
+    files: ['test/matchers.ts', 'test/**/*.ts', 'src/**/*.ts'],
 
     preprocessors: {
-      '**/*.ts': ['karma-typescript']
+      '**/*.ts': ['karma-typescript'],
     },
 
     karmaTypescriptConfig: {
       tsconfig: './tsconfig.json',
       compilerOptions: {
-        "module": "commonjs",
+        module: 'commonjs',
       },
       bundlerOptions: {
-        exclude: [
-          "@outfoxx/jackson-js/dist/@types",
-        ],
+        sourceMap: true,
+        exclude: ['@outfoxx/jackson-js/dist/@types'],
         transforms: [
-          require("karma-typescript-es6-transform")({
+          require('karma-typescript-es6-transform')({
             presets: [
-              ["@babel/preset-env", {
-                targets: {
-                  chrome: "80"
-                }
-              }]
-            ]
-          })
-        ]
+              [
+                '@babel/preset-env',
+                {
+                  targets: {
+                    chrome: '80',
+                  },
+                },
+              ],
+            ],
+          }),
+        ],
       },
     },
 
@@ -47,6 +45,6 @@ module.exports = function(config) {
     autoWatch: true,
     browsers: ['ChromeHeadless'],
     singleRun: false,
-    concurrency: Infinity
-  })
-}
+    concurrency: Infinity,
+  });
+};

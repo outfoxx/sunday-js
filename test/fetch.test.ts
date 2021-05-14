@@ -14,7 +14,7 @@ describe('Fetch API Utilities', () => {
       new Response('<html>Error</html>', {
         status: 400,
         statusText: 'BAD REQUEST',
-        headers: { 'content-type': MediaType.HTML },
+        headers: { 'content-type': MediaType.HTML.toString() },
       })
     );
 

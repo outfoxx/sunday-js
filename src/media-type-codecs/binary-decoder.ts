@@ -1,10 +1,10 @@
 import { MediaTypeDecoder } from './media-type-decoder';
-import { AnyType } from './any-type';
+import { AnyConstructableType } from '../any-type';
 
 export class BinaryDecoder implements MediaTypeDecoder {
   static default = new BinaryDecoder();
 
-  async decode<T>(response: Response, type: AnyType): Promise<T> {
+  async decode<T>(response: Response, type: AnyConstructableType): Promise<T> {
     const arrayBuffer = await response.arrayBuffer();
 
     if (type[0] === ArrayBuffer) {

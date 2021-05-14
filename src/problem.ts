@@ -23,3 +23,7 @@ export class Problem extends Error implements Problem {
     this.instance = json.instance as string;
   }
 }
+
+export interface ProblemType {
+  TYPE?: string;
+}

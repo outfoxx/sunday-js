@@ -60,7 +60,7 @@ describe('FetchRequestFactory', () => {
       .toPromise();
     expect(request.url).toBe('http://example.com/api/contents');
     await expectAsync(request.text()).toBeResolvedTo('{"a":5}');
-    expect(request.headers.get('Content-Type')).toBe(MediaType.JSON);
+    expect(request.headers.get('Content-Type')).toBe(MediaType.JSON.toString());
   });
 
   it('attaches encoded content-type when body is nil', async () => {
@@ -74,7 +74,7 @@ describe('FetchRequestFactory', () => {
       })
       .pipe(first())
       .toPromise();
-    expect(request.headers.get('Content-Type')).toBe(MediaType.JSON);
+    expect(request.headers.get('Content-Type')).toBe(MediaType.JSON.toString());
   });
 
   it('fetches typed results', async () => {
