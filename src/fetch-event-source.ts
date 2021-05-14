@@ -146,7 +146,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
     // this.logger?.debug?.('starting event timeout checks');
 
-    this.eventTimeoutCheckHandle = setInterval(
+    this.eventTimeoutCheckHandle = window.setInterval(
       () => this.checkEventTimeout(),
       FetchEventSource.EVENT_TIMEOUT_CHECK_INTERVAL * 1000
     );
@@ -289,7 +289,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
     this.logger?.debug?.('scheduling reconnect', { retryDelay });
 
-    this.reconnectTimeoutHandle = setTimeout(
+    this.reconnectTimeoutHandle = window.setTimeout(
       () => this.internalConnect(),
       retryDelay
     );
