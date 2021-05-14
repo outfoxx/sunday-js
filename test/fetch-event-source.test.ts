@@ -19,11 +19,12 @@ describe('FetchEventSource', () => {
     );
 
     const eventSource = new FetchEventSource('http://example.com');
-    eventSource.onmessage = (ev) => {
-      console.log({ message: 'received', event: ev });
+    // eventSource.onmessage = (ev) => {
+    //   console.log({ message: 'received (dispatch)', event: ev });
+    // };
+    eventSource.onerror = (err) => {
+      console.error({ message: 'error (dispatch)', err });
     };
-    eventSource.onerror = (err) =>
-      console.log({ message: 'error received', err });
     eventSource.addEventListener('hello', () => done());
     eventSource.connect();
   });
@@ -33,17 +34,17 @@ describe('FetchEventSource', () => {
     const eventSource = new FetchEventSource('http://localhost:5555/stream', {
       logger: console,
     });
-    eventSource.onopen = function () {
-      console.log({ on: 'open', source: this });
+    eventSource.onopen = () => {
+      console.log({ on: 'open (survival)', source: this });
     };
-    eventSource.onmessage = function (ev) {
-      console.log({ on: 'message', event: ev, source: this });
+    eventSource.onmessage = (ev) => {
+      console.log({ on: 'message (survival)s', event: ev, source: this });
       if (messagesReceived++ >= 50) {
         done();
       }
     };
-    eventSource.onerror = function (err) {
-      console.log({ on: 'error', err, source: this });
+    eventSource.onerror = (err) => {
+      console.error({ on: 'error (survival)', err, source: this });
     };
     eventSource.connect();
 
