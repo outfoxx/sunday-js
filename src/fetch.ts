@@ -10,7 +10,10 @@ export async function validate(
   problemTypes?: Map<string, ConstructableClassType<Problem>>
 ): Promise<Response> {
   if (response.status < 200 || response.status >= 300) {
-    const mediaType = MediaType.from(response.headers.get('content-type'));
+    const mediaType = MediaType.from(
+      response.headers.get('content-type'),
+      MediaType.OctetStream
+    );
     const isProblemJSON = mediaType?.compatible(MediaType.ProblemJSON) ?? false;
     if (!isProblemJSON) {
       throw await Problem.fromResponse(response);
