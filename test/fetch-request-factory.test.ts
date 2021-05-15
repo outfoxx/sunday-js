@@ -1,7 +1,15 @@
-import fetchMock from 'fetch-mock';
 import { JsonClassType, JsonProperty } from '@outfoxx/jackson-js';
+import fetchMock from 'fetch-mock';
 import { first } from 'rxjs/operators';
-import { FetchRequestFactory, MediaType, Problem, SundayError } from '../src';
+import {
+  FetchRequestFactory,
+  JSONEncoder,
+  MediaType,
+  MediaTypeDecoders,
+  MediaTypeEncoders,
+  Problem,
+  SundayError,
+} from '../src';
 import any = jasmine.any;
 import objectContaining = jasmine.objectContaining;
 
@@ -24,7 +32,22 @@ describe('FetchRequestFactory', () => {
   }
 
   const fetchRequestFactory = new FetchRequestFactory('http://example.com');
-  fetchRequestFactory.registerProblem(TestProblem.TYPE, TestProblem);
+
+  it('allows overriding defaults via options', () => {
+    const specialDecoders = new MediaTypeDecoders.Builder().build();
+    const specialEncoders = new MediaTypeEncoders.Builder().build();
+    const quietLogger = {};
+
+    const fac = new FetchRequestFactory('https://example.com', {
+      mediaTypeDecoders: specialDecoders,
+      mediaTypeEncoders: specialEncoders,
+      logger: quietLogger,
+    });
+
+    expect(fac.mediaTypeDecoders).toBe(specialDecoders);
+    expect(fac.mediaTypeEncoders).toBe(specialEncoders);
+    expect(fac.logger).toBe(quietLogger);
+  });
 
   it('replaces path template parameters', async () => {
     await expectAsync(
@@ -62,6 +85,72 @@ describe('FetchRequestFactory', () => {
     );
   });
 
+  it('fails when no query parameter encoder is registered', async () => {
+    const specialEncoders = new MediaTypeEncoders.Builder().build();
+
+    const fetchRequestFactory = new FetchRequestFactory('https://example.com', {
+      mediaTypeEncoders: specialEncoders,
+    });
+
+    await expectAsync(
+      fetchRequestFactory
+        .request({
+          method: 'GET',
+          pathTemplate: '/api/{id}/contents',
+          pathParameters: { id: '12345' },
+          queryParameters: {
+            limit: 5,
+            search: '1 & 2',
+          },
+        })
+        .pipe(first())
+        .toPromise()
+    ).toBeRejectedWithError(Error, /Unsupported Media Type/i);
+  });
+
+  it('fails query parameter encoder is not a URLQueryParamsEncoder', async () => {
+    const specialEncoders = new MediaTypeEncoders.Builder()
+      .addDefaults()
+      .add(MediaType.WWWFormUrlEncoded, JSONEncoder.default)
+      .build();
+
+    const fetchRequestFactory = new FetchRequestFactory('https://example.com', {
+      mediaTypeEncoders: specialEncoders,
+    });
+
+    await expectAsync(
+      fetchRequestFactory
+        .request({
+          method: 'GET',
+          pathTemplate: '/api/{id}/contents',
+          pathParameters: { id: '12345' },
+          queryParameters: {
+            limit: 5,
+            search: '1 & 2',
+          },
+        })
+        .pipe(first())
+        .toPromise()
+    ).toBeRejectedWithError(Error, /URLQueryParamsEncoder/i);
+  });
+
+  it('adds accept header', async () => {
+    const request: Request = await fetchRequestFactory
+      .request({
+        method: 'POST',
+        pathTemplate: '/api/contents',
+        body: { a: 5 },
+        bodyType: [Object],
+        contentTypes: [MediaType.JSON],
+        acceptTypes: [MediaType.JSON, MediaType.CBOR],
+      })
+      .pipe(first())
+      .toPromise();
+    expect(request.headers.get('Accept')).toBe(
+      `${MediaType.JSON} , ${MediaType.CBOR}`
+    );
+  });
+
   it('attaches encoded body based on content-type', async () => {
     const request: Request = await fetchRequestFactory
       .request({
@@ -90,6 +179,27 @@ describe('FetchRequestFactory', () => {
       .pipe(first())
       .toPromise();
     expect(request.headers.get('Content-Type')).toBe(MediaType.JSON.toString());
+  });
+
+  it('fails when body content-type encoder is registered', async () => {
+    const specialEncoders = new MediaTypeEncoders.Builder().build();
+
+    const fetchRequestFactory = new FetchRequestFactory('https://example.com', {
+      mediaTypeEncoders: specialEncoders,
+    });
+
+    await expectAsync(
+      fetchRequestFactory
+        .request({
+          method: 'POST',
+          pathTemplate: '/api/contents',
+          body: { a: 5 },
+          bodyType: [Object],
+          contentTypes: [MediaType.JSON],
+        })
+        .pipe(first())
+        .toPromise()
+    ).toBeRejectedWithError(Error, /Unsupported content-type/i);
   });
 
   it('fetches typed results', async () => {
@@ -124,8 +234,75 @@ describe('FetchRequestFactory', () => {
     ).toBeResolved(new Test('a', new Sub(5)));
   });
 
-  it('throws typed problems for application/problem+json', async () => {
+  it('builds event sources via eventSource', (done) => {
+    const encodedEvent = new TextEncoder().encode(
+      'event: hello\nid: 12345\ndata: Hello World!\n\n'
+    ).buffer;
+
+    fetchMock.getOnce(
+      'http://example.com',
+      () =>
+        new Response(new Blob([encodedEvent]), {
+          headers: { 'content-type': MediaType.EventStream.toString() },
+        })
+    );
+    fetchMock.getOnce(
+      'http://example.com',
+      () => new Promise((resolve) => setTimeout(resolve, 5000)),
+      { overwriteRoutes: false }
+    );
+
+    const fetchRequestFactory = new FetchRequestFactory('http://example.com', {
+      logger: {},
+    });
+
+    const eventSource = fetchRequestFactory.eventSource({
+      method: 'GET',
+      pathTemplate: '',
+    });
+    eventSource.onmessage = () => {
+      eventSource.close();
+      done();
+    };
+    eventSource.connect();
+  });
+
+  it('builds ovservable events via eventStream', async () => {
+    const encodedEvent = new TextEncoder().encode(
+      'event: hello\nid: 12345\ndata: {"target":"world"}\n\n'
+    ).buffer;
+
+    fetchMock.getOnce(
+      'http://example.com',
+      () =>
+        new Response(new Blob([encodedEvent]), {
+          headers: { 'content-type': MediaType.EventStream.toString() },
+        })
+    );
+    fetchMock.getOnce(
+      'http://example.com',
+      () => new Promise((resolve) => setTimeout(resolve, 5000)),
+      { overwriteRoutes: false }
+    );
+
+    const fetchRequestFactory = new FetchRequestFactory('http://example.com', {
+      logger: {},
+    });
+
+    const event$ = fetchRequestFactory.eventStream(
+      { method: 'GET', pathTemplate: '' },
+      { hello: [Object] }
+    );
+
+    await expectAsync(event$.pipe(first()).toPromise()).toBeResolved({
+      target: 'world',
+    });
+  });
+
+  it('throws typed problems for registered problem types', async () => {
     //
+    fetchRequestFactory.registerProblem(TestProblem.TYPE, TestProblem);
+
     const problemJSON = JSON.stringify({
       type: TestProblem.TYPE,
       status: 400,
@@ -146,6 +323,48 @@ describe('FetchRequestFactory', () => {
         .pipe(first())
         .toPromise()
     ).toBeRejectedWith(new TestProblem());
+  });
+
+  it('throws generic problems for unregistered problem types', async () => {
+    //
+    const testProblem = new TestProblem();
+
+    const problemJSON = JSON.stringify({
+      type: TestProblem.TYPE,
+      title: testProblem.title,
+      status: testProblem.status,
+      detail: testProblem.detail,
+      instance: testProblem.instance,
+    });
+
+    fetchMock.getOnce('http://example.com', {
+      body: problemJSON,
+      status: 400,
+      headers: { 'content-type': MediaType.ProblemJSON.value },
+    });
+
+    await expectAsync(
+      fetchRequestFactory
+        .result({ method: 'GET', pathTemplate: '' })
+        .pipe(first())
+        .toPromise()
+    ).toBeRejectedWith(new Problem(testProblem));
+  });
+
+  it('translates non-problem error responses to generic problems', async () => {
+    //
+    fetchMock.getOnce('http://example.com', {
+      body: '<error>Error</error>',
+      status: 400,
+      headers: { 'content-type': MediaType.HTML.value },
+    });
+
+    await expectAsync(
+      fetchRequestFactory
+        .result({ method: 'GET', pathTemplate: '' })
+        .pipe(first())
+        .toPromise()
+    ).toBeRejectedWith(Problem.fromStatus(400, 'Bad Request'));
   });
 
   it('throws SundayError when decoding fails', async () => {

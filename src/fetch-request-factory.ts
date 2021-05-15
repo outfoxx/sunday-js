@@ -1,4 +1,4 @@
-import { Observable, of, Subscriber } from 'rxjs';
+import { defer, Observable, of, Subscriber } from 'rxjs';
 import { mapTo, switchMap } from 'rxjs/operators';
 import { AnyType } from './any-type';
 import { ConstructableClassType } from './class-type';
@@ -61,64 +61,70 @@ export class FetchRequestFactory implements RequestFactory {
     requestInit?: RequestInit
   ): Observable<Request> {
     //
-    const url = this.baseUrl.complete(
-      requestSpec.pathTemplate,
-      requestSpec.pathParameters ?? {}
-    );
+    return defer(() => {
+      const url = this.baseUrl.complete(
+        requestSpec.pathTemplate,
+        requestSpec.pathParameters ?? {}
+      );
 
-    if (requestSpec.queryParameters) {
-      const encoder = this.mediaTypeEncoders.find(MediaType.WWWFormUrlEncoded);
-      if (!isURLQueryParamsEncoder(encoder)) {
-        throw Error(
-          `MediaTypeEncoder for ${MediaType.WWWFormUrlEncoded} must be an instance of URLEncoder`
+      if (requestSpec.queryParameters) {
+        const encoder = this.mediaTypeEncoders.find(
+          MediaType.WWWFormUrlEncoded
         );
-      }
-      url.search = `?${encoder.encodeQueryString(requestSpec.queryParameters)}`;
-    }
-
-    const headers = new Headers(requestSpec.headers);
-
-    // Determine & add accept header
-    const supportedAcceptTypes = requestSpec.acceptTypes?.filter((type) =>
-      this.mediaTypeDecoders.supports(type)
-    );
-    if (supportedAcceptTypes?.length) {
-      const accept = supportedAcceptTypes.join(' , ');
-
-      headers.set('accept', accept);
-    }
-
-    // Determine content type
-    const contentType = requestSpec.contentTypes?.find((type) =>
-      this.mediaTypeEncoders.supports(type)
-    );
-
-    // If matched, add content type (even if body is nil, to match any expected server requirements)
-    if (contentType) {
-      headers.set('content-type', contentType.toString());
-    }
-
-    // Encode & add body data
-    let body: BodyInit | undefined;
-    if (requestSpec.body) {
-      if (!contentType) {
-        throw Error('Unsupported content-type for request body');
+        if (!isURLQueryParamsEncoder(encoder)) {
+          throw Error(
+            `MediaTypeEncoder for ${MediaType.WWWFormUrlEncoded} must be an instance of URLQueryParamsEncoder`
+          );
+        }
+        url.search = `?${encoder.encodeQueryString(
+          requestSpec.queryParameters
+        )}`;
       }
 
-      body = this.mediaTypeEncoders
-        .find(contentType)
-        .encode(requestSpec.body, requestSpec.bodyType);
-    }
+      const headers = new Headers(requestSpec.headers);
 
-    const init: RequestInit = Object.assign({}, requestInit, {
-      headers,
-      body,
-      method: requestSpec.method,
+      // Determine & add accept header
+      const supportedAcceptTypes = requestSpec.acceptTypes?.filter((type) =>
+        this.mediaTypeDecoders.supports(type)
+      );
+      if (supportedAcceptTypes?.length) {
+        const accept = supportedAcceptTypes.join(' , ');
+
+        headers.set('accept', accept);
+      }
+
+      // Determine content type
+      const contentType = requestSpec.contentTypes?.find((type) =>
+        this.mediaTypeEncoders.supports(type)
+      );
+
+      // If matched, add content type (even if body is nil, to match any expected server requirements)
+      if (contentType) {
+        headers.set('content-type', contentType.toString());
+      }
+
+      // Encode & add body data
+      let body: BodyInit | undefined;
+      if (requestSpec.body) {
+        if (!contentType) {
+          throw Error('Unsupported content-type for request body');
+        }
+
+        body = this.mediaTypeEncoders
+          .find(contentType)
+          .encode(requestSpec.body, requestSpec.bodyType);
+      }
+
+      const init: RequestInit = Object.assign({}, requestInit, {
+        headers,
+        body,
+        method: requestSpec.method,
+      });
+
+      const request = new Request(url.toString(), init);
+
+      return this.adapter?.(request) ?? of(request);
     });
-
-    const request = new Request(url.toString(), init);
-
-    return this.adapter?.(request) ?? of(request);
   }
 
   response(

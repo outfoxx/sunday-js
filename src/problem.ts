@@ -107,6 +107,14 @@ export class Problem extends Error implements Problem {
     });
   }
 
+  static fromStatus(status: number, title: string): Problem {
+    return new Problem({
+      type: 'about:blank',
+      title,
+      status,
+    });
+  }
+
   static async fromResponse(response: Response): Promise<Problem> {
     const [bodyExcerpt, body] = await ResponseExample.bodyExcerpt(
       response,
