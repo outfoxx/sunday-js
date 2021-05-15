@@ -1,8 +1,9 @@
 export namespace Hex {
   export function decode(hex: string): ArrayBuffer {
+    hex = hex.replace(/^0x/, '').replace(/\s/g, '');
     const values = hex.match(/[\da-f]{2}/gi);
-    if (!values) {
-      throw Error('Invalid hex string');
+    if (!values || values.length != hex.length / 2) {
+      throw Error(`Invalid hex string`);
     }
     return new Uint8Array(values.map((b) => parseInt(b, 16))).buffer;
   }
