@@ -13,19 +13,28 @@ describe('FetchEventSource', () => {
 
     fetchMock.getOnce(
       'http://example.com',
-      new Response(new Blob([eventStream]), {
-        headers: { 'content-type': MediaType.EventStream.toString() },
-      })
+      () =>
+        new Response(new Blob([eventStream]), {
+          headers: { 'content-type': MediaType.EventStream.toString() },
+        })
+    );
+    fetchMock.getOnce(
+      'http://example.com',
+      () => new Promise((resolve) => setTimeout(resolve, 5000)),
+      { overwriteRoutes: false }
     );
 
     const eventSource = new FetchEventSource('http://example.com');
     // eventSource.onmessage = (ev) => {
-    //   console.log({ message: 'received (dispatch)', event: ev });
+    //   console.log({ message: 'received (dispatch)' });
     // };
     eventSource.onerror = (err) => {
       console.error({ message: 'error (dispatch)', err });
     };
-    eventSource.addEventListener('hello', () => done());
+    eventSource.addEventListener('hello', () => {
+      eventSource.close();
+      done();
+    });
     eventSource.connect();
   });
 
