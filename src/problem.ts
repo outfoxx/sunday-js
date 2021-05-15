@@ -1,27 +1,77 @@
 import { ResponseExample } from './fetch';
+import {
+  JsonAnyGetter,
+  JsonAnySetter,
+  JsonClassType,
+  JsonCreator,
+  JsonCreatorMode,
+  JsonIgnore,
+  JsonProperty,
+} from '@outfoxx/jackson-js';
+
+export interface ProblemSpec {
+  type: URL | string;
+  status: number;
+  title: string;
+  detail?: string;
+  instance?: URL | string;
+  [key: string]: unknown;
+}
 
 export interface Problem {
   type: URL;
-  status: number;
   title: string;
-  detail: string;
+  status: number;
+  detail?: string;
   instance?: URL;
   [key: string]: unknown;
 }
 
+@JsonCreator({ mode: JsonCreatorMode.DELEGATING })
 export class Problem extends Error implements Problem {
+  @JsonProperty()
+  @JsonClassType({ type: () => [URL] })
   public type: URL;
-  public status: number;
+
+  @JsonProperty()
+  @JsonClassType({ type: () => [String] })
   public title: string;
-  public detail: string;
+
+  @JsonProperty()
+  @JsonClassType({ type: () => [Number] })
+  public status: number;
+
+  @JsonProperty()
+  @JsonClassType({ type: () => [String] })
+  public detail?: string;
+
+  @JsonProperty()
+  @JsonClassType({ type: () => [URL] })
   public instance?: URL;
 
-  constructor(src: Record<string, unknown>) {
-    super(`${src.status} ${src.type} - ${src.title}`);
+  @JsonIgnore()
+  private _parameters?: Record<string, unknown>;
+
+  @JsonClassType({ type: () => [Object] })
+  @JsonAnyGetter()
+  public get parameters(): Record<string, unknown> | undefined {
+    return this._parameters;
+  }
+
+  @JsonAnySetter()
+  private setParameter(key: string, value: unknown) {
+    this._parameters = this._parameters ?? {};
+    this._parameters[key] = value;
+  }
+
+  constructor(spec: ProblemSpec) {
+    super(`${spec.status.toString()} ${spec.type} - ${spec.title}`);
+
+    const src = (spec as unknown) as Record<string, unknown>;
 
     const json = Object.assign({}, src);
 
-    this.type = Problem.parseURL(this.type) ?? new URL('about:blank');
+    this.type = Problem.parseURL(json.type) ?? new URL('about:blank');
     delete json.type;
 
     this.status = json.status as number;
@@ -36,7 +86,9 @@ export class Problem extends Error implements Problem {
     this.instance = Problem.parseURL(json.instance);
     delete json.instance;
 
-    Object.assign(this, json);
+    if (Object.keys(json).length != 0) {
+      this._parameters = json;
+    }
   }
 
   toString(): string {
@@ -63,8 +115,8 @@ export class Problem extends Error implements Problem {
 
     return new Problem({
       type: 'about:blank',
-      status: response.status,
       title: response.statusText,
+      status: response.status,
       request: {
         url: response.url,
       },
