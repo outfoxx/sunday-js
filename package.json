@@ -32,6 +32,7 @@
     "@outfoxx/cbor-redux": "^0.3.1",
     "@outfoxx/jackson-js": "^1.2.22",
     "common-tags": "^1.8.0",
+    "karma-coverage": "^2.0.3",
     "rxjs": "^6.6.3",
     "uri-template-lite": "^20.5.0"
   },

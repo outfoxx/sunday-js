@@ -11,6 +11,7 @@ module.exports = function (config) {
     preprocessors: {
       '**/*.ts': ['karma-typescript', 'sourcemap'],
       '**/*.js': ['sourcemap'],
+      'src/**/*.ts': ['coverage'],
     },
 
     karmaTypescriptConfig: {
@@ -41,7 +42,7 @@ module.exports = function (config) {
       },
     },
 
-    reporters: ['progress'],
+    reporters: ['progress', 'coverage'],
 
     port: 9876,
     colors: true,
