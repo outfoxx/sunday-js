@@ -12,5 +12,5 @@ export function isStructuredMediaTypeDecoder(
   decoder: MediaTypeDecoder | StructuredMediaTypeDecoder | undefined
 ): decoder is StructuredMediaTypeDecoder {
   const rec = (decoder as unknown) as Record<string, unknown>;
-  return !!rec.decodeJSON ?? false;
+  return !!rec.decodeObject ?? false;
 }
