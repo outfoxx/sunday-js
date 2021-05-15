@@ -17,10 +17,10 @@ import {
 import { JsonParser } from '@outfoxx/jackson-js';
 import { CustomMapper, Deserializer } from '@outfoxx/jackson-js/dist/@types';
 import { AnyType } from '../any-type';
-import { MediaTypeDecoder } from './media-type-decoder';
+import { StructuredMediaTypeDecoder } from './media-type-decoder';
 import { Base64 } from '../util/base64';
 
-export class JSONDecoder implements MediaTypeDecoder {
+export class JSONDecoder implements StructuredMediaTypeDecoder {
   static get default(): JSONDecoder {
     return new JSONDecoder(JSONDecoder.NumericDateDecoding.FRACTIONAL_SECONDS);
   }
@@ -74,7 +74,7 @@ export class JSONDecoder implements MediaTypeDecoder {
   }
 
   async decode<T>(response: Response, type: AnyType): Promise<T> {
-    return this.decodeJSON(await response.json(), type);
+    return Promise.resolve(this.decodeObject(await response.json(), type));
   }
 
   decodeText<T>(text: string, type: AnyType): T {
@@ -84,7 +84,7 @@ export class JSONDecoder implements MediaTypeDecoder {
     }) as T;
   }
 
-  decodeJSON<T, U>(value: T, type: AnyType): Promise<U> {
+  decodeObject<T>(value: unknown, type: AnyType): T {
     return this.parser.transform(value, {
       deserializers: this.customDeserializers,
       mainCreator: () => type,

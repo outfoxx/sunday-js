@@ -17,9 +17,9 @@ import 'reflect-metadata';
 import { AnyType } from '../any-type';
 import { Base64 } from '../util/base64';
 import { encodeSeconds, secondsToNumber } from '../util/temporal';
-import { MediaTypeEncoder } from './media-type-encoder';
+import { StructuredMediaTypeEncoder } from './media-type-encoder';
 
-export class JSONEncoder implements MediaTypeEncoder {
+export class JSONEncoder implements StructuredMediaTypeEncoder {
   static get default(): JSONEncoder {
     return new JSONEncoder(JSONEncoder.DateEncoding.ISO8601);
   }
@@ -99,7 +99,11 @@ export class JSONEncoder implements MediaTypeEncoder {
     });
   }
 
-  encodeJSON<T>(value: T, type?: AnyType, includeNulls = false): unknown {
+  encodeObject<T>(
+    value: T,
+    type?: AnyType,
+    includeNulls = false
+  ): Record<string, unknown> {
     // Use natural type when subtypes exist
     if (
       Reflect.hasMetadata(
