@@ -94,8 +94,10 @@ describe('WWWFormUrlEncoder', () => {
     );
   });
 
-  const date1 = Instant.parse('2017-05-15T08:30:00Z');
-  const date2 = OffsetDateTime.parse('2018-06-16T09:40:10+07:00').toInstant();
+  const date1 = Instant.parse('2017-05-15T08:30:00.123456789Z');
+  const date2 = OffsetDateTime.parse(
+    '2018-06-16T09:40:10.123456789+07:00'
+  ).toInstant();
 
   it('encodes date values in ISO form', () => {
     const encoder = new WWWFormUrlEncoder(
@@ -104,11 +106,8 @@ describe('WWWFormUrlEncoder', () => {
       WWWFormUrlEncoder.DateEncoding.ISO8601
     );
 
-    const date1Val = encodeURIComponent(date1.toString());
-    const date2Val = encodeURIComponent(date2.toString());
-
     expect(encoder.encodeQueryString({ test: [date1, date2] })).toBe(
-      `test=${date1Val}&test=${date2Val}`
+      `test=2017-05-15T08%3A30%3A00.123456789Z&test=2018-06-16T02%3A40%3A10.123456789Z`
     );
   });
 
@@ -119,11 +118,8 @@ describe('WWWFormUrlEncoder', () => {
       WWWFormUrlEncoder.DateEncoding.SECONDS_SINCE_EPOCH
     );
 
-    const date1Val = encodeURIComponent(date1.toEpochMilli() / 1000.0);
-    const date2Val = encodeURIComponent(date2.toEpochMilli() / 1000.0);
-
     expect(encoder.encodeQueryString({ test: [date1, date2] })).toBe(
-      `test=${date1Val}&test=${date2Val}`
+      `test=1494837000.1234567&test=1529116810.1234567`
     );
   });
 
@@ -134,11 +130,8 @@ describe('WWWFormUrlEncoder', () => {
       WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
     );
 
-    const date1Val = encodeURIComponent(date1.toEpochMilli());
-    const date2Val = encodeURIComponent(date2.toEpochMilli());
-
     expect(encoder.encodeQueryString({ test: [date1, date2] })).toBe(
-      `test=${date1Val}&test=${date2Val}`
+      `test=1494837000123&test=1529116810123`
     );
   });
 });

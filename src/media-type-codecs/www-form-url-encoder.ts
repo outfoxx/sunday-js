@@ -67,7 +67,7 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
       //
       const rec = (value ?? {}) as Record<string, unknown>;
 
-      for (const nestedKey of Object.keys(rec)) {
+      for (const nestedKey of Object.keys(rec).sort()) {
         components.push(
           ...this.encodeQueryComponent(`${key}[${nestedKey}]`, rec[nestedKey])
         );
@@ -114,7 +114,7 @@ function encodeDate(
   value = value instanceof Date ? Instant.ofEpochMilli(value.getTime()) : value;
   switch (encoding) {
     case WWWFormUrlEncoder.DateEncoding.SECONDS_SINCE_EPOCH:
-      return `${value.toEpochMilli() / 1000.0}`;
+      return (value.epochSecond() + value.nano() / 1_000_000_000.0).toFixed(7);
     case WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH:
       return `${value.toEpochMilli()}`;
     case WWWFormUrlEncoder.DateEncoding.ISO8601:
