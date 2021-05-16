@@ -84,10 +84,17 @@ export class FetchRequestFactory implements RequestFactory {
       const headers = new Headers(requestSpec.headers);
 
       // Determine & add accept header
-      const supportedAcceptTypes = requestSpec.acceptTypes?.filter((type) =>
-        this.mediaTypeDecoders.supports(type)
-      );
-      if (supportedAcceptTypes?.length) {
+      if (requestSpec.acceptTypes) {
+        const supportedAcceptTypes = requestSpec.acceptTypes.filter((type) =>
+          this.mediaTypeDecoders.supports(type)
+        );
+
+        if (!supportedAcceptTypes.length) {
+          throw Error(
+            'None of the provided accept types has a reqistered decoder'
+          );
+        }
+
         const accept = supportedAcceptTypes.join(' , ');
 
         headers.set('accept', accept);
@@ -107,7 +114,9 @@ export class FetchRequestFactory implements RequestFactory {
       let body: BodyInit | undefined;
       if (requestSpec.body) {
         if (!contentType) {
-          throw Error('Unsupported content-type for request body');
+          throw Error(
+            'None of the provided content types has a registered encoder'
+          );
         }
 
         body = this.mediaTypeEncoders
