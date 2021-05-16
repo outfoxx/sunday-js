@@ -113,7 +113,7 @@ function encodeDate(
 ): string {
   value = value instanceof Date ? Instant.ofEpochMilli(value.getTime()) : value;
   switch (encoding) {
-    case WWWFormUrlEncoder.DateEncoding.SECONDS_SINCE_EPOCH:
+    case WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH:
       return (value.epochSecond() + value.nano() / 1_000_000_000.0).toFixed(7);
     case WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH:
       return `${value.toEpochMilli()}`;
@@ -158,9 +158,9 @@ export namespace WWWFormUrlEncoder {
    */
   export enum DateEncoding {
     /**
-     * Encode the `Date` as a UNIX timestamp (floating point seconds since epoch).
+     * Encode the `Date` as a UNIX timestamp (decimal seconds since epoch).
      */
-    SECONDS_SINCE_EPOCH,
+    DECIMAL_SECONDS_SINCE_EPOCH,
 
     /**
      * Encode the `Date` as UNIX millisecond timestamp (integer milliseconds since epoch).

@@ -93,7 +93,7 @@ describe('CBOREncoder', () => {
     );
   });
 
-  it('encodes Instant values as date (fractional seconds)', async () => {
+  it('encodes Instant values as date (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -105,7 +105,7 @@ describe('CBOREncoder', () => {
 
     expect(
       new CBOREncoder(
-        CBOREncoder.DateEncoding.FRACTIONAL_SECONDS
+        CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).encode(
         new Test(
           ZonedDateTime.of(
@@ -135,7 +135,9 @@ describe('CBOREncoder', () => {
     }
 
     expect(
-      new CBOREncoder(CBOREncoder.DateEncoding.MILLISECONDS).encode(
+      new CBOREncoder(
+        CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
+      ).encode(
         new Test(
           ZonedDateTime.of(
             2001,
@@ -175,7 +177,7 @@ describe('CBOREncoder', () => {
     );
   });
 
-  it('encodes ZonedDateTime values as date (fractional seconds)', async () => {
+  it('encodes ZonedDateTime values as date (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -187,7 +189,7 @@ describe('CBOREncoder', () => {
 
     expect(
       new CBOREncoder(
-        CBOREncoder.DateEncoding.FRACTIONAL_SECONDS
+        CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).encode(
         new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC)),
         [Test]
@@ -206,7 +208,9 @@ describe('CBOREncoder', () => {
     }
 
     expect(
-      new CBOREncoder(CBOREncoder.DateEncoding.MILLISECONDS).encode(
+      new CBOREncoder(
+        CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
+      ).encode(
         new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC)),
         [Test]
       )
@@ -237,7 +241,7 @@ describe('CBOREncoder', () => {
     );
   });
 
-  it('encodes OffsetDateTime values as date (fractional seconds)', async () => {
+  it('encodes OffsetDateTime values as date (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -249,7 +253,7 @@ describe('CBOREncoder', () => {
 
     expect(
       new CBOREncoder(
-        CBOREncoder.DateEncoding.FRACTIONAL_SECONDS
+        CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).encode(
         new Test(
           OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC)
@@ -270,7 +274,9 @@ describe('CBOREncoder', () => {
     }
 
     expect(
-      new CBOREncoder(CBOREncoder.DateEncoding.MILLISECONDS).encode(
+      new CBOREncoder(
+        CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
+      ).encode(
         new Test(
           OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC)
         ),
@@ -297,7 +303,7 @@ describe('CBOREncoder', () => {
     ).toEqual(Hex.decode('A1 64 74657374 6D 30343A30353A30362E3738395A'));
   });
 
-  it('encodes OffsetTime values as array (fractional seconds)', async () => {
+  it('encodes OffsetTime values as array (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -309,7 +315,7 @@ describe('CBOREncoder', () => {
 
     expect(
       new CBOREncoder(
-        CBOREncoder.DateEncoding.FRACTIONAL_SECONDS
+        CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).encode(new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)), [
         Test,
       ])
@@ -327,10 +333,11 @@ describe('CBOREncoder', () => {
     }
 
     expect(
-      new CBOREncoder(CBOREncoder.DateEncoding.MILLISECONDS).encode(
-        new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)),
-        [Test]
-      )
+      new CBOREncoder(
+        CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
+      ).encode(new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)), [
+        Test,
+      ])
     ).toEqual(Hex.decode('A1 64 74657374 85 04 05 06 19 0315 61 5A'));
   });
 
@@ -356,7 +363,7 @@ describe('CBOREncoder', () => {
     );
   });
 
-  it('encodes LocalDateTime values as array (fractional seconds)', async () => {
+  it('encodes LocalDateTime values as array (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -368,7 +375,7 @@ describe('CBOREncoder', () => {
 
     expect(
       new CBOREncoder(
-        CBOREncoder.DateEncoding.FRACTIONAL_SECONDS
+        CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).encode(new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)), [
         Test,
       ])
@@ -388,10 +395,11 @@ describe('CBOREncoder', () => {
     }
 
     expect(
-      new CBOREncoder(CBOREncoder.DateEncoding.MILLISECONDS).encode(
-        new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)),
-        [Test]
-      )
+      new CBOREncoder(
+        CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
+      ).encode(new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)), [
+        Test,
+      ])
     ).toEqual(Hex.decode('A1 64 74657374 87 19 07D1 02 03 04 05 06 19 0315'));
   });
 
@@ -413,7 +421,7 @@ describe('CBOREncoder', () => {
     ).toEqual(Hex.decode('A1 64 74657374 6A 323030312D30322D3033'));
   });
 
-  it('encodes LocalDate values as array (fractional seconds)', async () => {
+  it('encodes LocalDate values as array (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -425,7 +433,7 @@ describe('CBOREncoder', () => {
 
     expect(
       new CBOREncoder(
-        CBOREncoder.DateEncoding.FRACTIONAL_SECONDS
+        CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).encode(new Test(LocalDate.of(2001, 2, 3)), [Test])
     ).toEqual(Hex.decode('A1 64 74657374 83 19 07D1 02 03'));
   });
@@ -441,10 +449,9 @@ describe('CBOREncoder', () => {
     }
 
     expect(
-      new CBOREncoder(CBOREncoder.DateEncoding.MILLISECONDS).encode(
-        new Test(LocalDate.of(2001, 2, 3)),
-        [Test]
-      )
+      new CBOREncoder(
+        CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
+      ).encode(new Test(LocalDate.of(2001, 2, 3)), [Test])
     ).toEqual(Hex.decode('A1 64 74657374 83 19 07D1 02 03'));
   });
 
@@ -466,7 +473,7 @@ describe('CBOREncoder', () => {
     ).toEqual(Hex.decode('A1 64 74657374 6C 30343A30353A30362E373839'));
   });
 
-  it('encodes LocalTime values as array (fractional seconds)', async () => {
+  it('encodes LocalTime values as array (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -478,7 +485,7 @@ describe('CBOREncoder', () => {
 
     expect(
       new CBOREncoder(
-        CBOREncoder.DateEncoding.FRACTIONAL_SECONDS
+        CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).encode(new Test(LocalTime.of(4, 5, 6, 789000000)), [Test])
     ).toEqual(Hex.decode('A1 64 74657374 84 04 05 06 1A 2F072F40'));
   });
@@ -494,10 +501,9 @@ describe('CBOREncoder', () => {
     }
 
     expect(
-      new CBOREncoder(CBOREncoder.DateEncoding.MILLISECONDS).encode(
-        new Test(LocalTime.of(4, 5, 6, 789000000)),
-        [Test]
-      )
+      new CBOREncoder(
+        CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
+      ).encode(new Test(LocalTime.of(4, 5, 6, 789000000)), [Test])
     ).toEqual(Hex.decode('A1 64 74657374 84 04 05 06 19 0315'));
   });
 
@@ -537,7 +543,7 @@ describe('CBOREncoder', () => {
 
     expect(
       new CBOREncoder(
-        CBOREncoder.DateEncoding.FRACTIONAL_SECONDS
+        CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).encode(
         new Test(new Date(Instant.ofEpochMilli(981173106789).toString())),
         [Test]

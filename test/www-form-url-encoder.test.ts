@@ -115,7 +115,7 @@ describe('WWWFormUrlEncoder', () => {
     const encoder = new WWWFormUrlEncoder(
       WWWFormUrlEncoder.ArrayEncoding.UNBRACKETED,
       WWWFormUrlEncoder.BoolEncoding.LITERAL,
-      WWWFormUrlEncoder.DateEncoding.SECONDS_SINCE_EPOCH
+      WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
     );
 
     expect(encoder.encodeQueryString({ test: [date1, date2] })).toBe(

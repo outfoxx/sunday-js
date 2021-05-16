@@ -104,12 +104,12 @@ export class JSONDecoder implements StructuredMediaTypeDecoder {
     if (typeof value === 'number') {
       if (
         this.numericDateDecoding ===
-        JSONDecoder.NumericDateDecoding.MILLISECONDS
+        JSONDecoder.NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
       ) {
         return Instant.ofEpochMilli(value);
       } else if (
         this.numericDateDecoding ===
-        JSONDecoder.NumericDateDecoding.FRACTIONAL_SECONDS
+        JSONDecoder.NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ) {
         const duration = Duration.parse(`PT${value}S`);
         return Instant.ofEpochSecond(duration.seconds(), duration.nano());
@@ -140,13 +140,13 @@ export class JSONDecoder implements StructuredMediaTypeDecoder {
     if (typeof value === 'number') {
       if (
         this.numericDateDecoding ===
-        JSONDecoder.NumericDateDecoding.MILLISECONDS
+        JSONDecoder.NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
       ) {
         const instant = Instant.ofEpochMilli(value);
         return ZonedDateTime.ofInstant(instant, ZoneId.UTC);
       } else if (
         this.numericDateDecoding ===
-        JSONDecoder.NumericDateDecoding.FRACTIONAL_SECONDS
+        JSONDecoder.NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ) {
         const duration = Duration.parse(`PT${value}S`);
         const instant = Instant.ofEpochSecond(
@@ -183,13 +183,13 @@ export class JSONDecoder implements StructuredMediaTypeDecoder {
     if (typeof value === 'number') {
       if (
         this.numericDateDecoding ===
-        JSONDecoder.NumericDateDecoding.MILLISECONDS
+        JSONDecoder.NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
       ) {
         const instant = Instant.ofEpochMilli(value);
         return OffsetDateTime.ofInstant(instant, ZoneId.UTC);
       } else if (
         this.numericDateDecoding ===
-        JSONDecoder.NumericDateDecoding.FRACTIONAL_SECONDS
+        JSONDecoder.NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ) {
         const duration = Duration.parse(`PT${value}S`);
         const instant = Instant.ofEpochSecond(
@@ -237,7 +237,7 @@ export class JSONDecoder implements StructuredMediaTypeDecoder {
           nanoOfSecond = value[idx++];
           if (
             this.numericDateDecoding ==
-            JSONDecoder.NumericDateDecoding.MILLISECONDS
+            JSONDecoder.NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
           ) {
             // millis to nanos
             nanoOfSecond *= 1_000_000;
@@ -288,7 +288,7 @@ export class JSONDecoder implements StructuredMediaTypeDecoder {
           nanoOfSecond = value[idx++];
           if (
             this.numericDateDecoding ==
-            JSONDecoder.NumericDateDecoding.MILLISECONDS
+            JSONDecoder.NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
           ) {
             // millis to nanos
             nanoOfSecond *= 1_000_000;
@@ -368,7 +368,7 @@ export class JSONDecoder implements StructuredMediaTypeDecoder {
           nanoOfSecond = value[idx++];
           if (
             this.numericDateDecoding ==
-            JSONDecoder.NumericDateDecoding.MILLISECONDS
+            JSONDecoder.NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
           ) {
             // millis to nanos
             nanoOfSecond *= 1_000_000;
@@ -396,12 +396,12 @@ export class JSONDecoder implements StructuredMediaTypeDecoder {
     if (typeof value === 'number') {
       if (
         this.numericDateDecoding ===
-        JSONDecoder.NumericDateDecoding.MILLISECONDS
+        JSONDecoder.NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
       ) {
         return new Date(value);
       } else if (
         this.numericDateDecoding ===
-        JSONDecoder.NumericDateDecoding.FRACTIONAL_SECONDS
+        JSONDecoder.NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ) {
         return new Date(value * 1000);
       } else {
@@ -450,14 +450,14 @@ export namespace JSONDecoder {
    */
   export enum NumericDateDecoding {
     /**
-     * Decode numeric temporal values assuming they are seconds with fractional
+     * Decode numeric temporal values assuming they are seconds with decimal
      * sub-second precision.
      */
-    FRACTIONAL_SECONDS,
+    DECIMAL_SECONDS_SINCE_EPOCH,
 
     /**
      * Decode numeric temporal values assuming they are integer milliseconds.
      */
-    MILLISECONDS,
+    MILLISECONDS_SINCE_EPOCH,
   }
 }

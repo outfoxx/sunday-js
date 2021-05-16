@@ -92,7 +92,7 @@ export class CBOREncoder implements MediaTypeEncoder {
     });
   }
 
-  private instantSerializer: Serializer = (key: string, value: Instant) => {
+  private instantSerializer: Serializer = (_, value: Instant) => {
     if (value == null) {
       return null;
     }
@@ -105,9 +105,9 @@ export class CBOREncoder implements MediaTypeEncoder {
           ),
           isoDateTimeTag
         );
-      case CBOREncoder.DateEncoding.MILLISECONDS:
+      case CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH:
         return new TaggedValue(value.toEpochMilli(), epochDateTimeTag);
-      case CBOREncoder.DateEncoding.FRACTIONAL_SECONDS:
+      case CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH:
         return new TaggedValue(
           secondsToNumber(value.epochSecond(), value.nano()),
           epochDateTimeTag
@@ -115,10 +115,7 @@ export class CBOREncoder implements MediaTypeEncoder {
     }
   };
 
-  private zonedDateTimeSerializer: Serializer = (
-    key: string,
-    value: ZonedDateTime
-  ) => {
+  private zonedDateTimeSerializer: Serializer = (_, value: ZonedDateTime) => {
     if (value == null) {
       return null;
     }
@@ -129,12 +126,12 @@ export class CBOREncoder implements MediaTypeEncoder {
           DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(value),
           isoDateTimeTag
         );
-      case CBOREncoder.DateEncoding.MILLISECONDS:
+      case CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH:
         return new TaggedValue(
           value.toInstant().toEpochMilli(),
           epochDateTimeTag
         );
-      case CBOREncoder.DateEncoding.FRACTIONAL_SECONDS:
+      case CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH:
         const instant = value.toInstant();
         return new TaggedValue(
           secondsToNumber(instant.epochSecond(), instant.nano()),
@@ -143,10 +140,7 @@ export class CBOREncoder implements MediaTypeEncoder {
     }
   };
 
-  private offsetDateTimeSerializer: Serializer = (
-    key: string,
-    value: OffsetDateTime
-  ) => {
+  private offsetDateTimeSerializer: Serializer = (_, value: OffsetDateTime) => {
     if (value == null) {
       return null;
     }
@@ -157,12 +151,12 @@ export class CBOREncoder implements MediaTypeEncoder {
           DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(value),
           isoDateTimeTag
         );
-      case CBOREncoder.DateEncoding.MILLISECONDS:
+      case CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH:
         return new TaggedValue(
           value.toInstant().toEpochMilli(),
           epochDateTimeTag
         );
-      case CBOREncoder.DateEncoding.FRACTIONAL_SECONDS:
+      case CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH:
         const instant = value.toInstant();
         return new TaggedValue(
           secondsToNumber(instant.epochSecond(), instant.nano()),
@@ -177,10 +171,7 @@ export class CBOREncoder implements MediaTypeEncoder {
     .appendOffsetId()
     .toFormatter(ResolverStyle.STRICT);
 
-  private offsetTimeSerializer: Serializer = (
-    key: string,
-    value: OffsetTime
-  ) => {
+  private offsetTimeSerializer: Serializer = (_, value: OffsetTime) => {
     if (value == null) {
       return null;
     }
@@ -193,7 +184,8 @@ export class CBOREncoder implements MediaTypeEncoder {
           value.minute(),
           ...encodeSeconds(
             value.second(),
-            this.dateEncoding == CBOREncoder.DateEncoding.MILLISECONDS
+            this.dateEncoding ==
+              CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
               ? value.get(ChronoField.MILLI_OF_SECOND)
               : value.nano()
           ),
@@ -202,10 +194,7 @@ export class CBOREncoder implements MediaTypeEncoder {
     }
   };
 
-  private localDateTimeSerializer: Serializer = (
-    key: string,
-    value: LocalDateTime
-  ) => {
+  private localDateTimeSerializer: Serializer = (_, value: LocalDateTime) => {
     if (value == null) {
       return null;
     }
@@ -222,7 +211,8 @@ export class CBOREncoder implements MediaTypeEncoder {
           value.minute(),
           ...encodeSeconds(
             value.second(),
-            this.dateEncoding == CBOREncoder.DateEncoding.MILLISECONDS
+            this.dateEncoding ==
+              CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
               ? value.get(ChronoField.MILLI_OF_SECOND)
               : value.nano()
           ),
@@ -230,7 +220,7 @@ export class CBOREncoder implements MediaTypeEncoder {
     }
   };
 
-  private localDateSerializer: Serializer = (key: string, value: LocalDate) => {
+  private localDateSerializer: Serializer = (_, value: LocalDate) => {
     if (value == null) {
       return null;
     }
@@ -243,7 +233,7 @@ export class CBOREncoder implements MediaTypeEncoder {
     }
   };
 
-  private localTimeSerializer: Serializer = (key: string, value: LocalTime) => {
+  private localTimeSerializer: Serializer = (_, value: LocalTime) => {
     if (value == null) {
       return null;
     }
@@ -257,7 +247,8 @@ export class CBOREncoder implements MediaTypeEncoder {
           value.minute(),
           ...encodeSeconds(
             value.second(),
-            this.dateEncoding == CBOREncoder.DateEncoding.MILLISECONDS
+            this.dateEncoding ==
+              CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
               ? value.get(ChronoField.MILLI_OF_SECOND)
               : value.nano()
           ),
@@ -265,7 +256,7 @@ export class CBOREncoder implements MediaTypeEncoder {
     }
   };
 
-  private dateSerializer: Serializer = (key: string, value: Date) => {
+  private dateSerializer: Serializer = (_, value: Date) => {
     if (value == null) {
       return null;
     }
@@ -273,14 +264,14 @@ export class CBOREncoder implements MediaTypeEncoder {
     switch (this.dateEncoding) {
       case CBOREncoder.DateEncoding.ISO8601:
         return new TaggedValue(value.toISOString(), isoDateTimeTag);
-      case CBOREncoder.DateEncoding.MILLISECONDS:
+      case CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH:
         return new TaggedValue(value.getTime(), epochDateTimeTag);
-      case CBOREncoder.DateEncoding.FRACTIONAL_SECONDS:
+      case CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH:
         return new TaggedValue(value.getTime() / 1000.0, epochDateTimeTag);
     }
   };
 
-  private urlSerializer: Serializer = (key: string, value: URL) => {
+  private urlSerializer: Serializer = (_, value: URL) => {
     if (value == null) {
       return null;
     }
@@ -295,15 +286,15 @@ export namespace CBOREncoder {
    */
   export enum DateEncoding {
     /**
-     * Encode temporal values numerically using seconds with fractional
+     * Encode temporal values numerically using seconds with decimal
      * sub-second precision.
      */
-    FRACTIONAL_SECONDS,
+    DECIMAL_SECONDS_SINCE_EPOCH,
 
     /**
      * Encode temporal values numerically using integer milliseconds.
      */
-    MILLISECONDS,
+    MILLISECONDS_SINCE_EPOCH,
 
     /**
      * Encode temporal values values as an ISO-8601-formatted string (in
