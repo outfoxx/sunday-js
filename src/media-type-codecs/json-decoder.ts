@@ -22,7 +22,9 @@ import { Base64 } from '../util/base64';
 
 export class JSONDecoder implements StructuredMediaTypeDecoder {
   static get default(): JSONDecoder {
-    return new JSONDecoder(JSONDecoder.NumericDateDecoding.FRACTIONAL_SECONDS);
+    return new JSONDecoder(
+      JSONDecoder.NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
+    );
   }
 
   private readonly customDeserializers: CustomMapper<Deserializer>[];

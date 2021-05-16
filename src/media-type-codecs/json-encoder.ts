@@ -21,7 +21,9 @@ import { StructuredMediaTypeEncoder } from './media-type-encoder';
 
 export class JSONEncoder implements StructuredMediaTypeEncoder {
   static get default(): JSONEncoder {
-    return new JSONEncoder(JSONEncoder.DateEncoding.ISO8601);
+    return new JSONEncoder(
+      JSONEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
+    );
   }
 
   private readonly customSerializers: CustomMapper<Serializer>[];

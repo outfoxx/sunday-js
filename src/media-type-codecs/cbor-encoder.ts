@@ -23,7 +23,9 @@ import { MediaTypeEncoder } from './media-type-encoder';
 
 export class CBOREncoder implements MediaTypeEncoder {
   static get default(): CBOREncoder {
-    return new CBOREncoder(CBOREncoder.DateEncoding.FRACTIONAL_SECONDS);
+    return new CBOREncoder(
+      CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
+    );
   }
 
   private readonly customSerializers: CustomMapper<Serializer>[];

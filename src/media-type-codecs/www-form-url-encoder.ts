@@ -5,9 +5,9 @@ import { URLQueryParamsEncoder } from './media-type-encoder';
 export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
   static get default(): WWWFormUrlEncoder {
     return new WWWFormUrlEncoder(
-      WWWFormUrlEncoder.ArrayEncoding.BRACKETED,
-      WWWFormUrlEncoder.BoolEncoding.NUMERIC,
-      WWWFormUrlEncoder.DateEncoding.ISO8601
+      WWWFormUrlEncoder.ArrayEncoding.UNBRACKETED,
+      WWWFormUrlEncoder.BoolEncoding.LITERAL,
+      WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
     );
   }
 

@@ -24,7 +24,9 @@ import { MediaTypeDecoder } from './media-type-decoder';
 
 export class CBORDecoder implements MediaTypeDecoder {
   static get default(): CBORDecoder {
-    return new CBORDecoder(CBORDecoder.NumericDateDecoding.FRACTIONAL_SECONDS);
+    return new CBORDecoder(
+      CBORDecoder.NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
+    );
   }
 
   private readonly customDeserializers: CustomMapper<Deserializer>[];
