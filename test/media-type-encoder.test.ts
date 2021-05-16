@@ -1,14 +1,14 @@
 import {
-  isURLQueryParamsEncoder,
   isStructuredMediaTypeEncoder,
+  isURLQueryParamsEncoder,
   JSONEncoder,
-  URLEncoder,
+  WWWFormUrlEncoder,
 } from '../src';
 
 describe('MediaTypeEncoder', () => {
   describe('type guards', () => {
     it('correctly identifies URLQueryParamsEncoder(s)', () => {
-      expect(isURLQueryParamsEncoder(URLEncoder.default)).toBe(true);
+      expect(isURLQueryParamsEncoder(WWWFormUrlEncoder.default)).toBe(true);
     });
 
     it('correctly identifies non-URLQueryParamsEncoder(s)', () => {
@@ -20,7 +20,9 @@ describe('MediaTypeEncoder', () => {
     });
 
     it('correctly identifies non-StructuredMediaTypeEncoder(s)', () => {
-      expect(isStructuredMediaTypeEncoder(URLEncoder.default)).toBe(false);
+      expect(isStructuredMediaTypeEncoder(WWWFormUrlEncoder.default)).toBe(
+        false
+      );
     });
   });
 });

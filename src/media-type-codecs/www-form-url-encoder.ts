@@ -1,20 +1,20 @@
 import { Instant } from '@js-joda/core';
-import { URLQueryParamsEncoder } from './media-type-encoder';
 import { JsonStringifier } from '@outfoxx/jackson-js';
+import { URLQueryParamsEncoder } from './media-type-encoder';
 
-export class URLEncoder implements URLQueryParamsEncoder {
-  static get default(): URLEncoder {
-    return new URLEncoder(
-      URLEncoder.ArrayEncoding.BRACKETED,
-      URLEncoder.BoolEncoding.NUMERIC,
-      URLEncoder.DateEncoding.ISO8601
+export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
+  static get default(): WWWFormUrlEncoder {
+    return new WWWFormUrlEncoder(
+      WWWFormUrlEncoder.ArrayEncoding.BRACKETED,
+      WWWFormUrlEncoder.BoolEncoding.NUMERIC,
+      WWWFormUrlEncoder.DateEncoding.ISO8601
     );
   }
 
   constructor(
-    private arrayEncoding: URLEncoder.ArrayEncoding,
-    private boolEncoding: URLEncoder.BoolEncoding,
-    private dateEncoding: URLEncoder.DateEncoding,
+    private arrayEncoding: WWWFormUrlEncoder.ArrayEncoding,
+    private boolEncoding: WWWFormUrlEncoder.BoolEncoding,
+    private dateEncoding: WWWFormUrlEncoder.DateEncoding,
     private json = new JsonStringifier(),
     private encoder = new TextEncoder()
   ) {}
@@ -86,19 +86,21 @@ export class URLEncoder implements URLQueryParamsEncoder {
 
 function encodeArrayKey(
   key: string,
-  encoding: URLEncoder.ArrayEncoding
+  encoding: WWWFormUrlEncoder.ArrayEncoding
 ): string {
-  return encoding === URLEncoder.ArrayEncoding.BRACKETED ? `${key}[]` : key;
+  return encoding === WWWFormUrlEncoder.ArrayEncoding.BRACKETED
+    ? `${key}[]`
+    : key;
 }
 
 function encodeBoolean(
   value: boolean,
-  encoding: URLEncoder.BoolEncoding
+  encoding: WWWFormUrlEncoder.BoolEncoding
 ): string {
   switch (encoding) {
-    case URLEncoder.BoolEncoding.NUMERIC:
+    case WWWFormUrlEncoder.BoolEncoding.NUMERIC:
       return value ? '1' : '0';
-    case URLEncoder.BoolEncoding.LITERAL:
+    case WWWFormUrlEncoder.BoolEncoding.LITERAL:
       return value ? 'true' : 'false';
     default:
       throw new Error('unknown boolean encoding');
@@ -107,22 +109,22 @@ function encodeBoolean(
 
 function encodeDate(
   value: Date | Instant,
-  encoding: URLEncoder.DateEncoding
+  encoding: WWWFormUrlEncoder.DateEncoding
 ): string {
   value = value instanceof Date ? Instant.ofEpochMilli(value.getTime()) : value;
   switch (encoding) {
-    case URLEncoder.DateEncoding.SECONDS_SINCE_EPOCH:
+    case WWWFormUrlEncoder.DateEncoding.SECONDS_SINCE_EPOCH:
       return `${value.toEpochMilli() / 1000.0}`;
-    case URLEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH:
+    case WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH:
       return `${value.toEpochMilli()}`;
-    case URLEncoder.DateEncoding.ISO8601:
+    case WWWFormUrlEncoder.DateEncoding.ISO8601:
       return value.toString();
     default:
       throw new Error('unknown date encoding');
   }
 }
 
-export namespace URLEncoder {
+export namespace WWWFormUrlEncoder {
   /**
    * Configures how `Array` parameters are encoded.
    */

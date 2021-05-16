@@ -1,9 +1,9 @@
+import { MediaType } from '../media-type';
 import { BinaryEncoder } from './binary-encoder';
 import { CBOREncoder } from './cbor-encoder';
 import { JSONEncoder } from './json-encoder';
-import { MediaType } from '../media-type';
 import { MediaTypeEncoder } from './media-type-encoder';
-import { URLEncoder } from './url-encoder';
+import { WWWFormUrlEncoder } from './www-form-url-encoder';
 
 export interface MediaTypeEncodersBuilder {
   addDefaults(): MediaTypeEncodersBuilder;
@@ -35,7 +35,7 @@ export class MediaTypeEncoders {
     addDefaults(): MediaTypeEncodersBuilder {
       return this.add(MediaType.JSON, JSONEncoder.default)
         .add(MediaType.OctetStream, BinaryEncoder.default)
-        .add(MediaType.WWWFormUrlEncoded, URLEncoder.default)
+        .add(MediaType.WWWFormUrlEncoded, WWWFormUrlEncoder.default)
         .add(MediaType.CBOR, CBOREncoder.default);
     }
 

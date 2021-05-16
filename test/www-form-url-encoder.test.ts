@@ -1,12 +1,12 @@
 import { Instant, OffsetDateTime } from '@js-joda/core';
-import { URLEncoder } from '../src';
+import { WWWFormUrlEncoder } from '../src';
 
-describe('URLEncoder', () => {
+describe('WWWFormUrlEncoder', () => {
   it('percent encodes keys', () => {
-    const encoder = new URLEncoder(
-      URLEncoder.ArrayEncoding.UNBRACKETED,
-      URLEncoder.BoolEncoding.NUMERIC,
-      URLEncoder.DateEncoding.ISO8601
+    const encoder = new WWWFormUrlEncoder(
+      WWWFormUrlEncoder.ArrayEncoding.UNBRACKETED,
+      WWWFormUrlEncoder.BoolEncoding.NUMERIC,
+      WWWFormUrlEncoder.DateEncoding.ISO8601
     );
 
     expect(encoder.encodeQueryString({ 'test/data': [1, 2, 3] })).toBe(
@@ -15,19 +15,19 @@ describe('URLEncoder', () => {
   });
 
   it('percent encodes values', () => {
-    const encoder = new URLEncoder(
-      URLEncoder.ArrayEncoding.UNBRACKETED,
-      URLEncoder.BoolEncoding.NUMERIC,
-      URLEncoder.DateEncoding.ISO8601
+    const encoder = new WWWFormUrlEncoder(
+      WWWFormUrlEncoder.ArrayEncoding.UNBRACKETED,
+      WWWFormUrlEncoder.BoolEncoding.NUMERIC,
+      WWWFormUrlEncoder.DateEncoding.ISO8601
     );
 
-    expect(encoder.encodeQueryString({ test: ['1/1', '1/2', '1/3'] })).toBe(
-      'test=1%2F1&test=1%2F2&test=1%2F3'
-    );
+    expect(
+      encoder.encodeQueryString({ test: ['1/1', '1/2', '1/3', ` !'()~`] })
+    ).toBe(`test=1%2F1&test=1%2F2&test=1%2F3&test=%20!'()~`);
   });
 
   it('encodes complex objects', () => {
-    const encoder = URLEncoder.default;
+    const encoder = WWWFormUrlEncoder.default;
 
     expect(encoder.encodeQueryString({ test: { a: 1, b: 2 }, c: '3' })).toBe(
       'c=3&test%5Ba%5D=1&test%5Bb%5D=2'
@@ -35,7 +35,7 @@ describe('URLEncoder', () => {
   });
 
   it('filters undefined values from complex objects', () => {
-    const encoder = URLEncoder.default;
+    const encoder = WWWFormUrlEncoder.default;
 
     expect(
       encoder.encodeQueryString({
@@ -47,10 +47,10 @@ describe('URLEncoder', () => {
   });
 
   it('encodes array values in bracketed form', () => {
-    const encoder = new URLEncoder(
-      URLEncoder.ArrayEncoding.BRACKETED,
-      URLEncoder.BoolEncoding.NUMERIC,
-      URLEncoder.DateEncoding.ISO8601
+    const encoder = new WWWFormUrlEncoder(
+      WWWFormUrlEncoder.ArrayEncoding.BRACKETED,
+      WWWFormUrlEncoder.BoolEncoding.NUMERIC,
+      WWWFormUrlEncoder.DateEncoding.ISO8601
     );
 
     expect(encoder.encodeQueryString({ test: [1, 2, 3] })).toBe(
@@ -59,10 +59,10 @@ describe('URLEncoder', () => {
   });
 
   it('encodes array values in unbracketed form', () => {
-    const encoder = new URLEncoder(
-      URLEncoder.ArrayEncoding.UNBRACKETED,
-      URLEncoder.BoolEncoding.NUMERIC,
-      URLEncoder.DateEncoding.ISO8601
+    const encoder = new WWWFormUrlEncoder(
+      WWWFormUrlEncoder.ArrayEncoding.UNBRACKETED,
+      WWWFormUrlEncoder.BoolEncoding.NUMERIC,
+      WWWFormUrlEncoder.DateEncoding.ISO8601
     );
 
     expect(encoder.encodeQueryString({ test: [1, 2, 3] })).toBe(
@@ -71,10 +71,10 @@ describe('URLEncoder', () => {
   });
 
   it('encodes bool values in numeric form', () => {
-    const encoder = new URLEncoder(
-      URLEncoder.ArrayEncoding.UNBRACKETED,
-      URLEncoder.BoolEncoding.NUMERIC,
-      URLEncoder.DateEncoding.ISO8601
+    const encoder = new WWWFormUrlEncoder(
+      WWWFormUrlEncoder.ArrayEncoding.UNBRACKETED,
+      WWWFormUrlEncoder.BoolEncoding.NUMERIC,
+      WWWFormUrlEncoder.DateEncoding.ISO8601
     );
 
     expect(encoder.encodeQueryString({ test: [true, false] })).toBe(
@@ -83,10 +83,10 @@ describe('URLEncoder', () => {
   });
 
   it('encodes bool values in literal form', () => {
-    const encoder = new URLEncoder(
-      URLEncoder.ArrayEncoding.UNBRACKETED,
-      URLEncoder.BoolEncoding.LITERAL,
-      URLEncoder.DateEncoding.ISO8601
+    const encoder = new WWWFormUrlEncoder(
+      WWWFormUrlEncoder.ArrayEncoding.UNBRACKETED,
+      WWWFormUrlEncoder.BoolEncoding.LITERAL,
+      WWWFormUrlEncoder.DateEncoding.ISO8601
     );
 
     expect(encoder.encodeQueryString({ test: [true, false] })).toBe(
@@ -98,10 +98,10 @@ describe('URLEncoder', () => {
   const date2 = OffsetDateTime.parse('2018-06-16T09:40:10+07:00').toInstant();
 
   it('encodes date values in ISO form', () => {
-    const encoder = new URLEncoder(
-      URLEncoder.ArrayEncoding.UNBRACKETED,
-      URLEncoder.BoolEncoding.LITERAL,
-      URLEncoder.DateEncoding.ISO8601
+    const encoder = new WWWFormUrlEncoder(
+      WWWFormUrlEncoder.ArrayEncoding.UNBRACKETED,
+      WWWFormUrlEncoder.BoolEncoding.LITERAL,
+      WWWFormUrlEncoder.DateEncoding.ISO8601
     );
 
     const date1Val = encodeURIComponent(date1.toString());
@@ -113,10 +113,10 @@ describe('URLEncoder', () => {
   });
 
   it('encodes date values in seconds-since-epoch form', () => {
-    const encoder = new URLEncoder(
-      URLEncoder.ArrayEncoding.UNBRACKETED,
-      URLEncoder.BoolEncoding.LITERAL,
-      URLEncoder.DateEncoding.SECONDS_SINCE_EPOCH
+    const encoder = new WWWFormUrlEncoder(
+      WWWFormUrlEncoder.ArrayEncoding.UNBRACKETED,
+      WWWFormUrlEncoder.BoolEncoding.LITERAL,
+      WWWFormUrlEncoder.DateEncoding.SECONDS_SINCE_EPOCH
     );
 
     const date1Val = encodeURIComponent(date1.toEpochMilli() / 1000.0);
@@ -128,10 +128,10 @@ describe('URLEncoder', () => {
   });
 
   it('encodes date values in milliseconds-since-epoch form', () => {
-    const encoder = new URLEncoder(
-      URLEncoder.ArrayEncoding.UNBRACKETED,
-      URLEncoder.BoolEncoding.LITERAL,
-      URLEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
+    const encoder = new WWWFormUrlEncoder(
+      WWWFormUrlEncoder.ArrayEncoding.UNBRACKETED,
+      WWWFormUrlEncoder.BoolEncoding.LITERAL,
+      WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
     );
 
     const date1Val = encodeURIComponent(date1.toEpochMilli());
