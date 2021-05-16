@@ -135,20 +135,61 @@ describe('FetchRequestFactory', () => {
   });
 
   it('adds accept header', async () => {
-    const request: Request = await fetchRequestFactory
-      .request({
-        method: 'POST',
-        pathTemplate: '/api/contents',
-        body: { a: 5 },
-        bodyType: [Object],
-        contentTypes: [MediaType.JSON],
-        acceptTypes: [MediaType.JSON, MediaType.CBOR],
-      })
-      .pipe(first())
-      .toPromise();
-    expect(request.headers.get('Accept')).toBe(
-      `${MediaType.JSON} , ${MediaType.CBOR}`
-    );
+    await expectAsync(
+      fetchRequestFactory
+        .request({
+          method: 'POST',
+          pathTemplate: '/api/contents',
+          body: { a: 5 },
+          bodyType: [Object],
+          contentTypes: [MediaType.JSON],
+          acceptTypes: [MediaType.JSON, MediaType.CBOR],
+        })
+        .pipe(first())
+        .toPromise()
+    ).toBeResolved({ Accept: `${MediaType.JSON} , ${MediaType.CBOR}` });
+  });
+
+  it('adds custom headers', async () => {
+    await expectAsync(
+      fetchRequestFactory
+        .request({
+          method: 'GET',
+          pathTemplate: '/api/add-custom-headers',
+          headers: {
+            Authorization: 'Bearer 12345',
+          },
+        })
+        .pipe(first())
+        .toPromise()
+    ).toBeResolved({ Authorization: 'Bearer 12345' });
+  });
+
+  it('fails if none of the accept types has a decoder', async () => {
+    await expectAsync(
+      fetchRequestFactory
+        .request({
+          method: 'GET',
+          pathTemplate: '/api',
+          acceptTypes: [MediaType.from('application/x-unknown') as MediaType],
+        })
+        .pipe(first())
+        .toPromise()
+    ).toBeRejectedWithError(Error, /accept types/i);
+  });
+
+  it('fails if none of the content types has an encoder', async () => {
+    await expectAsync(
+      fetchRequestFactory
+        .request({
+          method: 'POST',
+          pathTemplate: '/api',
+          body: { a: 1 },
+          contentTypes: [MediaType.from('application/x-unknown') as MediaType],
+        })
+        .pipe(first())
+        .toPromise()
+    ).toBeRejectedWithError(Error, /content types/i);
   });
 
   it('attaches encoded body based on content-type', async () => {
@@ -164,42 +205,19 @@ describe('FetchRequestFactory', () => {
       .toPromise();
     expect(request.url).toBe('http://example.com/api/contents');
     await expectAsync(request.text()).toBeResolvedTo('{"a":5}');
-    expect(request.headers.get('Content-Type')).toBe(MediaType.JSON.toString());
+    expect(request.headers.get('Content-Type')).toBe(MediaType.JSON.value);
   });
 
-  it('attaches encoded content-type when body is nil', async () => {
+  it('sets content-type when body is non-existent', async () => {
     const request: Request = await fetchRequestFactory
       .request({
         method: 'POST',
         pathTemplate: '/api/contents',
-        body: { a: 5 },
-        bodyType: [Object],
         contentTypes: [MediaType.JSON],
       })
       .pipe(first())
       .toPromise();
-    expect(request.headers.get('Content-Type')).toBe(MediaType.JSON.toString());
-  });
-
-  it('fails when body content-type encoder is registered', async () => {
-    const specialEncoders = new MediaTypeEncoders.Builder().build();
-
-    const fetchRequestFactory = new FetchRequestFactory('https://example.com', {
-      mediaTypeEncoders: specialEncoders,
-    });
-
-    await expectAsync(
-      fetchRequestFactory
-        .request({
-          method: 'POST',
-          pathTemplate: '/api/contents',
-          body: { a: 5 },
-          bodyType: [Object],
-          contentTypes: [MediaType.JSON],
-        })
-        .pipe(first())
-        .toPromise()
-    ).toBeRejectedWithError(Error, /Unsupported content-type/i);
+    expect(request.headers.get('Content-Type')).toBe(MediaType.JSON.value);
   });
 
   it('fetches typed results', async () => {
