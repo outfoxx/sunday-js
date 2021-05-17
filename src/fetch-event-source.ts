@@ -1,6 +1,7 @@
 import { EventInfo, EventParser } from 'event-parser';
 import { EMPTY, Observable, of, Subscription } from 'rxjs';
 import { map, switchMap, tap } from 'rxjs/operators';
+import { unknownSet } from 'util/any';
 import { validate } from './fetch';
 import { Logger } from './logger';
 import { MediaType } from './media-type';
@@ -24,14 +25,19 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   onmessage: ((this: EventSource, ev: MessageEvent) => unknown) | null = null;
   onopen: ((this: EventSource, ev: Event) => unknown) | null = null;
 
+  get retryTime(): number {
+    return this.internalRetryTime;
+  }
+
   private adapter: (
     url: string,
     requestInit: RequestInit
   ) => Observable<Request>;
   private connectionSubscription?: Subscription;
-  private retryTime = 100;
+  private internalRetryTime = 100;
   private retryAttempt = 0;
   private connectionAttemptTime = 0;
+  private connectionOrigin?: string;
   private reconnectTimeoutHandle?: number;
   private lastEventId?: string;
   private logger?: Logger;
@@ -39,6 +45,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   private eventTimeoutCheckHandle?: number;
   private lastEventReceivedTime = 0;
   private eventParser = new EventParser();
+  private externalAbortController?: AbortController;
 
   constructor(
     url: string,
@@ -46,6 +53,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       adapter?: (url: string, requestInit: RequestInit) => Observable<Request>;
       eventTimeout?: number;
       logger?: Logger;
+      abortController?: AbortController;
     }
   ) {
     super();
@@ -57,6 +65,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       eventSourceInit?.eventTimeout ??
       FetchEventSource.EVENT_TIMEOUT_DEFAULT * 1000;
     this.logger = eventSourceInit?.logger;
+    this.externalAbortController = eventSourceInit?.abortController;
   }
 
   //
@@ -84,13 +93,14 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       headers.append(FetchEventSource.LAST_EVENT_ID_HEADER, this.lastEventId);
     }
 
-    const abort = new AbortController();
+    const abortController =
+      this.externalAbortController ?? new AbortController();
 
     const requestInit: RequestInit = {
       headers,
       cache: 'no-store',
       redirect: 'follow',
-      signal: abort.signal,
+      signal: abortController.signal,
     };
 
     this.connectionAttemptTime = Date.now();
@@ -99,7 +109,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       .pipe(
         switchMap((request) => fetch(request)),
         switchMap((response) => validate(response, true)),
-        tap(() => this.receivedHeaders()),
+        tap((response) => this.receivedHeaders(response)),
         switchMap((response) => {
           const body = response.body;
           if (!body) {
@@ -112,15 +122,15 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       )
       .subscribe({
         error: (error: unknown) => {
-          abort.abort();
           this.receivedError(error);
         },
         complete: () => {
-          abort.abort();
           this.receivedComplete();
         },
       });
-    this.connectionSubscription.add(() => abort.abort());
+    this.connectionSubscription.add(() => {
+      abortController.abort();
+    });
   }
 
   //
@@ -188,8 +198,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       this.logger?.debug?.('event timeout reached', {
         elapsed,
       });
-
-      this.internalClose();
+      this.fireErrorEvent(Error('EventTimeout'));
 
       this.scheduleReconnect();
     }
@@ -199,19 +208,21 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   // Connection Handlers
   //
 
-  private receivedHeaders() {
+  private receivedHeaders(response: Response) {
     if (this.readyState !== this.CONNECTING) {
       this.logger?.error?.('Invalid readyState for receiveHaders', {
         readyState: this.readyState,
       });
 
-      this.internalClose();
+      this.fireErrorEvent(Error('InvalidState'));
+
       this.scheduleReconnect();
       return;
     }
 
     this.logger?.debug?.('opened');
 
+    this.connectionOrigin = response.url;
     this.retryAttempt = 0;
     this.readyState = this.OPEN;
 
@@ -230,46 +241,38 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
         readyState: this.readyState,
       });
 
-      this.internalClose();
+      this.fireErrorEvent(Error('InvalidState'));
+
       this.scheduleReconnect();
       return;
     }
 
-    this.logger?.debug?.('Received data', { length: validate.length });
+    this.logger?.debug?.('received data', { length: validate.length });
 
     this.eventParser.process(buffer, this.dispatchParsedEvent);
   }
 
   private receivedError(error: unknown) {
-    if (
-      error instanceof DOMException &&
-      error.code === DOMException.ABORT_ERR
-    ) {
-      // this.logger?.debug?.('aborted');
-
+    if (this.readyState === this.CLOSED) {
       return;
     }
 
     this.logger?.debug?.('received error', { error });
+    this.fireErrorEvent(error);
 
-    this.scheduleReconnect();
-
-    const event = new Event('error');
-    ((event as unknown) as Record<string, unknown>).error = error;
-
-    this.onerror?.(event);
+    if (this.readyState !== this.CLOSED) {
+      this.scheduleReconnect();
+    }
   }
 
   private receivedComplete() {
-    if (this.readyState !== this.CLOSED) {
-      this.logger?.debug?.('unexpected complete');
-
-      this.scheduleReconnect();
-
+    if (this.readyState == this.CLOSED) {
       return;
     }
 
-    this.logger?.debug?.('closed');
+    this.logger?.debug?.('received complete');
+
+    this.scheduleReconnect();
   }
 
   //
@@ -277,6 +280,8 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   //
 
   private scheduleReconnect() {
+    this.internalClose();
+
     // calculate total delay
     const backOffDelay = Math.pow(this.retryAttempt, 2) * this.retryTime;
     let retryDelay = Math.min(
@@ -294,6 +299,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     }
 
     this.retryAttempt++;
+    this.readyState = this.CONNECTING;
 
     this.logger?.debug?.('scheduling reconnect', { retryDelay });
 
@@ -318,40 +324,55 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     if (eventInfo.retry) {
       const retryTime = Number.parseInt(eventInfo.retry, 10);
 
-      if (
-        Number.isSafeInteger(retryTime) &&
-        eventInfo.id == null &&
-        eventInfo.event == null &&
-        eventInfo.data == null
-      ) {
+      if (Number.isSafeInteger(retryTime)) {
         this.logger?.debug?.('updating retry timeout', { retryTime });
 
-        this.retryTime = retryTime;
+        this.internalRetryTime = retryTime;
       } else {
         this.logger?.debug?.('ignoring invalid retry timeout event', {
           eventInfo,
         });
       }
+    }
 
+    // skip empty events
+    if (
+      eventInfo.id == null &&
+      eventInfo.event == null &&
+      eventInfo.data == null
+    ) {
+      // skip empty event
       return;
+    }
+
+    // Save last-event-id if the new id is valid
+    if (eventInfo.id != null) {
+      // Check for NULL as it is not allowed
+      if (eventInfo.id.indexOf('\0') == -1) {
+        this.lastEventId = eventInfo.id;
+      } else {
+        this.logger?.debug?.(
+          'event id contains null, unable to use for last-event-id'
+        );
+      }
     }
 
     this.lastEventReceivedTime = Date.now();
-    this.lastEventId = eventInfo.id ?? this.lastEventId;
-
-    // Skip empty or comment only events
-    if (!eventInfo.id && !eventInfo.event && !eventInfo.data) {
-      // this.logger?.debug?.('skipping empty event');
-      return;
-    }
 
     // Dispatch event
     const event = new MessageEvent(eventInfo.event ?? 'message', {
       data: eventInfo.data,
       lastEventId: this.lastEventId,
+      origin: this.connectionOrigin,
     });
 
     this.onmessage?.(event);
     this.dispatchEvent(event);
   };
+
+  fireErrorEvent(error: unknown): void {
+    const event = new Event('error');
+    unknownSet(event, 'error', error);
+    this.onerror?.(event);
+  }
 }
