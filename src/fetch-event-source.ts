@@ -1,3 +1,4 @@
+import { EventInfo, EventParser } from 'event-parser';
 import { EMPTY, Observable, of, Subscription } from 'rxjs';
 import { map, switchMap, tap } from 'rxjs/operators';
 import { validate } from './fetch';
@@ -28,18 +29,16 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     requestInit: RequestInit
   ) => Observable<Request>;
   private connectionSubscription?: Subscription;
-  private decoder: TextDecoder = new TextDecoder('utf-8');
   private retryTime = 100;
   private retryAttempt = 0;
   private connectionAttemptTime = 0;
   private reconnectTimeoutHandle?: number;
   private lastEventId?: string;
   private logger?: Logger;
-  private unprocessedBuffers: ArrayBuffer[] = [];
-  private unprocessedText = '';
   private readonly eventTimeout?: number;
   private eventTimeoutCheckHandle?: number;
   private lastEventReceivedTime = 0;
+  private eventParser = new EventParser();
 
   constructor(
     url: string,
@@ -59,6 +58,10 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       FetchEventSource.EVENT_TIMEOUT_DEFAULT * 1000;
     this.logger = eventSourceInit?.logger;
   }
+
+  //
+  // Connect
+  //
 
   connect(): void {
     if (this.readyState === this.CONNECTING || this.readyState === this.OPEN) {
@@ -120,6 +123,10 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     this.connectionSubscription.add(() => abort.abort());
   }
 
+  //
+  // Close
+  //
+
   close(): void {
     this.logger?.debug?.('close requested');
 
@@ -136,6 +143,10 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
     this.stopEventTimeoutCheck();
   }
+
+  //
+  // Event Timeout
+  //
 
   private startEventTimeoutCheck(lastEventReceivedTime: number) {
     this.stopEventTimeoutCheck();
@@ -184,6 +195,10 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     }
   }
 
+  //
+  // Connection Handlers
+  //
+
   private receivedHeaders() {
     if (this.readyState !== this.CONNECTING) {
       this.logger?.error?.('Invalid readyState for receiveHaders', {
@@ -209,7 +224,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     this.dispatchEvent(event);
   }
 
-  private receivedData(value: ArrayBuffer) {
+  private receivedData(buffer: ArrayBuffer) {
     if (this.readyState !== this.OPEN) {
       this.logger?.error?.('Invalid readyState for receiveData', {
         readyState: this.readyState,
@@ -222,44 +237,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
     this.logger?.debug?.('Received data', { length: validate.length });
 
-    this.unprocessedBuffers.push(value);
-
-    // Translate buffers to decoded text
-    while (this.unprocessedBuffers.length) {
-      const latest = this.unprocessedBuffers[
-        this.unprocessedBuffers.length - 1
-      ];
-      const latestBytes = new Uint8Array(latest);
-      const latestNewLine = latestBytes.indexOf(0xa);
-      if (latestNewLine == -1) {
-        return;
-      }
-      const nextLine = latestNewLine + 1;
-
-      const readyToProcess = this.unprocessedBuffers.slice(0, -1);
-      readyToProcess.push(latest.slice(0, nextLine));
-
-      const leftOver = latest.slice(nextLine);
-      this.unprocessedBuffers = leftOver.byteLength ? [leftOver] : [];
-
-      let text = '';
-      for (const buffer of readyToProcess) {
-        text += this.decoder.decode(buffer, { stream: true });
-      }
-
-      this.receivedText(text);
-    }
-  }
-
-  private receivedText(text: string) {
-    // Clear out carriage returns
-    text = text.replace('\r\n', '\n');
-
-    this.unprocessedText += text;
-
-    const eventStrings = this.extractEventStrings();
-
-    this.parseEvents(eventStrings);
+    this.eventParser.process(buffer, this.dispatchParsedEvent);
   }
 
   private receivedError(error: unknown) {
@@ -293,6 +271,10 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
     this.logger?.debug?.('closed');
   }
+
+  //
+  // Reconnection
+  //
 
   private scheduleReconnect() {
     // calculate total delay
@@ -328,99 +310,48 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     this.reconnectTimeoutHandle = undefined;
   }
 
-  private extractEventStrings(): string[] {
-    const received = this.unprocessedText;
-    if (!received.length) {
-      return [];
+  //
+  // Event Dispatch
+  //
+
+  private dispatchParsedEvent = (eventInfo: EventInfo) => {
+    if (eventInfo.retry) {
+      const retryTime = Number.parseInt(eventInfo.retry, 10);
+
+      if (
+        Number.isSafeInteger(retryTime) &&
+        eventInfo.id == null &&
+        eventInfo.event == null &&
+        eventInfo.data == null
+      ) {
+        this.logger?.debug?.('updating retry timeout', { retryTime });
+
+        this.retryTime = retryTime;
+      } else {
+        this.logger?.debug?.('ignoring invalid retry timeout event', {
+          eventInfo,
+        });
+      }
+
+      return;
     }
 
-    const eventStrings = received.split(EVENT_SEPARATOR);
+    this.lastEventReceivedTime = Date.now();
+    this.lastEventId = eventInfo.id ?? this.lastEventId;
 
-    const last = eventStrings.pop();
-    this.unprocessedText = last?.length ? last : '';
-
-    return eventStrings;
-  }
-
-  private parseEvents(eventStrings: string[]) {
-    for (const eventString of eventStrings) {
-      const line = eventString.trim();
-      if (!line.length) {
-        continue;
-      }
-
-      const parsedEvent = FetchEventSource.parseEvent(eventString);
-
-      if (parsedEvent.retry) {
-        const retryTime = Number.parseInt(parsedEvent.retry, 10);
-
-        if (
-          Number.isSafeInteger(retryTime) &&
-          parsedEvent.id == null &&
-          parsedEvent.event == null &&
-          parsedEvent.data == null
-        ) {
-          this.logger?.debug?.('updating retry timeout', { retryTime });
-
-          this.retryTime = retryTime;
-        } else {
-          this.logger?.debug?.('ignoring invalid retry timeout event', {
-            parsedEvent,
-          });
-        }
-
-        continue;
-      }
-
-      this.lastEventReceivedTime = Date.now();
-      this.lastEventId = parsedEvent.id ?? this.lastEventId;
-
-      // Skip empty or comment only events
-      if (!parsedEvent.id && !parsedEvent.event && !parsedEvent.data) {
-        // this.logger?.debug?.('skipping empty event');
-        continue;
-      }
-
-      // Dispatch event
-      const event = new MessageEvent(parsedEvent.event ?? 'message', {
-        data: parsedEvent.data,
-        lastEventId: this.lastEventId,
-      });
-
-      this.onmessage?.(event);
-      this.dispatchEvent(event);
-    }
-  }
-
-  private static parseEvent(eventString: string): EventInfo {
-    const event: EventInfo = {};
-
-    for (const line of eventString.split('\n')) {
-      const fields = line.split(':');
-      const key = fields[0].trim();
-      const value = fields.splice(1).join(':');
-
-      switch (key) {
-        case 'retry':
-          event.retry = value;
-          break;
-        case '':
-          // comment do nothing
-          break;
-        default:
-          (event as Record<string, string>)[key] = value.trim();
-      }
+    // Skip empty or comment only events
+    if (!eventInfo.id && !eventInfo.event && !eventInfo.data) {
+      // this.logger?.debug?.('skipping empty event');
+      return;
     }
 
-    return event;
-  }
-}
+    // Dispatch event
+    const event = new MessageEvent(eventInfo.event ?? 'message', {
+      data: eventInfo.data,
+      lastEventId: this.lastEventId,
+    });
 
-const EVENT_SEPARATOR = /\n\n/;
-
-interface EventInfo {
-  id?: string;
-  event?: string;
-  data?: string;
-  retry?: string;
+    this.onmessage?.(event);
+    this.dispatchEvent(event);
+  };
 }
