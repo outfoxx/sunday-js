@@ -282,11 +282,13 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       this.retryTime * FetchEventSource.MAX_RETRY_TIME_MULTIPLE
     );
 
-    // Adjust delay by amount of time last reconnect cycle took, except
-    // on the first attempt
+    // Adjust delay by amount of time last connect
+    // cycle took, except on the first attempt
     if (this.retryAttempt > 0) {
       const connectionTime = Date.now() - this.connectionAttemptTime;
-      retryDelay = Math.max(retryDelay - connectionTime, 0);
+      // Ensure delay is at least as large as
+      // minimum retry time interval
+      retryDelay = Math.max(retryDelay - connectionTime, this.retryTime);
     }
 
     this.retryAttempt++;
