@@ -39,7 +39,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   private unprocessedText = '';
   private readonly eventTimeout?: number;
   private eventTimeoutCheckHandle?: number;
-  private lastEventTime?: number;
+  private lastEventReceivedTime = 0;
 
   constructor(
     url: string,
@@ -137,12 +137,14 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     this.stopEventTimeoutCheck();
   }
 
-  private startEventTimeoutCheck() {
+  private startEventTimeoutCheck(lastEventReceivedTime: number) {
     this.stopEventTimeoutCheck();
 
     if (!this.eventTimeout) {
       return;
     }
+
+    this.lastEventReceivedTime = lastEventReceivedTime;
 
     // this.logger?.debug?.('starting event timeout checks');
 
@@ -170,7 +172,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     // this.logger?.debug?.('checking event timeout');
 
     // Check elapsed time since last received event
-    const elapsed = Date.now() - (this.lastEventTime ?? 0);
+    const elapsed = Date.now() - this.lastEventReceivedTime;
     if (elapsed > this.eventTimeout) {
       this.logger?.debug?.('event timeout reached', {
         elapsed,
@@ -193,7 +195,9 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     this.retryAttempt = 0;
     this.readyState = this.OPEN;
 
-    this.startEventTimeoutCheck();
+    // Start event timeout check, treating this
+    // connect as last time we received an event
+    this.startEventTimeoutCheck(Date.now());
 
     const event = new Event('open');
     this.onopen?.(event);
@@ -346,7 +350,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
         continue;
       }
 
-      this.lastEventTime = Date.now();
+      this.lastEventReceivedTime = Date.now();
       this.lastEventId = parsedEvent.id ?? this.lastEventId;
 
       // Skip empty or comment only events
