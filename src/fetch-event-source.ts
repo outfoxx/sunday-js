@@ -121,7 +121,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   }
 
   close(): void {
-    this.logger?.debug?.('closed');
+    this.logger?.debug?.('close requested');
 
     this.readyState = this.CLOSED;
 
@@ -186,11 +186,16 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
   private receivedHeaders() {
     if (this.readyState !== this.CONNECTING) {
-      this.close();
-      throw Error('Invalid readyState');
+      this.logger?.error?.('Invalid readyState for receiveHaders', {
+        readyState: this.readyState,
+      });
+
+      this.internalClose();
+      this.scheduleReconnect();
+      return;
     }
 
-    this.logger?.debug?.('connected');
+    this.logger?.debug?.('opened');
 
     this.retryAttempt = 0;
     this.readyState = this.OPEN;
@@ -205,8 +210,21 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   }
 
   private receivedData(value: ArrayBuffer) {
+    if (this.readyState !== this.OPEN) {
+      this.logger?.error?.('Invalid readyState for receiveData', {
+        readyState: this.readyState,
+      });
+
+      this.internalClose();
+      this.scheduleReconnect();
+      return;
+    }
+
+    this.logger?.debug?.('Received data', { length: validate.length });
+
     this.unprocessedBuffers.push(value);
 
+    // Translate buffers to decoded text
     while (this.unprocessedBuffers.length) {
       const latest = this.unprocessedBuffers[
         this.unprocessedBuffers.length - 1
@@ -265,13 +283,15 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   }
 
   private receivedComplete() {
-    this.logger?.debug?.('received complete');
-
     if (this.readyState !== this.CLOSED) {
+      this.logger?.debug?.('unexpected complete');
+
       this.scheduleReconnect();
 
       return;
     }
+
+    this.logger?.debug?.('closed');
   }
 
   private scheduleReconnect() {
