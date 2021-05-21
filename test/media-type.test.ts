@@ -4,6 +4,78 @@ import Tree = MediaType.Tree;
 import Type = MediaType.Type;
 
 describe('MediaType', () => {
+  describe('equality', () => {
+    it('true when same objects', () => {
+      const mediaType = MediaType.HTML.withParameter(
+        MediaType.ParameterName.CharSet,
+        'utf-8'
+      );
+      expect(mediaType.equals(mediaType)).toBeTrue();
+    });
+
+    it('true when equal objects', () => {
+      const mediaType1 = MediaType.HTML.withParameter(
+        MediaType.ParameterName.CharSet,
+        'utf-8'
+      ).withParameter('test', '123');
+      const mediaType2 = MediaType.HTML.withParameter(
+        MediaType.ParameterName.CharSet,
+        'utf-8'
+      ).withParameter('test', '123');
+
+      expect(mediaType1.equals(mediaType2)).toBeTrue();
+    });
+
+    it('false when types are different', () => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const mediaType1 = MediaType.from('application/json')!;
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const mediaType2 = MediaType.from('text/json')!;
+
+      expect(mediaType1.equals(mediaType2)).toBeFalse();
+    });
+
+    it('false when trees are different', () => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const mediaType1 = MediaType.from('application/x-html')!;
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const mediaType2 = MediaType.from('application/x.html')!;
+
+      expect(mediaType1.equals(mediaType2)).toBeFalse();
+    });
+
+    it('false when subtypes are different', () => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const mediaType1 = MediaType.from('text/html')!;
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const mediaType2 = MediaType.from('text/json')!;
+
+      expect(mediaType1.equals(mediaType2)).toBeFalse();
+    });
+
+    it('false when suffixes are different', () => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const mediaType1 = MediaType.from('application/problem+json')!;
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const mediaType2 = MediaType.from('application/problem+cbor')!;
+
+      expect(mediaType1.equals(mediaType2)).toBeFalse();
+    });
+
+    it('false when any parameter is different', () => {
+      const mediaType1 = MediaType.HTML.withParameter(
+        MediaType.ParameterName.CharSet,
+        'utf-8'
+      ).withParameter('test', '456');
+      const mediaType2 = MediaType.HTML.withParameter(
+        MediaType.ParameterName.CharSet,
+        'utf-8'
+      ).withParameter('test', '123');
+
+      expect(mediaType1.equals(mediaType2)).toBeFalse();
+    });
+  });
+
   describe('compatibility', () => {
     it('compatible when equal', () => {
       expect(
