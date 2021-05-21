@@ -321,6 +321,8 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   //
 
   private dispatchParsedEvent = (eventInfo: EventInfo) => {
+    this.lastEventReceivedTime = Date.now();
+
     if (eventInfo.retry) {
       const retryTime = Number.parseInt(eventInfo.retry, 10);
 
@@ -356,8 +358,6 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
         );
       }
     }
-
-    this.lastEventReceivedTime = Date.now();
 
     // Dispatch event
     const event = new MessageEvent(eventInfo.event ?? 'message', {
