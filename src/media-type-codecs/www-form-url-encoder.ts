@@ -26,22 +26,25 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
   }
 
   encodeQueryString(parameters: Record<string, unknown>): string {
-    const components: [string, string][] = [];
+    const components: string[] = [];
 
     for (const key of Object.keys(parameters).sort()) {
       components.push(...this.encodeQueryComponent(key, parameters[key]));
     }
-    return components.map((e) => `${e[0]}=${e[1]}`).join('&');
+    return components.join('&');
   }
 
-  encodeQueryComponent(key: string, value: unknown): [string, string][] {
-    const components: [string, string][] = [];
+  encodeQueryComponent(key: string, value: unknown): string[] {
+    const components: string[] = [];
 
     if (value === undefined) {
       return components;
     }
 
-    if (value instanceof Array) {
+    if (value == null) {
+      //
+      components.push(encodeURIComponent(key));
+    } else if (value instanceof Array) {
       // encode key according to `arrayEncoding`
       for (const item of value) {
         components.push(
@@ -53,16 +56,18 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
       }
     } else if (value instanceof Instant) {
       //
-      components.push([
-        encodeURIComponent(key),
-        encodeURIComponent(encodeDate(value, this.dateEncoding)),
-      ]);
+      components.push(
+        encodeURIComponent(key) +
+          '=' +
+          encodeURIComponent(encodeDate(value, this.dateEncoding))
+      );
     } else if (typeof value === 'boolean') {
       //
-      components.push([
-        encodeURIComponent(key),
-        encodeURIComponent(encodeBoolean(value, this.boolEncoding)),
-      ]);
+      components.push(
+        encodeURIComponent(key) +
+          '=' +
+          encodeURIComponent(encodeBoolean(value, this.boolEncoding))
+      );
     } else if (typeof value === 'object') {
       //
       const rec = (value ?? {}) as Record<string, unknown>;
@@ -74,10 +79,9 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
       }
     } else {
       //
-      components.push([
-        encodeURIComponent(key),
-        encodeURIComponent(`${value}`),
-      ]);
+      components.push(
+        encodeURIComponent(key) + '=' + encodeURIComponent(`${value}`)
+      );
     }
 
     return components;

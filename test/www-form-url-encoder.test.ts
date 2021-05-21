@@ -134,4 +134,10 @@ describe('WWWFormUrlEncoder', () => {
       `test=1494837000123&test=1529116810123`
     );
   });
+
+  it('encodes null values as flags', () => {
+    const encoder = WWWFormUrlEncoder.default;
+
+    expect(encoder.encodeQueryString({ flagged: null })).toBe(`flagged`);
+  });
 });
