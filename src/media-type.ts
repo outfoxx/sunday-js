@@ -49,7 +49,10 @@ export class MediaType {
     parameter: MediaType.ParameterName | string,
     value: string
   ): MediaType {
-    return this.with({ parameters: { [parameter]: value } });
+    const parameters = Object.assign({}, this.parameters, {
+      [parameter]: value,
+    });
+    return this.with({ parameters });
   }
 
   get value(): string {
