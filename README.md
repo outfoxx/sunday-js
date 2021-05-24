@@ -1,3 +1,7 @@
+[![CI](https://github.com/outfoxx/sunday-js/actions/workflows/ci.yml/badge.svg)](https://github.com/outfoxx/sunday-js/actions/workflows/ci.yml)
+
+---
+
 # Sunday 🙏 The framework of REST for TypeScript/JavaScript
 
 ---
