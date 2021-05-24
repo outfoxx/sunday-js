@@ -1,8 +1,10 @@
-# Sunday 🙏 The framework of REST
+# Sunday 🙏 The framework of REST for TypeScript/JavaScript
 
-## TypeScript/JavaScript framework for generated REST clients.
+---
 
-## [Read the Documentation](https://outfoxx.github.io/sunday)
+TypeScript/JavaScript framework for generated REST clients.
+
+### [Read the Documentation](https://outfoxx.github.io/sunday)
 
 ## NPM Install
 
