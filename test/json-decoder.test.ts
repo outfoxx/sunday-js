@@ -102,7 +102,7 @@ describe('JSONDecoder', () => {
     );
   });
 
-  it('decodes Instant values from number (fractional seconds)', async () => {
+  it('decodes Instant values from number (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -114,7 +114,7 @@ describe('JSONDecoder', () => {
 
     expect(
       new JSONDecoder(
-        NumericDateDecoding.FRACTIONAL_SECONDS
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).decodeText('{"test":981173106.789}', [Test])
     ).toEqual(
       new Test(
@@ -135,7 +135,7 @@ describe('JSONDecoder', () => {
 
     expect(
       new JSONDecoder(
-        NumericDateDecoding.MILLISECONDS
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
       ).decodeText('{"test":981173106789}', [Test])
     ).toEqual(
       new Test(
@@ -163,7 +163,7 @@ describe('JSONDecoder', () => {
     );
   });
 
-  it('decodes ZonedDateTime values from number (fractional seconds)', async () => {
+  it('decodes ZonedDateTime values from number (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -175,7 +175,7 @@ describe('JSONDecoder', () => {
 
     expect(
       new JSONDecoder(
-        NumericDateDecoding.FRACTIONAL_SECONDS
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).decodeText('{"test":981173106.789}', [Test])
     ).toEqual(
       new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC))
@@ -194,7 +194,7 @@ describe('JSONDecoder', () => {
 
     expect(
       new JSONDecoder(
-        NumericDateDecoding.MILLISECONDS
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
       ).decodeText('{"test":981173106789}', [Test])
     ).toEqual(
       new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC))
@@ -220,7 +220,7 @@ describe('JSONDecoder', () => {
     );
   });
 
-  it('decodes OffsetDateTime values from number (fractional seconds)', async () => {
+  it('decodes OffsetDateTime values from number (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -232,7 +232,7 @@ describe('JSONDecoder', () => {
 
     expect(
       new JSONDecoder(
-        NumericDateDecoding.FRACTIONAL_SECONDS
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).decodeText('{"test":981173106.789}', [Test])
     ).toEqual(
       new Test(
@@ -253,7 +253,7 @@ describe('JSONDecoder', () => {
 
     expect(
       new JSONDecoder(
-        NumericDateDecoding.MILLISECONDS
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
       ).decodeText('{"test":981173106789}', [Test])
     ).toEqual(
       new Test(
@@ -277,7 +277,7 @@ describe('JSONDecoder', () => {
     ).toEqual(new Test(OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC)));
   });
 
-  it('decodes OffsetTime values from number (fractional seconds)', async () => {
+  it('decodes OffsetTime values from number (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -289,7 +289,7 @@ describe('JSONDecoder', () => {
 
     expect(
       new JSONDecoder(
-        NumericDateDecoding.FRACTIONAL_SECONDS
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).decodeText('{"test":[4,5,6,789000000,"Z"]}', [Test])
     ).toEqual(new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)));
   });
@@ -306,7 +306,7 @@ describe('JSONDecoder', () => {
 
     expect(
       new JSONDecoder(
-        NumericDateDecoding.MILLISECONDS
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
       ).decodeText('{"test":[4,5,6,789,"Z"]}', [Test])
     ).toEqual(new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)));
   });
@@ -328,7 +328,7 @@ describe('JSONDecoder', () => {
     ).toEqual(new Test(LocalDateTime.of(2002, 1, 1, 1, 2, 3, 4000000)));
   });
 
-  it('decodes LocalDateTime values from number (fractional seconds)', async () => {
+  it('decodes LocalDateTime values from number (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -340,7 +340,7 @@ describe('JSONDecoder', () => {
 
     expect(
       new JSONDecoder(
-        NumericDateDecoding.FRACTIONAL_SECONDS
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).decodeText('{"test":[2001,2,3,4,5,6,789000000]}', [Test])
     ).toEqual(new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)));
   });
@@ -357,7 +357,7 @@ describe('JSONDecoder', () => {
 
     expect(
       new JSONDecoder(
-        NumericDateDecoding.MILLISECONDS
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
       ).decodeText('{"test":[2001,2,3,4,5,6,789]}', [Test])
     ).toEqual(new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)));
   });
@@ -377,7 +377,7 @@ describe('JSONDecoder', () => {
     ).toEqual(new Test(LocalDate.of(2002, 1, 1)));
   });
 
-  it('decodes LocalDate values from number (fractional seconds)', async () => {
+  it('decodes LocalDate values from number (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -389,7 +389,7 @@ describe('JSONDecoder', () => {
 
     expect(
       new JSONDecoder(
-        NumericDateDecoding.FRACTIONAL_SECONDS
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).decodeText('{"test":[2001,2,3]}', [Test])
     ).toEqual(new Test(LocalDate.of(2001, 2, 3)));
   });
@@ -406,7 +406,7 @@ describe('JSONDecoder', () => {
 
     expect(
       new JSONDecoder(
-        NumericDateDecoding.MILLISECONDS
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
       ).decodeText('{"test":[2001,2,3]}', [Test])
     ).toEqual(new Test(LocalDate.of(2001, 2, 3)));
   });
@@ -426,7 +426,7 @@ describe('JSONDecoder', () => {
     ).toEqual(new Test(LocalTime.of(1, 2, 3, 4000000)));
   });
 
-  it('decodes LocalTime values from number (fractional seconds)', async () => {
+  it('decodes LocalTime values from number (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -438,7 +438,7 @@ describe('JSONDecoder', () => {
 
     expect(
       new JSONDecoder(
-        NumericDateDecoding.FRACTIONAL_SECONDS
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).decodeText('{"test":[4,5,6,789000000]}', [Test])
     ).toEqual(new Test(LocalTime.of(4, 5, 6, 789000000)));
   });
@@ -455,7 +455,7 @@ describe('JSONDecoder', () => {
 
     expect(
       new JSONDecoder(
-        NumericDateDecoding.MILLISECONDS
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
       ).decodeText('{"test":[4,5,6,789]}', [Test])
     ).toEqual(new Test(LocalTime.of(4, 5, 6, 789000000)));
   });
@@ -491,7 +491,7 @@ describe('JSONDecoder', () => {
 
     expect(
       new JSONDecoder(
-        NumericDateDecoding.FRACTIONAL_SECONDS
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).decodeText('{"test":981173106.789}', [Test])
     ).toEqual(
       new Test(new Date(Instant.ofEpochMilli(981173106789).toString()))
@@ -510,7 +510,7 @@ describe('JSONDecoder', () => {
 
     expect(
       new JSONDecoder(
-        NumericDateDecoding.MILLISECONDS
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
       ).decodeText('{"test":981173106789}', [Test])
     ).toEqual(
       new Test(new Date(Instant.ofEpochMilli(981173106789).toString()))

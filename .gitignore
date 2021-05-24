@@ -91,3 +91,4 @@ typings/
 dist/
 build/
 /.idea
+/.nova

@@ -14,3 +14,18 @@ export function isURLQueryParamsEncoder(
   const rec = (encoder as unknown) as Record<string, unknown>;
   return !!rec.encodeQueryString ?? false;
 }
+
+export interface StructuredMediaTypeEncoder extends MediaTypeEncoder {
+  encodeObject<T = unknown>(
+    value: T,
+    type?: AnyType,
+    includeNulls?: boolean
+  ): Record<string, unknown>;
+}
+
+export function isStructuredMediaTypeEncoder(
+  encoder: MediaTypeEncoder | StructuredMediaTypeEncoder | undefined
+): encoder is StructuredMediaTypeEncoder {
+  const rec = (encoder as unknown) as Record<string, unknown>;
+  return !!rec.encodeObject ?? false;
+}

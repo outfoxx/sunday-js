@@ -1,17 +1,17 @@
-import { Observable, of, Subscriber } from 'rxjs';
+import { defer, Observable, of, Subscriber } from 'rxjs';
 import { mapTo, switchMap } from 'rxjs/operators';
 import { AnyType } from './any-type';
-import { ClassType } from './class-type';
+import { ConstructableClassType } from './class-type';
 import { validate } from './fetch';
 import { FetchEventSource } from './fetch-event-source';
-import { HttpError } from './http-error';
+import { SundayError } from './sunday-error';
 import { JSONDecoder } from './media-type-codecs/json-decoder';
 import { Logger } from './logger';
 import { MediaType } from './media-type';
 import { MediaTypeDecoders } from './media-type-codecs/media-type-decoders';
 import { isURLQueryParamsEncoder } from './media-type-codecs/media-type-encoder';
 import { MediaTypeEncoders } from './media-type-codecs/media-type-encoders';
-import { Problem, ProblemType } from './problem';
+import { Problem } from './problem';
 import {
   EventTypes,
   ExtEventSource,
@@ -20,13 +20,14 @@ import {
   RequestSpec,
 } from './request-factory';
 import { URLTemplate } from './url-template';
+import { HeaderParameters } from 'header-parameters';
 
 export class FetchRequestFactory implements RequestFactory {
   public baseUrl: URLTemplate;
   public adapter?: RequestAdapter;
   public mediaTypeEncoders: MediaTypeEncoders;
   public mediaTypeDecoders: MediaTypeDecoders;
-  public problemTypes = new Map<string, ClassType<Problem>>();
+  public problemTypes = new Map<string, ConstructableClassType<Problem>>();
   public logger?: Logger;
 
   constructor(
@@ -48,69 +49,92 @@ export class FetchRequestFactory implements RequestFactory {
     this.logger = options?.logger ?? console;
   }
 
+  registerProblem(
+    type: URL | string,
+    problemType: ConstructableClassType<Problem>
+  ): void {
+    const typeStr = type instanceof URL ? type.toString() : type;
+    this.problemTypes.set(typeStr, problemType);
+  }
+
   request(
     requestSpec: RequestSpec<unknown>,
     requestInit?: RequestInit
   ): Observable<Request> {
     //
-    const url = this.baseUrl.complete(
-      requestSpec.pathTemplate,
-      requestSpec.pathParameters ?? {}
-    );
+    return defer(() => {
+      const url = this.baseUrl.complete(
+        requestSpec.pathTemplate,
+        requestSpec.pathParameters ?? {}
+      );
 
-    if (requestSpec.queryParameters) {
-      const encoder = this.mediaTypeEncoders.find(MediaType.WWWFormUrlEncoded);
-      if (!isURLQueryParamsEncoder(encoder)) {
-        throw Error(
-          `MediaTypeEncoder for ${MediaType.WWWFormUrlEncoded} must be an instance of URLEncoder`
+      if (requestSpec.queryParameters) {
+        const encoder = this.mediaTypeEncoders.find(
+          MediaType.WWWFormUrlEncoded
         );
-      }
-      url.search = `?${encoder.encodeQueryString(requestSpec.queryParameters)}`;
-    }
-
-    const headers = new Headers(requestSpec.headers);
-
-    // Determine & add accept header
-    const supportedAcceptTypes = requestSpec.acceptTypes?.filter((type) =>
-      this.mediaTypeDecoders.supports(type)
-    );
-    if (supportedAcceptTypes?.length) {
-      const accept = supportedAcceptTypes.join(' , ');
-
-      headers.set('accept', accept);
-    }
-
-    // Determine content type
-    const contentType = requestSpec.contentTypes?.find((type) =>
-      this.mediaTypeEncoders.supports(type)
-    );
-
-    // If matched, add content type (even if body is nil, to match any expected server requirements)
-    if (contentType) {
-      headers.set('content-type', contentType.toString());
-    }
-
-    // Encode & add body data
-    let body: BodyInit | undefined;
-    if (requestSpec.body) {
-      if (!contentType) {
-        throw Error('Unsupported content-type for request body');
+        if (!isURLQueryParamsEncoder(encoder)) {
+          throw Error(
+            `MediaTypeEncoder for ${MediaType.WWWFormUrlEncoded} must be an instance of URLQueryParamsEncoder`
+          );
+        }
+        url.search = `?${encoder.encodeQueryString(
+          requestSpec.queryParameters
+        )}`;
       }
 
-      body = this.mediaTypeEncoders
-        .find(contentType)
-        .encode(requestSpec.body, requestSpec.bodyType);
-    }
+      const headers = new Headers(HeaderParameters.encode(requestSpec.headers));
 
-    const init: RequestInit = Object.assign({}, requestInit, {
-      headers,
-      body,
-      method: requestSpec.method,
+      // Determine & add accept header
+      if (requestSpec.acceptTypes) {
+        const supportedAcceptTypes = requestSpec.acceptTypes.filter((type) =>
+          this.mediaTypeDecoders.supports(type)
+        );
+
+        if (!supportedAcceptTypes.length) {
+          throw Error(
+            'None of the provided accept types has a reqistered decoder'
+          );
+        }
+
+        const accept = supportedAcceptTypes.join(' , ');
+
+        headers.set('accept', accept);
+      }
+
+      // Determine content type
+      const contentType = requestSpec.contentTypes?.find((type) =>
+        this.mediaTypeEncoders.supports(type)
+      );
+
+      // If matched, add content type (even if body is nil, to match any expected server requirements)
+      if (contentType) {
+        headers.set('content-type', contentType.toString());
+      }
+
+      // Encode & add body data
+      let body: BodyInit | undefined;
+      if (requestSpec.body) {
+        if (!contentType) {
+          throw Error(
+            'None of the provided content types has a registered encoder'
+          );
+        }
+
+        body = this.mediaTypeEncoders
+          .find(contentType)
+          .encode(requestSpec.body, requestSpec.bodyType);
+      }
+
+      const init: RequestInit = Object.assign({}, requestInit, {
+        headers,
+        body,
+        method: requestSpec.method,
+      });
+
+      const request = new Request(url.toString(), init);
+
+      return this.adapter?.(request) ?? of(request);
     });
-
-    const request = new Request(url.toString(), init);
-
-    return this.adapter?.(request) ?? of(request);
   }
 
   response(
@@ -121,7 +145,9 @@ export class FetchRequestFactory implements RequestFactory {
       request instanceof Request ? of(request) : this.request(request);
     return request$.pipe(
       switchMap((req) => fetch(req)),
-      switchMap((response) => validate(response, dataExpected ?? false))
+      switchMap((response) =>
+        validate(response, dataExpected ?? false, this.problemTypes)
+      )
     );
   }
 
@@ -146,8 +172,8 @@ export class FetchRequestFactory implements RequestFactory {
             const decoder = this.mediaTypeDecoders.find(contentType);
             return await decoder.decode(response, responseType);
           } catch (error) {
-            throw await HttpError.fromResponse(
-              error.message ?? 'Unknown Error',
+            throw await SundayError.fromResponse(
+              error.message ?? 'Response Decoding Failed',
               response
             );
           }
@@ -156,15 +182,7 @@ export class FetchRequestFactory implements RequestFactory {
     }
   }
 
-  events(requestSpec: RequestSpec<void>): ExtEventSource;
-  events<E>(
-    requestSpec: RequestSpec<void>,
-    eventTypes: EventTypes<E>
-  ): Observable<E>;
-  events(
-    requestSpec: RequestSpec<void>,
-    eventTypes?: EventTypes<unknown>
-  ): ExtEventSource | Observable<unknown> {
+  eventSource(requestSpec: RequestSpec<void>): ExtEventSource {
     //
     const adapter = (
       url: string,
@@ -181,9 +199,14 @@ export class FetchRequestFactory implements RequestFactory {
       adapter,
     });
 
-    if (!eventTypes) {
-      return eventSource;
-    }
+    return eventSource;
+  }
+
+  eventStream<E>(
+    requestSpec: RequestSpec<void>,
+    eventTypes: EventTypes<E>
+  ): Observable<E> {
+    const eventSource = this.eventSource(requestSpec);
 
     const generateEventHandler = (
       eventType: AnyType,
@@ -222,15 +245,5 @@ export class FetchRequestFactory implements RequestFactory {
         eventSource.close();
       };
     });
-  }
-
-  registerProblem(type: ClassType<Problem>): void {
-    const problemType = (type as unknown) as ProblemType;
-    if (!problemType.TYPE) {
-      throw Error(
-        `Problem type ${type} doesn't have required static 'TYPE' property`
-      );
-    }
-    this.problemTypes.set(problemType.TYPE, type);
   }
 }

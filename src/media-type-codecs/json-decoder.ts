@@ -17,12 +17,14 @@ import {
 import { JsonParser } from '@outfoxx/jackson-js';
 import { CustomMapper, Deserializer } from '@outfoxx/jackson-js/dist/@types';
 import { AnyType } from '../any-type';
-import { MediaTypeDecoder } from './media-type-decoder';
+import { StructuredMediaTypeDecoder } from './media-type-decoder';
 import { Base64 } from '../util/base64';
 
-export class JSONDecoder implements MediaTypeDecoder {
+export class JSONDecoder implements StructuredMediaTypeDecoder {
   static get default(): JSONDecoder {
-    return new JSONDecoder(JSONDecoder.NumericDateDecoding.FRACTIONAL_SECONDS);
+    return new JSONDecoder(
+      JSONDecoder.NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
+    );
   }
 
   private readonly customDeserializers: CustomMapper<Deserializer>[];
@@ -74,7 +76,7 @@ export class JSONDecoder implements MediaTypeDecoder {
   }
 
   async decode<T>(response: Response, type: AnyType): Promise<T> {
-    return this.decodeJSON(await response.json(), type);
+    return Promise.resolve(this.decodeObject(await response.json(), type));
   }
 
   decodeText<T>(text: string, type: AnyType): T {
@@ -84,7 +86,7 @@ export class JSONDecoder implements MediaTypeDecoder {
     }) as T;
   }
 
-  decodeJSON<T, U>(value: T, type: AnyType): Promise<U> {
+  decodeObject<T>(value: unknown, type: AnyType): T {
     return this.parser.transform(value, {
       deserializers: this.customDeserializers,
       mainCreator: () => type,
@@ -104,12 +106,12 @@ export class JSONDecoder implements MediaTypeDecoder {
     if (typeof value === 'number') {
       if (
         this.numericDateDecoding ===
-        JSONDecoder.NumericDateDecoding.MILLISECONDS
+        JSONDecoder.NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
       ) {
         return Instant.ofEpochMilli(value);
       } else if (
         this.numericDateDecoding ===
-        JSONDecoder.NumericDateDecoding.FRACTIONAL_SECONDS
+        JSONDecoder.NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ) {
         const duration = Duration.parse(`PT${value}S`);
         return Instant.ofEpochSecond(duration.seconds(), duration.nano());
@@ -140,13 +142,13 @@ export class JSONDecoder implements MediaTypeDecoder {
     if (typeof value === 'number') {
       if (
         this.numericDateDecoding ===
-        JSONDecoder.NumericDateDecoding.MILLISECONDS
+        JSONDecoder.NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
       ) {
         const instant = Instant.ofEpochMilli(value);
         return ZonedDateTime.ofInstant(instant, ZoneId.UTC);
       } else if (
         this.numericDateDecoding ===
-        JSONDecoder.NumericDateDecoding.FRACTIONAL_SECONDS
+        JSONDecoder.NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ) {
         const duration = Duration.parse(`PT${value}S`);
         const instant = Instant.ofEpochSecond(
@@ -183,13 +185,13 @@ export class JSONDecoder implements MediaTypeDecoder {
     if (typeof value === 'number') {
       if (
         this.numericDateDecoding ===
-        JSONDecoder.NumericDateDecoding.MILLISECONDS
+        JSONDecoder.NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
       ) {
         const instant = Instant.ofEpochMilli(value);
         return OffsetDateTime.ofInstant(instant, ZoneId.UTC);
       } else if (
         this.numericDateDecoding ===
-        JSONDecoder.NumericDateDecoding.FRACTIONAL_SECONDS
+        JSONDecoder.NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ) {
         const duration = Duration.parse(`PT${value}S`);
         const instant = Instant.ofEpochSecond(
@@ -237,7 +239,7 @@ export class JSONDecoder implements MediaTypeDecoder {
           nanoOfSecond = value[idx++];
           if (
             this.numericDateDecoding ==
-            JSONDecoder.NumericDateDecoding.MILLISECONDS
+            JSONDecoder.NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
           ) {
             // millis to nanos
             nanoOfSecond *= 1_000_000;
@@ -288,7 +290,7 @@ export class JSONDecoder implements MediaTypeDecoder {
           nanoOfSecond = value[idx++];
           if (
             this.numericDateDecoding ==
-            JSONDecoder.NumericDateDecoding.MILLISECONDS
+            JSONDecoder.NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
           ) {
             // millis to nanos
             nanoOfSecond *= 1_000_000;
@@ -368,7 +370,7 @@ export class JSONDecoder implements MediaTypeDecoder {
           nanoOfSecond = value[idx++];
           if (
             this.numericDateDecoding ==
-            JSONDecoder.NumericDateDecoding.MILLISECONDS
+            JSONDecoder.NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
           ) {
             // millis to nanos
             nanoOfSecond *= 1_000_000;
@@ -396,12 +398,12 @@ export class JSONDecoder implements MediaTypeDecoder {
     if (typeof value === 'number') {
       if (
         this.numericDateDecoding ===
-        JSONDecoder.NumericDateDecoding.MILLISECONDS
+        JSONDecoder.NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
       ) {
         return new Date(value);
       } else if (
         this.numericDateDecoding ===
-        JSONDecoder.NumericDateDecoding.FRACTIONAL_SECONDS
+        JSONDecoder.NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ) {
         return new Date(value * 1000);
       } else {
@@ -450,14 +452,14 @@ export namespace JSONDecoder {
    */
   export enum NumericDateDecoding {
     /**
-     * Decode numeric temporal values assuming they are seconds with fractional
+     * Decode numeric temporal values assuming they are seconds with decimal
      * sub-second precision.
      */
-    FRACTIONAL_SECONDS,
+    DECIMAL_SECONDS_SINCE_EPOCH,
 
     /**
      * Decode numeric temporal values assuming they are integer milliseconds.
      */
-    MILLISECONDS,
+    MILLISECONDS_SINCE_EPOCH,
   }
 }

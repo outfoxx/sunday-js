@@ -75,7 +75,7 @@ describe('JSONEncoder', () => {
     ).toEqual('{"test":"2002-01-01T01:02:03.004Z"}');
   });
 
-  it('encodes Instant values as number (fractional seconds)', async () => {
+  it('encodes Instant values as number (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -87,7 +87,7 @@ describe('JSONEncoder', () => {
 
     expect(
       new JSONEncoder(
-        JSONEncoder.DateEncoding.FRACTIONAL_SECONDS
+        JSONEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).encode(
         new Test(
           ZonedDateTime.of(
@@ -117,7 +117,9 @@ describe('JSONEncoder', () => {
     }
 
     expect(
-      new JSONEncoder(JSONEncoder.DateEncoding.MILLISECONDS).encode(
+      new JSONEncoder(
+        JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
+      ).encode(
         new Test(
           ZonedDateTime.of(
             2001,
@@ -153,7 +155,7 @@ describe('JSONEncoder', () => {
     ).toEqual('{"test":"2002-01-01T01:02:03.004Z[Z]"}');
   });
 
-  it('encodes ZonedDateTime values as number (fractional seconds)', async () => {
+  it('encodes ZonedDateTime values as number (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -165,7 +167,7 @@ describe('JSONEncoder', () => {
 
     expect(
       new JSONEncoder(
-        JSONEncoder.DateEncoding.FRACTIONAL_SECONDS
+        JSONEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).encode(
         new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC)),
         [Test]
@@ -184,7 +186,9 @@ describe('JSONEncoder', () => {
     }
 
     expect(
-      new JSONEncoder(JSONEncoder.DateEncoding.MILLISECONDS).encode(
+      new JSONEncoder(
+        JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
+      ).encode(
         new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC)),
         [Test]
       )
@@ -211,7 +215,7 @@ describe('JSONEncoder', () => {
     ).toEqual('{"test":"2002-01-01T01:02:03.004Z"}');
   });
 
-  it('encodes OffsetDateTime values as number (fractional seconds)', async () => {
+  it('encodes OffsetDateTime values as number (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -223,7 +227,7 @@ describe('JSONEncoder', () => {
 
     expect(
       new JSONEncoder(
-        JSONEncoder.DateEncoding.FRACTIONAL_SECONDS
+        JSONEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).encode(
         new Test(
           OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC)
@@ -244,7 +248,9 @@ describe('JSONEncoder', () => {
     }
 
     expect(
-      new JSONEncoder(JSONEncoder.DateEncoding.MILLISECONDS).encode(
+      new JSONEncoder(
+        JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
+      ).encode(
         new Test(
           OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC)
         ),
@@ -271,7 +277,7 @@ describe('JSONEncoder', () => {
     ).toEqual('{"test":"01:02:03.004Z"}');
   });
 
-  it('encodes OffsetTime values as number (fractional seconds)', async () => {
+  it('encodes OffsetTime values as number (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -283,7 +289,7 @@ describe('JSONEncoder', () => {
 
     expect(
       new JSONEncoder(
-        JSONEncoder.DateEncoding.FRACTIONAL_SECONDS
+        JSONEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).encode(new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)), [
         Test,
       ])
@@ -301,10 +307,11 @@ describe('JSONEncoder', () => {
     }
 
     expect(
-      new JSONEncoder(JSONEncoder.DateEncoding.MILLISECONDS).encode(
-        new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)),
-        [Test]
-      )
+      new JSONEncoder(
+        JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
+      ).encode(new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)), [
+        Test,
+      ])
     ).toEqual('{"test":[4,5,6,789,"Z"]}');
   });
 
@@ -326,7 +333,7 @@ describe('JSONEncoder', () => {
     ).toEqual('{"test":"2001-01-01T01:02:03.004"}');
   });
 
-  it('encodes LocalDateTime values as number (fractional seconds)', async () => {
+  it('encodes LocalDateTime values as number (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -338,7 +345,7 @@ describe('JSONEncoder', () => {
 
     expect(
       new JSONEncoder(
-        JSONEncoder.DateEncoding.FRACTIONAL_SECONDS
+        JSONEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).encode(new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)), [
         Test,
       ])
@@ -356,10 +363,11 @@ describe('JSONEncoder', () => {
     }
 
     expect(
-      new JSONEncoder(JSONEncoder.DateEncoding.MILLISECONDS).encode(
-        new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)),
-        [Test]
-      )
+      new JSONEncoder(
+        JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
+      ).encode(new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)), [
+        Test,
+      ])
     ).toEqual('{"test":[2001,2,3,4,5,6,789]}');
   });
 
@@ -381,7 +389,7 @@ describe('JSONEncoder', () => {
     ).toEqual('{"test":"2001-01-01"}');
   });
 
-  it('encodes LocalDate values as number (fractional seconds)', async () => {
+  it('encodes LocalDate values as number (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -393,7 +401,7 @@ describe('JSONEncoder', () => {
 
     expect(
       new JSONEncoder(
-        JSONEncoder.DateEncoding.FRACTIONAL_SECONDS
+        JSONEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).encode(new Test(LocalDate.of(2001, 2, 3)), [Test])
     ).toEqual('{"test":[2001,2,3]}');
   });
@@ -409,10 +417,9 @@ describe('JSONEncoder', () => {
     }
 
     expect(
-      new JSONEncoder(JSONEncoder.DateEncoding.MILLISECONDS).encode(
-        new Test(LocalDate.of(2001, 2, 3)),
-        [Test]
-      )
+      new JSONEncoder(
+        JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
+      ).encode(new Test(LocalDate.of(2001, 2, 3)), [Test])
     ).toEqual('{"test":[2001,2,3]}');
   });
 
@@ -434,7 +441,7 @@ describe('JSONEncoder', () => {
     ).toEqual('{"test":"01:02:03.004"}');
   });
 
-  it('encodes LocalTime values as number (fractional seconds)', async () => {
+  it('encodes LocalTime values as number (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -446,7 +453,7 @@ describe('JSONEncoder', () => {
 
     expect(
       new JSONEncoder(
-        JSONEncoder.DateEncoding.FRACTIONAL_SECONDS
+        JSONEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).encode(new Test(LocalTime.of(4, 5, 6, 789000000)), [Test])
     ).toEqual('{"test":[4,5,6,789000000]}');
   });
@@ -462,10 +469,9 @@ describe('JSONEncoder', () => {
     }
 
     expect(
-      new JSONEncoder(JSONEncoder.DateEncoding.MILLISECONDS).encode(
-        new Test(LocalTime.of(4, 5, 6, 789000000)),
-        [Test]
-      )
+      new JSONEncoder(
+        JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
+      ).encode(new Test(LocalTime.of(4, 5, 6, 789000000)), [Test])
     ).toEqual('{"test":[4,5,6,789]}');
   });
 
@@ -480,7 +486,7 @@ describe('JSONEncoder', () => {
     }
 
     expect(
-      JSONEncoder.default.encode(
+      new JSONEncoder(JSONEncoder.DateEncoding.ISO8601).encode(
         new Test(
           new Date(Instant.parse('2002-01-01T00:00:00.000Z').toString())
         ),
@@ -501,7 +507,7 @@ describe('JSONEncoder', () => {
 
     expect(
       new JSONEncoder(
-        JSONEncoder.DateEncoding.FRACTIONAL_SECONDS
+        JSONEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).encode(
         new Test(new Date(Instant.ofEpochMilli(981173106789).toString())),
         [Test]
@@ -520,7 +526,9 @@ describe('JSONEncoder', () => {
     }
 
     expect(
-      new JSONEncoder(JSONEncoder.DateEncoding.MILLISECONDS).encode(
+      new JSONEncoder(
+        JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
+      ).encode(
         new Test(new Date(Instant.ofEpochMilli(981173106789).toString())),
         [Test]
       )

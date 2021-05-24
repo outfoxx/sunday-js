@@ -3,19 +3,24 @@
 
 module.exports = function (config) {
   config.set({
-    frameworks: ['jasmine', 'karma-typescript'],
+    frameworks: ['jasmine', 'karma-typescript', 'source-map-support'],
 
     basePath: '',
     files: ['test/matchers.ts', 'test/**/*.ts', 'src/**/*.ts'],
 
     preprocessors: {
-      '**/*.ts': ['karma-typescript'],
+      '**/*.ts': ['karma-typescript', 'sourcemap'],
+      '**/*.js': ['sourcemap'],
+      'src/**/*.ts': ['coverage'],
     },
 
     karmaTypescriptConfig: {
       tsconfig: './tsconfig.json',
       compilerOptions: {
         module: 'commonjs',
+      },
+      coverageOptions: {
+        instrumentation: false,
       },
       bundlerOptions: {
         sourceMap: true,
@@ -37,7 +42,7 @@ module.exports = function (config) {
       },
     },
 
-    reporters: ['progress'],
+    reporters: ['progress', 'coverage'],
 
     port: 9876,
     colors: true,

@@ -14,4 +14,11 @@ describe('Base64', () => {
         0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
       ].map(value => value + 48));
   });
+
+  it('encodes/decodes roundtrip', () => {
+    const source = `MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODk=`;
+    const decoded = Base64.decode(source);
+    const encoded = Base64.encode(decoded);
+    expect(encoded).toEqual(source);
+  });
 });

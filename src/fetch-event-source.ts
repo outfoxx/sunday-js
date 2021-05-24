@@ -1,5 +1,7 @@
+import { EventInfo, EventParser } from 'event-parser';
 import { EMPTY, Observable, of, Subscription } from 'rxjs';
 import { map, switchMap, tap } from 'rxjs/operators';
+import { unknownSet } from 'util/any';
 import { validate } from './fetch';
 import { Logger } from './logger';
 import { MediaType } from './media-type';
@@ -23,23 +25,27 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   onmessage: ((this: EventSource, ev: MessageEvent) => unknown) | null = null;
   onopen: ((this: EventSource, ev: Event) => unknown) | null = null;
 
+  get retryTime(): number {
+    return this.internalRetryTime;
+  }
+
   private adapter: (
     url: string,
     requestInit: RequestInit
   ) => Observable<Request>;
   private connectionSubscription?: Subscription;
-  private decoder: TextDecoder = new TextDecoder('utf-8');
-  private retryTime = 100;
+  private internalRetryTime = 100;
   private retryAttempt = 0;
   private connectionAttemptTime = 0;
+  private connectionOrigin?: string;
   private reconnectTimeoutHandle?: number;
   private lastEventId?: string;
   private logger?: Logger;
-  private unprocessedBuffers: ArrayBuffer[] = [];
-  private unprocessedText = '';
   private readonly eventTimeout?: number;
   private eventTimeoutCheckHandle?: number;
-  private lastEventTime?: number;
+  private lastEventReceivedTime = 0;
+  private eventParser = new EventParser();
+  private externalAbortController?: AbortController;
 
   constructor(
     url: string,
@@ -47,6 +53,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       adapter?: (url: string, requestInit: RequestInit) => Observable<Request>;
       eventTimeout?: number;
       logger?: Logger;
+      abortController?: AbortController;
     }
   ) {
     super();
@@ -58,7 +65,12 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       eventSourceInit?.eventTimeout ??
       FetchEventSource.EVENT_TIMEOUT_DEFAULT * 1000;
     this.logger = eventSourceInit?.logger;
+    this.externalAbortController = eventSourceInit?.abortController;
   }
+
+  //
+  // Connect
+  //
 
   connect(): void {
     if (this.readyState === this.CONNECTING || this.readyState === this.OPEN) {
@@ -81,13 +93,14 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       headers.append(FetchEventSource.LAST_EVENT_ID_HEADER, this.lastEventId);
     }
 
-    const abort = new AbortController();
+    const abortController =
+      this.externalAbortController ?? new AbortController();
 
     const requestInit: RequestInit = {
       headers,
       cache: 'no-store',
       redirect: 'follow',
-      signal: abort.signal,
+      signal: abortController.signal,
     };
 
     this.connectionAttemptTime = Date.now();
@@ -96,7 +109,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       .pipe(
         switchMap((request) => fetch(request)),
         switchMap((response) => validate(response, true)),
-        tap(() => this.receivedHeaders()),
+        tap((response) => this.receivedHeaders(response)),
         switchMap((response) => {
           const body = response.body;
           if (!body) {
@@ -109,19 +122,23 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       )
       .subscribe({
         error: (error: unknown) => {
-          abort.abort();
           this.receivedError(error);
         },
         complete: () => {
-          abort.abort();
           this.receivedComplete();
         },
       });
-    this.connectionSubscription.add(() => abort.abort());
+    this.connectionSubscription.add(() => {
+      abortController.abort();
+    });
   }
 
+  //
+  // Close
+  //
+
   close(): void {
-    this.logger?.debug?.('closed');
+    this.logger?.debug?.('close requested');
 
     this.readyState = this.CLOSED;
 
@@ -137,12 +154,18 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     this.stopEventTimeoutCheck();
   }
 
-  private startEventTimeoutCheck() {
+  //
+  // Event Timeout
+  //
+
+  private startEventTimeoutCheck(lastEventReceivedTime: number) {
     this.stopEventTimeoutCheck();
 
     if (!this.eventTimeout) {
       return;
     }
+
+    this.lastEventReceivedTime = lastEventReceivedTime;
 
     // this.logger?.debug?.('starting event timeout checks');
 
@@ -170,107 +193,95 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     // this.logger?.debug?.('checking event timeout');
 
     // Check elapsed time since last received event
-    const elapsed = Date.now() - (this.lastEventTime ?? 0);
+    const elapsed = Date.now() - this.lastEventReceivedTime;
     if (elapsed > this.eventTimeout) {
       this.logger?.debug?.('event timeout reached', {
         elapsed,
       });
-
-      this.internalClose();
+      this.fireErrorEvent(Error('EventTimeout'));
 
       this.scheduleReconnect();
     }
   }
 
-  private receivedHeaders() {
+  //
+  // Connection Handlers
+  //
+
+  private receivedHeaders(response: Response) {
     if (this.readyState !== this.CONNECTING) {
-      this.close();
-      throw Error('Invalid readyState');
+      this.logger?.error?.('Invalid readyState for receiveHaders', {
+        readyState: this.readyState,
+      });
+
+      this.fireErrorEvent(Error('InvalidState'));
+
+      this.scheduleReconnect();
+      return;
     }
 
-    this.logger?.debug?.('connected');
+    this.logger?.debug?.('opened');
 
+    this.connectionOrigin = response.url;
     this.retryAttempt = 0;
     this.readyState = this.OPEN;
 
-    this.startEventTimeoutCheck();
+    // Start event timeout check, treating this
+    // connect as last time we received an event
+    this.startEventTimeoutCheck(Date.now());
 
     const event = new Event('open');
     this.onopen?.(event);
     this.dispatchEvent(event);
   }
 
-  private receivedData(value: ArrayBuffer) {
-    this.unprocessedBuffers.push(value);
+  private receivedData(buffer: ArrayBuffer) {
+    if (this.readyState !== this.OPEN) {
+      this.logger?.error?.('Invalid readyState for receiveData', {
+        readyState: this.readyState,
+      });
 
-    while (this.unprocessedBuffers.length) {
-      const latest = this.unprocessedBuffers[
-        this.unprocessedBuffers.length - 1
-      ];
-      const latestBytes = new Uint8Array(latest);
-      const latestNewLine = latestBytes.indexOf(0xa);
-      if (latestNewLine == -1) {
-        return;
-      }
-      const nextLine = latestNewLine + 1;
+      this.fireErrorEvent(Error('InvalidState'));
 
-      const readyToProcess = this.unprocessedBuffers.slice(0, -1);
-      readyToProcess.push(latest.slice(0, nextLine));
-
-      const leftOver = latest.slice(nextLine);
-      this.unprocessedBuffers = leftOver.byteLength ? [leftOver] : [];
-
-      let text = '';
-      for (const buffer of readyToProcess) {
-        text += this.decoder.decode(buffer, { stream: true });
-      }
-
-      this.receivedText(text);
+      this.scheduleReconnect();
+      return;
     }
-  }
 
-  private receivedText(text: string) {
-    // Clear out carriage returns
-    text = text.replace('\r\n', '\n');
+    this.logger?.debug?.('received data', { length: validate.length });
 
-    this.unprocessedText += text;
-
-    const eventStrings = this.extractEventStrings();
-
-    this.parseEvents(eventStrings);
+    this.eventParser.process(buffer, this.dispatchParsedEvent);
   }
 
   private receivedError(error: unknown) {
-    if (
-      error instanceof DOMException &&
-      error.code === DOMException.ABORT_ERR
-    ) {
-      // this.logger?.debug?.('aborted');
-
+    if (this.readyState === this.CLOSED) {
       return;
     }
 
     this.logger?.debug?.('received error', { error });
-
-    this.scheduleReconnect();
-
-    const event = new Event('error');
-    ((event as unknown) as Record<string, unknown>).error = error;
-
-    this.onerror?.(event);
-  }
-
-  private receivedComplete() {
-    this.logger?.debug?.('received complete');
+    this.fireErrorEvent(error);
 
     if (this.readyState !== this.CLOSED) {
       this.scheduleReconnect();
-
-      return;
     }
   }
 
+  private receivedComplete() {
+    if (this.readyState == this.CLOSED) {
+      return;
+    }
+
+    this.logger?.debug?.('received complete');
+
+    this.scheduleReconnect();
+  }
+
+  //
+  // Reconnection
+  //
+
   private scheduleReconnect() {
+    this.internalClose();
+
     // calculate total delay
     const backOffDelay = Math.pow(this.retryAttempt, 2) * this.retryTime;
     let retryDelay = Math.min(
@@ -278,14 +289,17 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       this.retryTime * FetchEventSource.MAX_RETRY_TIME_MULTIPLE
     );
 
-    // Adjust delay by amount of time last reconnect cycle took, except
-    // on the first attempt
+    // Adjust delay by amount of time last connect
+    // cycle took, except on the first attempt
     if (this.retryAttempt > 0) {
       const connectionTime = Date.now() - this.connectionAttemptTime;
-      retryDelay = Math.max(retryDelay - connectionTime, 0);
+      // Ensure delay is at least as large as
+      // minimum retry time interval
+      retryDelay = Math.max(retryDelay - connectionTime, this.retryTime);
     }
 
     this.retryAttempt++;
+    this.readyState = this.CONNECTING;
 
     this.logger?.debug?.('scheduling reconnect', { retryDelay });
 
@@ -302,99 +316,63 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     this.reconnectTimeoutHandle = undefined;
   }
 
-  private extractEventStrings(): string[] {
-    const received = this.unprocessedText;
-    if (!received.length) {
-      return [];
-    }
+  //
+  // Event Dispatch
+  //
 
-    const eventStrings = received.split(EVENT_SEPARATOR);
+  private dispatchParsedEvent = (eventInfo: EventInfo) => {
+    this.lastEventReceivedTime = Date.now();
 
-    const last = eventStrings.pop();
-    this.unprocessedText = last?.length ? last : '';
+    if (eventInfo.retry) {
+      const retryTime = Number.parseInt(eventInfo.retry, 10);
 
-    return eventStrings;
-  }
+      if (Number.isSafeInteger(retryTime)) {
+        this.logger?.debug?.('updating retry timeout', { retryTime });
 
-  private parseEvents(eventStrings: string[]) {
-    for (const eventString of eventStrings) {
-      const line = eventString.trim();
-      if (!line.length) {
-        continue;
-      }
-
-      const parsedEvent = FetchEventSource.parseEvent(eventString);
-
-      if (parsedEvent.retry) {
-        const retryTime = Number.parseInt(parsedEvent.retry, 10);
-
-        if (
-          Number.isSafeInteger(retryTime) &&
-          parsedEvent.id == null &&
-          parsedEvent.event == null &&
-          parsedEvent.data == null
-        ) {
-          this.logger?.debug?.('updating retry timeout', { retryTime });
-
-          this.retryTime = retryTime;
-        } else {
-          this.logger?.debug?.('ignoring invalid retry timeout event', {
-            parsedEvent,
-          });
-        }
-
-        continue;
-      }
-
-      this.lastEventTime = Date.now();
-      this.lastEventId = parsedEvent.id ?? this.lastEventId;
-
-      // Skip empty or comment only events
-      if (!parsedEvent.id && !parsedEvent.event && !parsedEvent.data) {
-        // this.logger?.debug?.('skipping empty event');
-        continue;
-      }
-
-      // Dispatch event
-      const event = new MessageEvent(parsedEvent.event ?? 'message', {
-        data: parsedEvent.data,
-        lastEventId: this.lastEventId,
-      });
-
-      this.onmessage?.(event);
-      this.dispatchEvent(event);
-    }
-  }
-
-  private static parseEvent(eventString: string): EventInfo {
-    const event: EventInfo = {};
-
-    for (const line of eventString.split('\n')) {
-      const fields = line.split(':');
-      const key = fields[0].trim();
-      const value = fields.splice(1).join(':');
-
-      switch (key) {
-        case 'retry':
-          event.retry = value;
-          break;
-        case '':
-          // comment do nothing
-          break;
-        default:
-          (event as Record<string, string>)[key] = value.trim();
+        this.internalRetryTime = retryTime;
+      } else {
+        this.logger?.debug?.('ignoring invalid retry timeout event', {
+          eventInfo,
+        });
       }
     }
 
-    return event;
+    // skip empty events
+    if (
+      eventInfo.id == null &&
+      eventInfo.event == null &&
+      eventInfo.data == null
+    ) {
+      // skip empty event
+      return;
+    }
+
+    // Save last-event-id if the new id is valid
+    if (eventInfo.id != null) {
+      // Check for NULL as it is not allowed
+      if (eventInfo.id.indexOf('\0') == -1) {
+        this.lastEventId = eventInfo.id;
+      } else {
+        this.logger?.debug?.(
+          'event id contains null, unable to use for last-event-id'
+        );
+      }
+    }
+
+    // Dispatch event
+    const event = new MessageEvent(eventInfo.event ?? 'message', {
+      data: eventInfo.data,
+      lastEventId: this.lastEventId,
+      origin: this.connectionOrigin,
+    });
+
+    this.onmessage?.(event);
+    this.dispatchEvent(event);
+  };
+
+  fireErrorEvent(error: unknown): void {
+    const event = new Event('error');
+    unknownSet(event, 'error', error);
+    this.onerror?.(event);
   }
-}
-
-const EVENT_SEPARATOR = /\n\n/;
-
-interface EventInfo {
-  id?: string;
-  event?: string;
-  data?: string;
-  retry?: string;
 }

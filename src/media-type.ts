@@ -25,7 +25,7 @@ export class MediaType {
     );
   }
 
-  parameter(name: MediaType.ParameterName): string | undefined {
+  parameter(name: MediaType.ParameterName | string): string | undefined {
     return this.parameters[name];
   }
 
@@ -45,8 +45,14 @@ export class MediaType {
     });
   }
 
-  withParameter(parameter: MediaType.ParameterName, value: string): MediaType {
-    return this.with({ parameters: { [parameter]: value } });
+  withParameter(
+    parameter: MediaType.ParameterName | string,
+    value: string
+  ): MediaType {
+    const parameters = Object.assign({}, this.parameters, {
+      [parameter]: value,
+    });
+    return this.with({ parameters });
   }
 
   get value(): string {
@@ -99,7 +105,12 @@ export class MediaType {
     if (this.tree != other.tree) return false;
     if (this.suffix != other.suffix) return false;
     if (this.subtype != other.subtype) return false;
-    return this.parameters == other.parameters;
+    for (const parameterName of Object.keys(this.parameters)) {
+      if (this.parameters[parameterName] != other.parameters[parameterName]) {
+        return false;
+      }
+    }
+    return true;
   }
 
   toString(): string {
@@ -228,7 +239,7 @@ export namespace MediaType {
     });
   }
 
-  const fullRegex = /^((?:[a-z]+|\*))\/(x(?:-|\\.)|(?:(?:vnd|prs)\.)|\*)?([a-z0-9\-.]+|\*)(?:\+([a-z]+))?( *(?:; *(?:(?:[\w.-]+) *= *(?:[\w.-]+)) *)*)$/gi;
+  const fullRegex = /^((?:[a-z]+|\*))\/(x(?:-|\\.)|(?:(?:vnd|prs|x)\.)|\*)?([a-z0-9\-.]+|\*)(?:\+([a-z]+))?( *(?:; *(?:(?:[\w.-]+) *= *(?:[\w.-]+)) *)*)$/gi;
   const paramRegex = / *; *([\w.-]+) *= *([\w.-]+)/gi;
 
   export const Plain = new MediaType({

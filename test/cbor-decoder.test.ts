@@ -161,7 +161,7 @@ describe('CBORDecoder', () => {
     );
   });
 
-  it('decodes Instant values from number (fractional seconds)', async () => {
+  it('decodes Instant values from number (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -173,7 +173,7 @@ describe('CBORDecoder', () => {
 
     expect(
       new CBORDecoder(
-        NumericDateDecoding.FRACTIONAL_SECONDS
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).decodeData(Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'), [Test])
     ).toEqual(
       new Test(
@@ -182,7 +182,7 @@ describe('CBORDecoder', () => {
     );
   });
 
-  it('decodes Instant values from date tagged number (fractional seconds)', async () => {
+  it('decodes Instant values from date tagged number (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -194,7 +194,7 @@ describe('CBORDecoder', () => {
 
     expect(
       new CBORDecoder(
-        NumericDateDecoding.FRACTIONAL_SECONDS
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).decodeData(Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'), [Test])
     ).toEqual(
       new Test(
@@ -214,10 +214,9 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      new CBORDecoder(NumericDateDecoding.MILLISECONDS).decodeData(
-        Hex.decode('A1 64 74657374 1B 000000E472797865'),
-        [Test]
-      )
+      new CBORDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
+      ).decodeData(Hex.decode('A1 64 74657374 1B 000000E472797865'), [Test])
     ).toEqual(
       new Test(
         ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC).toInstant()
@@ -236,10 +235,9 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      new CBORDecoder(NumericDateDecoding.MILLISECONDS).decodeData(
-        Hex.decode('A1 64 74657374 C1 1B 000000E472797865'),
-        [Test]
-      )
+      new CBORDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
+      ).decodeData(Hex.decode('A1 64 74657374 C1 1B 000000E472797865'), [Test])
     ).toEqual(
       new Test(
         ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC).toInstant()
@@ -291,7 +289,7 @@ describe('CBORDecoder', () => {
     );
   });
 
-  it('decodes ZonedDateTime values from number (fractional seconds)', async () => {
+  it('decodes ZonedDateTime values from number (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -303,14 +301,14 @@ describe('CBORDecoder', () => {
 
     expect(
       new CBORDecoder(
-        NumericDateDecoding.FRACTIONAL_SECONDS
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).decodeData(Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'), [Test])
     ).toEqual(
       new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC))
     );
   });
 
-  it('decodes ZonedDateTime values from date tagged number (fractional seconds)', async () => {
+  it('decodes ZonedDateTime values from date tagged number (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -322,7 +320,7 @@ describe('CBORDecoder', () => {
 
     expect(
       new CBORDecoder(
-        NumericDateDecoding.FRACTIONAL_SECONDS
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).decodeData(Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'), [Test])
     ).toEqual(
       new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC))
@@ -340,10 +338,9 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      new CBORDecoder(NumericDateDecoding.MILLISECONDS).decodeData(
-        Hex.decode('A1 64 74657374 1B 000000E472797865'),
-        [Test]
-      )
+      new CBORDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
+      ).decodeData(Hex.decode('A1 64 74657374 1B 000000E472797865'), [Test])
     ).toEqual(
       new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC))
     );
@@ -360,10 +357,9 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      new CBORDecoder(NumericDateDecoding.MILLISECONDS).decodeData(
-        Hex.decode('A1 64 74657374 C1 1B 000000E472797865'),
-        [Test]
-      )
+      new CBORDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
+      ).decodeData(Hex.decode('A1 64 74657374 C1 1B 000000E472797865'), [Test])
     ).toEqual(
       new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC))
     );
@@ -413,7 +409,7 @@ describe('CBORDecoder', () => {
     );
   });
 
-  it('decodes OffsetDateTime values from number (fractional seconds)', async () => {
+  it('decodes OffsetDateTime values from number (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -425,7 +421,7 @@ describe('CBORDecoder', () => {
 
     expect(
       new CBORDecoder(
-        NumericDateDecoding.FRACTIONAL_SECONDS
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).decodeData(Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'), [Test])
     ).toEqual(
       new Test(
@@ -434,7 +430,7 @@ describe('CBORDecoder', () => {
     );
   });
 
-  it('decodes OffsetDateTime values from date tagged number (fractional seconds)', async () => {
+  it('decodes OffsetDateTime values from date tagged number (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -446,7 +442,7 @@ describe('CBORDecoder', () => {
 
     expect(
       new CBORDecoder(
-        NumericDateDecoding.FRACTIONAL_SECONDS
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).decodeData(Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'), [Test])
     ).toEqual(
       new Test(
@@ -466,10 +462,9 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      new CBORDecoder(NumericDateDecoding.MILLISECONDS).decodeData(
-        Hex.decode('A1 64 74657374 1B 000000E472797865'),
-        [Test]
-      )
+      new CBORDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
+      ).decodeData(Hex.decode('A1 64 74657374 1B 000000E472797865'), [Test])
     ).toEqual(
       new Test(
         OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC)
@@ -488,10 +483,9 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      new CBORDecoder(NumericDateDecoding.MILLISECONDS).decodeData(
-        Hex.decode('A1 64 74657374 C1 1B 000000E472797865'),
-        [Test]
-      )
+      new CBORDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
+      ).decodeData(Hex.decode('A1 64 74657374 C1 1B 000000E472797865'), [Test])
     ).toEqual(
       new Test(
         OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC)
@@ -517,7 +511,7 @@ describe('CBORDecoder', () => {
     ).toEqual(new Test(OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC)));
   });
 
-  it('decodes OffsetTime values from number (fractional seconds)', async () => {
+  it('decodes OffsetTime values from number (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -529,7 +523,7 @@ describe('CBORDecoder', () => {
 
     expect(
       new CBORDecoder(
-        NumericDateDecoding.FRACTIONAL_SECONDS
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).decodeData(Hex.decode('A1 64 74657374 85 04 05 06 1A 2F072F40 61 5A'), [
         Test,
       ])
@@ -547,10 +541,11 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      new CBORDecoder(NumericDateDecoding.MILLISECONDS).decodeData(
-        Hex.decode('A1 64 74657374 85 04 05 06 19 0315 61 5A'),
-        [Test]
-      )
+      new CBORDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
+      ).decodeData(Hex.decode('A1 64 74657374 85 04 05 06 19 0315 61 5A'), [
+        Test,
+      ])
     ).toEqual(new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)));
   });
 
@@ -574,7 +569,7 @@ describe('CBORDecoder', () => {
     ).toEqual(new Test(LocalDateTime.of(2002, 1, 1, 1, 2, 3, 4000000)));
   });
 
-  it('decodes LocalDateTime values from number (fractional seconds)', async () => {
+  it('decodes LocalDateTime values from number (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -586,7 +581,7 @@ describe('CBORDecoder', () => {
 
     expect(
       new CBORDecoder(
-        NumericDateDecoding.FRACTIONAL_SECONDS
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).decodeData(
         Hex.decode('A1 64 74657374 87 19 07D1 02 03 04 05 06 1A 2F072F40'),
         [Test]
@@ -605,7 +600,9 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      new CBORDecoder(NumericDateDecoding.MILLISECONDS).decodeData(
+      new CBORDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
+      ).decodeData(
         Hex.decode('A1 64 74657374 87 19 07D1 02 03 04 05 06 19 0315'),
         [Test]
       )
@@ -630,7 +627,7 @@ describe('CBORDecoder', () => {
     ).toEqual(new Test(LocalDate.of(2002, 1, 1)));
   });
 
-  it('decodes LocalDate values from number (fractional seconds)', async () => {
+  it('decodes LocalDate values from number (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -642,7 +639,7 @@ describe('CBORDecoder', () => {
 
     expect(
       new CBORDecoder(
-        NumericDateDecoding.FRACTIONAL_SECONDS
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).decodeData(Hex.decode('A1 64 74657374 83 19 07D1 02 03'), [Test])
     ).toEqual(new Test(LocalDate.of(2001, 2, 3)));
   });
@@ -658,10 +655,9 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      new CBORDecoder(NumericDateDecoding.MILLISECONDS).decodeData(
-        Hex.decode('A1 64 74657374 83 19 07D1 02 03'),
-        [Test]
-      )
+      new CBORDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
+      ).decodeData(Hex.decode('A1 64 74657374 83 19 07D1 02 03'), [Test])
     ).toEqual(new Test(LocalDate.of(2001, 2, 3)));
   });
 
@@ -683,7 +679,7 @@ describe('CBORDecoder', () => {
     ).toEqual(new Test(LocalTime.of(1, 2, 3, 4000000)));
   });
 
-  it('decodes LocalTime values from number (fractional seconds)', async () => {
+  it('decodes LocalTime values from number (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -695,7 +691,7 @@ describe('CBORDecoder', () => {
 
     expect(
       new CBORDecoder(
-        NumericDateDecoding.FRACTIONAL_SECONDS
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).decodeData(Hex.decode('A1 64 74657374 84 04 05 06 1A 2F072F40'), [Test])
     ).toEqual(new Test(LocalTime.of(4, 5, 6, 789000000)));
   });
@@ -711,10 +707,9 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      new CBORDecoder(NumericDateDecoding.MILLISECONDS).decodeData(
-        Hex.decode('A1 64 74657374 84 04 05 06 19 0315'),
-        [Test]
-      )
+      new CBORDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
+      ).decodeData(Hex.decode('A1 64 74657374 84 04 05 06 19 0315'), [Test])
     ).toEqual(new Test(LocalTime.of(4, 5, 6, 789000000)));
   });
 
@@ -762,7 +757,7 @@ describe('CBORDecoder', () => {
     );
   });
 
-  it('decodes Date values from numeric epoch (fractional seconds)', async () => {
+  it('decodes Date values from numeric epoch (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -774,7 +769,7 @@ describe('CBORDecoder', () => {
 
     expect(
       new CBORDecoder(
-        NumericDateDecoding.FRACTIONAL_SECONDS
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).decodeData(Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'), [Test])
     ).toEqual(
       new Test(new Date(Instant.ofEpochMilli(981173106789).toString()))
@@ -792,16 +787,15 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      new CBORDecoder(NumericDateDecoding.MILLISECONDS).decodeData(
-        Hex.decode('A1 64 74657374 1B 000000E472797865'),
-        [Test]
-      )
+      new CBORDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
+      ).decodeData(Hex.decode('A1 64 74657374 1B 000000E472797865'), [Test])
     ).toEqual(
       new Test(new Date(Instant.ofEpochMilli(981173106789).toString()))
     );
   });
 
-  it('decodes Date values from epoch date (fractional seconds)', async () => {
+  it('decodes Date values from epoch date (decimal seconds)', async () => {
     //
     class Test {
       constructor(
@@ -813,7 +807,7 @@ describe('CBORDecoder', () => {
 
     expect(
       new CBORDecoder(
-        NumericDateDecoding.FRACTIONAL_SECONDS
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
       ).decodeData(Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'), [Test])
     ).toEqual(
       new Test(new Date(Instant.ofEpochMilli(981173106789).toString()))
@@ -831,10 +825,9 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      new CBORDecoder(NumericDateDecoding.MILLISECONDS).decodeData(
-        Hex.decode('A1 64 74657374 C1 1B 000000E472797865'),
-        [Test]
-      )
+      new CBORDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
+      ).decodeData(Hex.decode('A1 64 74657374 C1 1B 000000E472797865'), [Test])
     ).toEqual(
       new Test(new Date(Instant.ofEpochMilli(981173106789).toString()))
     );
