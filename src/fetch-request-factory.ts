@@ -20,6 +20,7 @@ import {
   RequestSpec,
 } from './request-factory';
 import { URLTemplate } from './url-template';
+import { HeaderParameters } from 'header-parameters';
 
 export class FetchRequestFactory implements RequestFactory {
   public baseUrl: URLTemplate;
@@ -81,7 +82,7 @@ export class FetchRequestFactory implements RequestFactory {
         )}`;
       }
 
-      const headers = new Headers(requestSpec.headers);
+      const headers = new Headers(HeaderParameters.encode(requestSpec.headers));
 
       // Determine & add accept header
       if (requestSpec.acceptTypes) {

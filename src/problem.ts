@@ -11,8 +11,8 @@ import {
 
 export interface ProblemSpec {
   type: URL | string;
-  status: number;
   title: string;
+  status: number;
   detail?: string;
   instance?: URL | string;
   [key: string]: unknown;

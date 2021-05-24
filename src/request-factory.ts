@@ -72,7 +72,7 @@ export interface RequestSpec<B> {
   bodyType?: AnyType;
   contentTypes?: MediaType[];
   acceptTypes?: MediaType[];
-  headers?: HeadersInit;
+  headers?: Record<string, unknown>;
 }
 
 export interface EventTypes<E> {
