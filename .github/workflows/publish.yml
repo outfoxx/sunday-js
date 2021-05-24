@@ -1,0 +1,36 @@
+name: Publish
+
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+**']
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+
+      - uses: olegtarasov/get-tag@v2.1
+        id: tagName
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          name: ${{ steps.tagName.outputs.tag }}
+          tag_name: ${{ steps.tagName.outputs.tag }} 
+          draft: true
+
+      - run: npm version --no-git-tag-version ${{ steps.tagName.outputs.tag }}
+      - run: npm ci
+      
+      - name: Publish
+        uses: JS-DevTools/npm-publish@v1
+        with:
+          token: ${{ secrets.NPM_TOKEN }}

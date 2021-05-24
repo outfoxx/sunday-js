@@ -1,6 +1,6 @@
 {
   "name": "@outfoxx/sunday",
-  "version": "1.1.0-alpha.2",
+  "version": "0.0.0-dev",
   "description": "Sunday 🙏 The framework of REST for TypeScript/JavaScript",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
