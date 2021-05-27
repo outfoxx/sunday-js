@@ -20,7 +20,7 @@ import {
   RequestSpec,
 } from './request-factory';
 import { URLTemplate } from './url-template';
-import { HeaderParameters } from 'header-parameters';
+import { HeaderParameters } from './header-parameters';
 
 export class FetchRequestFactory implements RequestFactory {
   public baseUrl: URLTemplate;

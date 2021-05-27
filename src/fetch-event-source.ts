@@ -1,7 +1,7 @@
-import { EventInfo, EventParser } from 'event-parser';
+import { EventInfo, EventParser } from './event-parser';
 import { EMPTY, Observable, of, Subscription } from 'rxjs';
 import { map, switchMap, tap } from 'rxjs/operators';
-import { unknownSet } from 'util/any';
+import { unknownSet } from './util/any';
 import { validate } from './fetch';
 import { Logger } from './logger';
 import { MediaType } from './media-type';
