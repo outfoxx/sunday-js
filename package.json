@@ -10,7 +10,7 @@
     "test:watch": "karma start karma.conf.cjs",
     "build": "tsc --build tsconfig.dist.json",
     "clean": "rimraf build dist",
-    "prepublishOnly": "npm run clean && npm run pretty -- -c && npm run lint && npm run build && npm run test",
+    "prepublishOnly": "npm run clean && npm run lint && npm run build && npm run test",
     "lint": "eslint src test",
     "pretty": "prettier src test"
   },
