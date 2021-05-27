@@ -275,6 +275,16 @@ export namespace MediaType {
     tree: MediaType.Tree.Obsolete,
     subtype: 'www-form-urlencoded',
   });
+  export const X509CACert = new MediaType({
+    type: MediaType.Type.Application,
+    tree: MediaType.Tree.Obsolete,
+    subtype: 'x509-ca-cert',
+  });
+  export const X509UserCert = new MediaType({
+    type: MediaType.Type.Application,
+    tree: MediaType.Tree.Obsolete,
+    subtype: 'x509-user-cert',
+  });
 
   export const Any = new MediaType({
     type: MediaType.Type.Any,
