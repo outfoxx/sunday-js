@@ -10,7 +10,10 @@ TypeScript/JavaScript framework for generated REST clients.
 
 ### [Read the Documentation](https://outfoxx.github.io/sunday)
 
-## NPM Install
+---
+
+NPM
+---
 
 Sunday is delivered as a standard NPM package.
 
