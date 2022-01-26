@@ -309,7 +309,7 @@ describe('FetchRequestFactory', () => {
 
     const event$ = fetchRequestFactory.eventStream(
       { method: 'GET', pathTemplate: '' },
-      { hello: [Object] }
+      (decoder, event, id, data) => decoder.decodeText(data, [Object])
     );
 
     await expectAsync(event$.pipe(first()).toPromise()).toBeResolved({

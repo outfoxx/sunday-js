@@ -1,10 +1,11 @@
-import { ClassList } from '@outfoxx/jackson-js/dist/@types';
 import { Observable } from 'rxjs';
 import { AnyType } from './any-type';
 import { ClassType, ConstructableClassType } from './class-type';
 import { MediaType } from './media-type';
+import { TextMediaTypeDecoder } from './media-type-codecs/media-type-decoder';
 import { Problem } from './problem';
 import { URLTemplate } from './url-template';
+import { Logger } from './logger';
 
 export interface RequestFactory {
   readonly baseUrl: URLTemplate;
@@ -46,7 +47,13 @@ export interface RequestFactory {
 
   eventStream<E>(
     requestSpec: RequestSpec<void>,
-    eventTypes: EventTypes<E>
+    decoder: (
+      decoder: TextMediaTypeDecoder,
+      event: string | undefined,
+      id: string | undefined,
+      data: string,
+      logger?: Logger
+    ) => E | undefined
   ): Observable<E>;
 }
 
@@ -73,10 +80,6 @@ export interface RequestSpec<B> {
   contentTypes?: MediaType[];
   acceptTypes?: MediaType[];
   headers?: Record<string, unknown>;
-}
-
-export interface EventTypes<E> {
-  [key: string]: ClassList<ClassType<E>>;
 }
 
 export type RequestAdapter = (request: Request) => Observable<Request>;
