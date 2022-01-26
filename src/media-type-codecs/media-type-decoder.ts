@@ -4,6 +4,10 @@ export interface MediaTypeDecoder {
   decode<T>(response: Response, type: AnyType): Promise<T>;
 }
 
+export interface TextMediaTypeDecoder extends MediaTypeDecoder {
+  decodeText<T>(text: string, type: AnyType): T;
+}
+
 export interface StructuredMediaTypeDecoder extends MediaTypeDecoder {
   decodeObject<T>(data: unknown, type: AnyType): T;
 }

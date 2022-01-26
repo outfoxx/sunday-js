@@ -1,19 +1,18 @@
-import { defer, Observable, of, Subscriber } from 'rxjs';
+import { defer, Observable, of } from 'rxjs';
 import { mapTo, switchMap } from 'rxjs/operators';
 import { AnyType } from './any-type';
 import { ConstructableClassType } from './class-type';
 import { validate } from './fetch';
 import { FetchEventSource } from './fetch-event-source';
 import { SundayError } from './sunday-error';
-import { JSONDecoder } from './media-type-codecs/json-decoder';
 import { Logger } from './logger';
 import { MediaType } from './media-type';
+import { TextMediaTypeDecoder } from './media-type-codecs/media-type-decoder';
 import { MediaTypeDecoders } from './media-type-codecs/media-type-decoders';
 import { isURLQueryParamsEncoder } from './media-type-codecs/media-type-encoder';
 import { MediaTypeEncoders } from './media-type-codecs/media-type-encoders';
 import { Problem } from './problem';
 import {
-  EventTypes,
   ExtEventSource,
   RequestAdapter,
   RequestFactory,
@@ -204,40 +203,47 @@ export class FetchRequestFactory implements RequestFactory {
 
   eventStream<E>(
     requestSpec: RequestSpec<void>,
-    eventTypes: EventTypes<E>
+    decoder: (
+      decoder: TextMediaTypeDecoder,
+      event: string | undefined,
+      id: string | undefined,
+      data: string,
+      logger?: Logger
+    ) => E | undefined
   ): Observable<E> {
     const eventSource = this.eventSource(requestSpec);
 
-    const generateEventHandler = (
-      eventType: AnyType,
-      subscriber: Subscriber<unknown>
-    ) => {
-      return async (event: Event) => {
-        const decoder = this.mediaTypeDecoders.find(
-          MediaType.JSON
-        ) as JSONDecoder;
-        const msgEvent = event as MessageEvent;
-        const deserializedEvent = await decoder.decodeText(
-          msgEvent.data,
-          eventType
-        );
-        subscriber.next(deserializedEvent);
-      };
-    };
+    const jsonDecoder = this.mediaTypeDecoders.find(
+      MediaType.JSON
+    ) as TextMediaTypeDecoder;
 
     return new Observable((subscriber) => {
-      for (const eventTypeName of Object.keys(eventTypes)) {
-        const eventType = eventTypes[eventTypeName];
+      eventSource.onmessage = (event: MessageEvent<string>) => {
+        if (!event.data) {
+          return;
+        }
 
-        eventSource.addEventListener(
-          eventTypeName,
-          generateEventHandler(eventType, subscriber)
-        );
+        try {
+          const decodedEvent = decoder(
+            jsonDecoder,
+            event.type,
+            event.lastEventId,
+            event.data,
+            this.logger
+          );
+          if (!decodedEvent) {
+            return;
+          }
 
-        eventSource.onerror = (event) => {
-          this.logger?.error?.({ event }, 'event source error');
-        };
-      }
+          subscriber.next(decodedEvent);
+        } catch (error) {
+          subscriber.error(error);
+        }
+      };
+
+      eventSource.onerror = (event) => {
+        this.logger?.error?.({ event }, 'event source error');
+      };
 
       eventSource.connect();
 

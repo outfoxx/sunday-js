@@ -17,10 +17,14 @@ import {
 import { JsonParser } from '@outfoxx/jackson-js';
 import { CustomMapper, Deserializer } from '@outfoxx/jackson-js/dist/@types';
 import { AnyType } from '../any-type';
-import { StructuredMediaTypeDecoder } from './media-type-decoder';
+import {
+  StructuredMediaTypeDecoder,
+  TextMediaTypeDecoder,
+} from './media-type-decoder';
 import { Base64 } from '../util/base64';
 
-export class JSONDecoder implements StructuredMediaTypeDecoder {
+export class JSONDecoder
+  implements TextMediaTypeDecoder, StructuredMediaTypeDecoder {
   static get default(): JSONDecoder {
     return new JSONDecoder(
       JSONDecoder.NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
