@@ -1,5 +1,5 @@
 import fetchMock from 'fetch-mock';
-import { catchError } from 'rxjs/operators';
+import { catchError, firstValueFrom } from 'rxjs';
 import { FetchRequestFactory, MediaType, Problem, SundayError } from '../src';
 import any = jasmine.any;
 
@@ -20,14 +20,15 @@ describe('Fetch API Utilities', () => {
 
     const requestFactory = new FetchRequestFactory('http://example.com');
     await expectAsync(
-      requestFactory
-        .response({ method: 'GET', pathTemplate: '/test' }, true)
-        .pipe(
-          catchError((err) => {
-            throw err;
-          })
-        )
-        .toPromise()
+      firstValueFrom(
+        requestFactory
+          .response({ method: 'GET', pathTemplate: '/test' }, true)
+          .pipe(
+            catchError((err) => {
+              throw err;
+            })
+          )
+      )
     ).toBeRejectedWith(any(SundayError));
   });
 
@@ -43,14 +44,15 @@ describe('Fetch API Utilities', () => {
 
     const requestFactory = new FetchRequestFactory('http://example.com');
     await expectAsync(
-      requestFactory
-        .response({ method: 'GET', pathTemplate: '/test' }, true)
-        .pipe(
-          catchError((err) => {
-            throw err;
-          })
-        )
-        .toPromise()
+      firstValueFrom(
+        requestFactory
+          .response({ method: 'GET', pathTemplate: '/test' }, true)
+          .pipe(
+            catchError((err) => {
+              throw err;
+            })
+          )
+      )
     ).toBeRejectedWith(any(Problem));
   });
 
@@ -73,14 +75,15 @@ describe('Fetch API Utilities', () => {
 
     const requestFactory = new FetchRequestFactory('http://example.com');
     await expectAsync(
-      requestFactory
-        .response({ method: 'GET', pathTemplate: '/test' }, true)
-        .pipe(
-          catchError((err) => {
-            throw err;
-          })
-        )
-        .toPromise()
+      firstValueFrom(
+        requestFactory
+          .response({ method: 'GET', pathTemplate: '/test' }, true)
+          .pipe(
+            catchError((err) => {
+              throw err;
+            })
+          )
+      )
     ).toBeRejectedWith(any(Problem));
   });
 });

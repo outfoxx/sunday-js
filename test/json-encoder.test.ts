@@ -117,9 +117,7 @@ describe('JSONEncoder', () => {
     }
 
     expect(
-      new JSONEncoder(
-        JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
-      ).encode(
+      new JSONEncoder(JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
         new Test(
           ZonedDateTime.of(
             2001,
@@ -186,9 +184,7 @@ describe('JSONEncoder', () => {
     }
 
     expect(
-      new JSONEncoder(
-        JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
-      ).encode(
+      new JSONEncoder(JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
         new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC)),
         [Test]
       )
@@ -248,9 +244,7 @@ describe('JSONEncoder', () => {
     }
 
     expect(
-      new JSONEncoder(
-        JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
-      ).encode(
+      new JSONEncoder(JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
         new Test(
           OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC)
         ),
@@ -307,11 +301,10 @@ describe('JSONEncoder', () => {
     }
 
     expect(
-      new JSONEncoder(
-        JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
-      ).encode(new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)), [
-        Test,
-      ])
+      new JSONEncoder(JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
+        new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)),
+        [Test]
+      )
     ).toEqual('{"test":[4,5,6,789,"Z"]}');
   });
 
@@ -363,11 +356,10 @@ describe('JSONEncoder', () => {
     }
 
     expect(
-      new JSONEncoder(
-        JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
-      ).encode(new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)), [
-        Test,
-      ])
+      new JSONEncoder(JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
+        new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)),
+        [Test]
+      )
     ).toEqual('{"test":[2001,2,3,4,5,6,789]}');
   });
 
@@ -417,9 +409,10 @@ describe('JSONEncoder', () => {
     }
 
     expect(
-      new JSONEncoder(
-        JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
-      ).encode(new Test(LocalDate.of(2001, 2, 3)), [Test])
+      new JSONEncoder(JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
+        new Test(LocalDate.of(2001, 2, 3)),
+        [Test]
+      )
     ).toEqual('{"test":[2001,2,3]}');
   });
 
@@ -469,9 +462,10 @@ describe('JSONEncoder', () => {
     }
 
     expect(
-      new JSONEncoder(
-        JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
-      ).encode(new Test(LocalTime.of(4, 5, 6, 789000000)), [Test])
+      new JSONEncoder(JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
+        new Test(LocalTime.of(4, 5, 6, 789000000)),
+        [Test]
+      )
     ).toEqual('{"test":[4,5,6,789]}');
   });
 
@@ -526,9 +520,7 @@ describe('JSONEncoder', () => {
     }
 
     expect(
-      new JSONEncoder(
-        JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
-      ).encode(
+      new JSONEncoder(JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
         new Test(new Date(Instant.ofEpochMilli(981173106789).toString())),
         [Test]
       )

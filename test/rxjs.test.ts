@@ -1,5 +1,5 @@
 import fetchMock from 'fetch-mock';
-import { first } from 'rxjs/operators';
+import { first, firstValueFrom } from 'rxjs';
 import {
   FetchRequestFactory,
   MediaType,
@@ -49,11 +49,12 @@ describe('RxJS Utils', () => {
     const fetchRequestFactory = new FetchRequestFactory('http://example.com');
 
     await expectAsync(
-      fetchRequestFactory
-        .result({ method: 'GET', pathTemplate: '' })
-        .pipe(nullifyNotFound(), first())
-        .toPromise()
-    ).toBeResolved(jasmine.empty());
+      firstValueFrom(
+        fetchRequestFactory
+          .result({ method: 'GET', pathTemplate: '' })
+          .pipe(nullifyNotFound(), first())
+      )
+    ).toBeResolvedTo(null);
   });
 
   it('nullifyResponse translates selected problems to null', async () => {
@@ -66,11 +67,12 @@ describe('RxJS Utils', () => {
     const fetchRequestFactory = new FetchRequestFactory('http://example.com');
 
     await expectAsync(
-      fetchRequestFactory
-        .result({ method: 'GET', pathTemplate: '' })
-        .pipe(nullifyResponse([], [TestProblem]), first())
-        .toPromise()
-    ).toBeResolved(jasmine.empty());
+      firstValueFrom(
+        fetchRequestFactory
+          .result({ method: 'GET', pathTemplate: '' })
+          .pipe(nullifyResponse([], [TestProblem]), first())
+      )
+    ).toBeResolvedTo(null);
   });
 
   it('nullifyResponse passes other statuses', async () => {
@@ -81,10 +83,11 @@ describe('RxJS Utils', () => {
     const fetchRequestFactory = new FetchRequestFactory('http://example.com');
 
     await expectAsync(
-      fetchRequestFactory
-        .result({ method: 'GET', pathTemplate: '' })
-        .pipe(nullifyResponse([404], []), first())
-        .toPromise()
+      firstValueFrom(
+        fetchRequestFactory
+          .result({ method: 'GET', pathTemplate: '' })
+          .pipe(nullifyResponse([404], []), first())
+      )
     ).toBeRejectedWithError(Problem);
   });
 
@@ -96,10 +99,11 @@ describe('RxJS Utils', () => {
     const fetchRequestFactory = new FetchRequestFactory('http://example.com');
 
     await expectAsync(
-      fetchRequestFactory
-        .result({ method: 'GET', pathTemplate: '' })
-        .pipe(nullifyResponse([], [TestProblem]), first())
-        .toPromise()
+      firstValueFrom(
+        fetchRequestFactory
+          .result({ method: 'GET', pathTemplate: '' })
+          .pipe(nullifyResponse([], [TestProblem]), first())
+      )
     ).toBeRejectedWithError(AnotherProblem, /Another Problem/i);
   });
 
@@ -111,10 +115,11 @@ describe('RxJS Utils', () => {
     const fetchRequestFactory = new FetchRequestFactory('http://example.com');
 
     await expectAsync(
-      fetchRequestFactory
-        .result({ method: 'GET', pathTemplate: '' })
-        .pipe(nullifyResponse([405], [TestProblem]), first())
-        .toPromise()
+      firstValueFrom(
+        fetchRequestFactory
+          .result({ method: 'GET', pathTemplate: '' })
+          .pipe(nullifyResponse([405], [TestProblem]), first())
+      )
     ).toBeRejectedWithError(Error, /Failed to send request/i);
   });
 });

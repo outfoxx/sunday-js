@@ -1,11 +1,10 @@
+import { EMPTY, map, Observable, of, Subscription, switchMap, tap } from 'rxjs';
 import { EventInfo, EventParser } from './event-parser';
-import { EMPTY, Observable, of, Subscription } from 'rxjs';
-import { map, switchMap, tap } from 'rxjs/operators';
-import { unknownSet } from './util/any';
 import { validate } from './fetch';
 import { Logger } from './logger';
 import { MediaType } from './media-type';
 import { ExtEventSource } from './request-factory';
+import { unknownSet } from './util/any';
 import { fromStream } from './util/stream-rxjs';
 
 export class FetchEventSource extends EventTarget implements ExtEventSource {
@@ -45,7 +44,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   private eventTimeoutCheckHandle?: number;
   private lastEventReceivedTime = 0;
   private eventParser = new EventParser();
-  private externalAbortController?: AbortController;
+  private readonly externalAbortController?: AbortController;
 
   constructor(
     url: string,

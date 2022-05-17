@@ -1,5 +1,4 @@
-import { from, Observable, throwError } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { catchError, from, Observable, throwError } from 'rxjs';
 import { ClassType } from '../class-type';
 import { Problem } from '../problem';
 

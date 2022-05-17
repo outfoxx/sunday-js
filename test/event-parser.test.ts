@@ -125,8 +125,9 @@ describe('EventParser', () => {
   });
 
   it('allows empty values for fields', () => {
-    const eventBuffer = text.encode('retry: \nevent: \nid: \ndata: \n\n')
-      .buffer;
+    const eventBuffer = text.encode(
+      'retry: \nevent: \nid: \ndata: \n\n'
+    ).buffer;
 
     const parser = new EventParser();
 
@@ -171,8 +172,9 @@ describe('EventParser', () => {
   });
 
   it('ignores comment lines', () => {
-    const eventBuffer = text.encode(': this is a common\nevent\nid\ndata\n\n')
-      .buffer;
+    const eventBuffer = text.encode(
+      ': this is a common\nevent\nid\ndata\n\n'
+    ).buffer;
 
     const parser = new EventParser();
 

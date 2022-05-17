@@ -239,7 +239,8 @@ export namespace MediaType {
     });
   }
 
-  const fullRegex = /^((?:[a-z]+|\*))\/(x(?:-|\\.)|(?:(?:vnd|prs|x)\.)|\*)?([a-z0-9\-.]+|\*)(?:\+([a-z]+))?( *(?:; *(?:(?:[\w.-]+) *= *(?:[\w.-]+)) *)*)$/gi;
+  const fullRegex =
+    /^((?:[a-z]+|\*))\/(x(?:-|\\.)|(?:(?:vnd|prs|x)\.)|\*)?([a-z0-9\-.]+|\*)(?:\+([a-z]+))?( *(?:; *(?:(?:[\w.-]+) *= *(?:[\w.-]+)) *)*)$/gi;
   const paramRegex = / *; *([\w.-]+) *= *([\w.-]+)/gi;
 
   export const Plain = new MediaType({

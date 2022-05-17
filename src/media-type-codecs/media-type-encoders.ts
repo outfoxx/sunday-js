@@ -21,7 +21,8 @@ export interface MediaTypeEncodersBuilderConstructor {
 
 export class MediaTypeEncoders {
   static Builder: MediaTypeEncodersBuilderConstructor = class Builder
-    implements MediaTypeEncodersBuilder {
+    implements MediaTypeEncodersBuilder
+  {
     encoders = new Map<MediaType, MediaTypeEncoder>();
 
     add(

@@ -67,7 +67,7 @@ export class Problem extends Error implements Problem {
   constructor(spec: ProblemSpec) {
     super(`${spec.status.toString()} ${spec.type} - ${spec.title}`);
 
-    const src = (spec as unknown) as Record<string, unknown>;
+    const src = spec as unknown as Record<string, unknown>;
 
     const json = Object.assign({}, src);
 

@@ -51,7 +51,7 @@ export class EventParser {
 
     while (buffer.byteLength) {
       // Find end of next event separator in buffer, exiting if none found.
-      const eventSeparator = this.findEventSeparator(buffer);
+      const eventSeparator = EventParser.findEventSeparator(buffer);
       if (!eventSeparator) {
         // Save unprocessed data
         this.unprocessedBuffer = buffer;
@@ -73,7 +73,7 @@ export class EventParser {
     return eventStrings;
   }
 
-  private findEventSeparator(
+  private static findEventSeparator(
     buffer: ArrayBuffer
   ): [number, number] | undefined {
     const bytes = new Uint8Array(buffer);
@@ -114,7 +114,6 @@ export class EventParser {
         }
 
         default:
-          continue;
       }
     }
     return undefined;
@@ -167,9 +166,8 @@ export class EventParser {
           break;
 
         default: {
-          (event as Record<string, string>)[key] = EventParser.trimFieldValue(
-            value
-          );
+          (event as Record<string, string>)[key] =
+            EventParser.trimFieldValue(value);
         }
       }
     }

@@ -24,7 +24,8 @@ import {
 import { Base64 } from '../util/base64';
 
 export class JSONDecoder
-  implements TextMediaTypeDecoder, StructuredMediaTypeDecoder {
+  implements TextMediaTypeDecoder, StructuredMediaTypeDecoder
+{
   static get default(): JSONDecoder {
     return new JSONDecoder(
       JSONDecoder.NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH

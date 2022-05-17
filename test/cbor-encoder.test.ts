@@ -135,9 +135,7 @@ describe('CBOREncoder', () => {
     }
 
     expect(
-      new CBOREncoder(
-        CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
-      ).encode(
+      new CBOREncoder(CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
         new Test(
           ZonedDateTime.of(
             2001,
@@ -208,9 +206,7 @@ describe('CBOREncoder', () => {
     }
 
     expect(
-      new CBOREncoder(
-        CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
-      ).encode(
+      new CBOREncoder(CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
         new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC)),
         [Test]
       )
@@ -274,9 +270,7 @@ describe('CBOREncoder', () => {
     }
 
     expect(
-      new CBOREncoder(
-        CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
-      ).encode(
+      new CBOREncoder(CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
         new Test(
           OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC)
         ),
@@ -333,11 +327,10 @@ describe('CBOREncoder', () => {
     }
 
     expect(
-      new CBOREncoder(
-        CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
-      ).encode(new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)), [
-        Test,
-      ])
+      new CBOREncoder(CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
+        new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)),
+        [Test]
+      )
     ).toEqual(Hex.decode('A1 64 74657374 85 04 05 06 19 0315 61 5A'));
   });
 
@@ -395,11 +388,10 @@ describe('CBOREncoder', () => {
     }
 
     expect(
-      new CBOREncoder(
-        CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
-      ).encode(new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)), [
-        Test,
-      ])
+      new CBOREncoder(CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
+        new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)),
+        [Test]
+      )
     ).toEqual(Hex.decode('A1 64 74657374 87 19 07D1 02 03 04 05 06 19 0315'));
   });
 
@@ -449,9 +441,10 @@ describe('CBOREncoder', () => {
     }
 
     expect(
-      new CBOREncoder(
-        CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
-      ).encode(new Test(LocalDate.of(2001, 2, 3)), [Test])
+      new CBOREncoder(CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
+        new Test(LocalDate.of(2001, 2, 3)),
+        [Test]
+      )
     ).toEqual(Hex.decode('A1 64 74657374 83 19 07D1 02 03'));
   });
 
@@ -501,9 +494,10 @@ describe('CBOREncoder', () => {
     }
 
     expect(
-      new CBOREncoder(
-        CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
-      ).encode(new Test(LocalTime.of(4, 5, 6, 789000000)), [Test])
+      new CBOREncoder(CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
+        new Test(LocalTime.of(4, 5, 6, 789000000)),
+        [Test]
+      )
     ).toEqual(Hex.decode('A1 64 74657374 84 04 05 06 19 0315'));
   });
 

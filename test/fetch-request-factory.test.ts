@@ -1,6 +1,6 @@
 import { JsonClassType, JsonProperty } from '@outfoxx/jackson-js';
 import fetchMock from 'fetch-mock';
-import { first } from 'rxjs/operators';
+import { first, firstValueFrom } from 'rxjs';
 import {
   FetchRequestFactory,
   JSONEncoder,
@@ -51,14 +51,15 @@ describe('FetchRequestFactory', () => {
 
   it('replaces path template parameters', async () => {
     await expectAsync(
-      fetchRequestFactory
-        .request({
-          method: 'GET',
-          pathTemplate: '/api/{id}/contents',
-          pathParameters: { id: '12345' },
-        })
-        .pipe(first())
-        .toPromise()
+      firstValueFrom(
+        fetchRequestFactory
+          .request({
+            method: 'GET',
+            pathTemplate: '/api/{id}/contents',
+            pathParameters: { id: '12345' },
+          })
+          .pipe(first())
+      )
     ).toBeResolvedTo(
       objectContaining({ url: 'http://example.com/api/12345/contents' })
     );
@@ -66,18 +67,19 @@ describe('FetchRequestFactory', () => {
 
   it('adds encoded query parameters', async () => {
     await expectAsync(
-      fetchRequestFactory
-        .request({
-          method: 'GET',
-          pathTemplate: '/api/{id}/contents',
-          pathParameters: { id: '12345' },
-          queryParameters: {
-            limit: 5,
-            search: '1 & 2',
-          },
-        })
-        .pipe(first())
-        .toPromise()
+      firstValueFrom(
+        fetchRequestFactory
+          .request({
+            method: 'GET',
+            pathTemplate: '/api/{id}/contents',
+            pathParameters: { id: '12345' },
+            queryParameters: {
+              limit: 5,
+              search: '1 & 2',
+            },
+          })
+          .pipe(first())
+      )
     ).toBeResolvedTo(
       objectContaining({
         url: 'http://example.com/api/12345/contents?limit=5&search=1%20%26%202',
@@ -93,18 +95,19 @@ describe('FetchRequestFactory', () => {
     });
 
     await expectAsync(
-      fetchRequestFactory
-        .request({
-          method: 'GET',
-          pathTemplate: '/api/{id}/contents',
-          pathParameters: { id: '12345' },
-          queryParameters: {
-            limit: 5,
-            search: '1 & 2',
-          },
-        })
-        .pipe(first())
-        .toPromise()
+      firstValueFrom(
+        fetchRequestFactory
+          .request({
+            method: 'GET',
+            pathTemplate: '/api/{id}/contents',
+            pathParameters: { id: '12345' },
+            queryParameters: {
+              limit: 5,
+              search: '1 & 2',
+            },
+          })
+          .pipe(first())
+      )
     ).toBeRejectedWithError(Error, /Unsupported Media Type/i);
   });
 
@@ -119,23 +122,88 @@ describe('FetchRequestFactory', () => {
     });
 
     await expectAsync(
-      fetchRequestFactory
-        .request({
-          method: 'GET',
-          pathTemplate: '/api/{id}/contents',
-          pathParameters: { id: '12345' },
-          queryParameters: {
-            limit: 5,
-            search: '1 & 2',
-          },
-        })
-        .pipe(first())
-        .toPromise()
+      firstValueFrom(
+        fetchRequestFactory
+          .request({
+            method: 'GET',
+            pathTemplate: '/api/{id}/contents',
+            pathParameters: { id: '12345' },
+            queryParameters: {
+              limit: 5,
+              search: '1 & 2',
+            },
+          })
+          .pipe(first())
+      )
     ).toBeRejectedWithError(Error, /URLQueryParamsEncoder/i);
   });
 
   it('adds accept header', async () => {
     await expectAsync(
+      firstValueFrom(
+        fetchRequestFactory
+          .request({
+            method: 'POST',
+            pathTemplate: '/api/contents',
+            body: { a: 5 },
+            bodyType: [Object],
+            contentTypes: [MediaType.JSON],
+            acceptTypes: [MediaType.JSON, MediaType.CBOR],
+          })
+          .pipe(first())
+      ).then((req) => Array.from(req.headers.keys()))
+    ).toBeResolvedTo(Array.from(['accept', 'content-type']));
+  });
+
+  it('adds custom headers', async () => {
+    await expectAsync(
+      firstValueFrom(
+        fetchRequestFactory
+          .request({
+            method: 'GET',
+            pathTemplate: '/api/add-custom-headers',
+            headers: {
+              Authorization: 'Bearer 12345',
+            },
+          })
+          .pipe(first())
+      ).then((req) => Array.from(req.headers.keys()))
+    ).toBeResolvedTo(Array.from(['authorization']));
+  });
+
+  it('fails if none of the accept types has a decoder', async () => {
+    await expectAsync(
+      firstValueFrom(
+        fetchRequestFactory
+          .request({
+            method: 'GET',
+            pathTemplate: '/api',
+            acceptTypes: [MediaType.from('application/x-unknown') as MediaType],
+          })
+          .pipe(first())
+      )
+    ).toBeRejectedWithError(Error, /accept types/i);
+  });
+
+  it('fails if none of the content types has an encoder', async () => {
+    await expectAsync(
+      firstValueFrom(
+        fetchRequestFactory
+          .request({
+            method: 'POST',
+            pathTemplate: '/api',
+            body: { a: 1 },
+            contentTypes: [
+              MediaType.from('application/x-unknown') as MediaType,
+            ],
+          })
+          .pipe(first())
+      )
+    ).toBeRejectedWithError(Error, /content types/i);
+  });
+
+  it('attaches encoded body based on content-type', async () => {
+    const request: Request = await firstValueFrom(
       fetchRequestFactory
         .request({
           method: 'POST',
@@ -143,80 +211,24 @@ describe('FetchRequestFactory', () => {
           body: { a: 5 },
           bodyType: [Object],
           contentTypes: [MediaType.JSON],
-          acceptTypes: [MediaType.JSON, MediaType.CBOR],
         })
         .pipe(first())
-        .toPromise()
-    ).toBeResolved({ Accept: `${MediaType.JSON} , ${MediaType.CBOR}` });
-  });
-
-  it('adds custom headers', async () => {
-    await expectAsync(
-      fetchRequestFactory
-        .request({
-          method: 'GET',
-          pathTemplate: '/api/add-custom-headers',
-          headers: {
-            Authorization: 'Bearer 12345',
-          },
-        })
-        .pipe(first())
-        .toPromise()
-    ).toBeResolved({ Authorization: 'Bearer 12345' });
-  });
-
-  it('fails if none of the accept types has a decoder', async () => {
-    await expectAsync(
-      fetchRequestFactory
-        .request({
-          method: 'GET',
-          pathTemplate: '/api',
-          acceptTypes: [MediaType.from('application/x-unknown') as MediaType],
-        })
-        .pipe(first())
-        .toPromise()
-    ).toBeRejectedWithError(Error, /accept types/i);
-  });
-
-  it('fails if none of the content types has an encoder', async () => {
-    await expectAsync(
-      fetchRequestFactory
-        .request({
-          method: 'POST',
-          pathTemplate: '/api',
-          body: { a: 1 },
-          contentTypes: [MediaType.from('application/x-unknown') as MediaType],
-        })
-        .pipe(first())
-        .toPromise()
-    ).toBeRejectedWithError(Error, /content types/i);
-  });
-
-  it('attaches encoded body based on content-type', async () => {
-    const request: Request = await fetchRequestFactory
-      .request({
-        method: 'POST',
-        pathTemplate: '/api/contents',
-        body: { a: 5 },
-        bodyType: [Object],
-        contentTypes: [MediaType.JSON],
-      })
-      .pipe(first())
-      .toPromise();
+    );
     expect(request.url).toBe('http://example.com/api/contents');
     await expectAsync(request.text()).toBeResolvedTo('{"a":5}');
     expect(request.headers.get('Content-Type')).toBe(MediaType.JSON.value);
   });
 
   it('sets content-type when body is non-existent', async () => {
-    const request: Request = await fetchRequestFactory
-      .request({
-        method: 'POST',
-        pathTemplate: '/api/contents',
-        contentTypes: [MediaType.JSON],
-      })
-      .pipe(first())
-      .toPromise();
+    const request: Request = await firstValueFrom(
+      fetchRequestFactory
+        .request({
+          method: 'POST',
+          pathTemplate: '/api/contents',
+          contentTypes: [MediaType.JSON],
+        })
+        .pipe(first())
+    );
     expect(request.headers.get('Content-Type')).toBe(MediaType.JSON.value);
   });
 
@@ -245,11 +257,12 @@ describe('FetchRequestFactory', () => {
     });
 
     await expectAsync(
-      fetchRequestFactory
-        .result({ method: 'GET', pathTemplate: '' }, [Test])
-        .pipe(first())
-        .toPromise()
-    ).toBeResolved(new Test('a', new Sub(5)));
+      firstValueFrom(
+        fetchRequestFactory
+          .result({ method: 'GET', pathTemplate: '' }, [Test])
+          .pipe(first())
+      )
+    ).toBeResolvedTo(new Test('a', new Sub(5)));
   });
 
   it('builds event sources via eventSource', (done) => {
@@ -285,7 +298,7 @@ describe('FetchRequestFactory', () => {
     eventSource.connect();
   });
 
-  it('builds ovservable events via eventStream', async () => {
+  it('builds observable events via eventStream', async () => {
     const encodedEvent = new TextEncoder().encode(
       'event: hello\nid: 12345\ndata: {"target":"world"}\n\n'
     ).buffer;
@@ -312,9 +325,11 @@ describe('FetchRequestFactory', () => {
       (decoder, event, id, data) => decoder.decodeText(data, [Object])
     );
 
-    await expectAsync(event$.pipe(first()).toPromise()).toBeResolved({
-      target: 'world',
-    });
+    await expectAsync(firstValueFrom(event$.pipe(first()))).toBeResolvedTo(
+      objectContaining({
+        target: 'world',
+      })
+    );
   });
 
   it('throws typed problems for registered problem types', async () => {
@@ -336,10 +351,11 @@ describe('FetchRequestFactory', () => {
     });
 
     await expectAsync(
-      fetchRequestFactory
-        .result({ method: 'GET', pathTemplate: '' })
-        .pipe(first())
-        .toPromise()
+      firstValueFrom(
+        fetchRequestFactory
+          .result({ method: 'GET', pathTemplate: '' })
+          .pipe(first())
+      )
     ).toBeRejectedWith(new TestProblem());
   });
 
@@ -362,10 +378,11 @@ describe('FetchRequestFactory', () => {
     });
 
     await expectAsync(
-      fetchRequestFactory
-        .result({ method: 'GET', pathTemplate: '' })
-        .pipe(first())
-        .toPromise()
+      firstValueFrom(
+        fetchRequestFactory
+          .result({ method: 'GET', pathTemplate: '' })
+          .pipe(first())
+      )
     ).toBeRejectedWith(new Problem(testProblem));
   });
 
@@ -378,10 +395,11 @@ describe('FetchRequestFactory', () => {
     });
 
     await expectAsync(
-      fetchRequestFactory
-        .result({ method: 'GET', pathTemplate: '' })
-        .pipe(first())
-        .toPromise()
+      firstValueFrom(
+        fetchRequestFactory
+          .result({ method: 'GET', pathTemplate: '' })
+          .pipe(first())
+      )
     ).toBeRejectedWith(Problem.fromStatus(400, 'Bad Request'));
   });
 
@@ -397,10 +415,11 @@ describe('FetchRequestFactory', () => {
     );
 
     await expectAsync(
-      fetchRequestFactory
-        .result({ method: 'GET', pathTemplate: '' }, [String])
-        .pipe(first())
-        .toPromise()
+      firstValueFrom(
+        fetchRequestFactory
+          .result({ method: 'GET', pathTemplate: '' }, [String])
+          .pipe(first())
+      )
     ).toBeRejectedWith(any(SundayError));
   });
 });

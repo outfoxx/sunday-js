@@ -15,6 +15,6 @@ export interface StructuredMediaTypeDecoder extends MediaTypeDecoder {
 export function isStructuredMediaTypeDecoder(
   decoder: MediaTypeDecoder | StructuredMediaTypeDecoder | undefined
 ): decoder is StructuredMediaTypeDecoder {
-  const rec = (decoder as unknown) as Record<string, unknown>;
+  const rec = decoder as unknown as Record<string, unknown>;
   return !!rec.decodeObject ?? false;
 }

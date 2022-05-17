@@ -4,14 +4,14 @@ import MatchersUtil = jasmine.MatchersUtil;
 import { Hex } from '../src/util/hex';
 
 beforeAll(() => {
-  jasmine.addCustomEqualityTester((a: URL | unknown, b: URL | unknown):
-    | boolean
-    | void => {
-    if (!(a instanceof URL) || !(b instanceof URL)) {
-      return;
+  jasmine.addCustomEqualityTester(
+    (a: URL | unknown, b: URL | unknown): boolean | void => {
+      if (!(a instanceof URL) || !(b instanceof URL)) {
+        return;
+      }
+      return a.toJSON() === b.toJSON();
     }
-    return a.toJSON() === b.toJSON();
-  });
+  );
 
   jasmine.addCustomEqualityTester(
     (a: ArrayBuffer | unknown, b: ArrayBuffer | unknown): boolean | void => {

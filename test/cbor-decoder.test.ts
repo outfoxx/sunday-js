@@ -214,9 +214,10 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
-      ).decodeData(Hex.decode('A1 64 74657374 1B 000000E472797865'), [Test])
+      new CBORDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeData(
+        Hex.decode('A1 64 74657374 1B 000000E472797865'),
+        [Test]
+      )
     ).toEqual(
       new Test(
         ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC).toInstant()
@@ -235,9 +236,10 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
-      ).decodeData(Hex.decode('A1 64 74657374 C1 1B 000000E472797865'), [Test])
+      new CBORDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeData(
+        Hex.decode('A1 64 74657374 C1 1B 000000E472797865'),
+        [Test]
+      )
     ).toEqual(
       new Test(
         ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC).toInstant()
@@ -338,9 +340,10 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
-      ).decodeData(Hex.decode('A1 64 74657374 1B 000000E472797865'), [Test])
+      new CBORDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeData(
+        Hex.decode('A1 64 74657374 1B 000000E472797865'),
+        [Test]
+      )
     ).toEqual(
       new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC))
     );
@@ -357,9 +360,10 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
-      ).decodeData(Hex.decode('A1 64 74657374 C1 1B 000000E472797865'), [Test])
+      new CBORDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeData(
+        Hex.decode('A1 64 74657374 C1 1B 000000E472797865'),
+        [Test]
+      )
     ).toEqual(
       new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC))
     );
@@ -462,9 +466,10 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
-      ).decodeData(Hex.decode('A1 64 74657374 1B 000000E472797865'), [Test])
+      new CBORDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeData(
+        Hex.decode('A1 64 74657374 1B 000000E472797865'),
+        [Test]
+      )
     ).toEqual(
       new Test(
         OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC)
@@ -483,9 +488,10 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
-      ).decodeData(Hex.decode('A1 64 74657374 C1 1B 000000E472797865'), [Test])
+      new CBORDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeData(
+        Hex.decode('A1 64 74657374 C1 1B 000000E472797865'),
+        [Test]
+      )
     ).toEqual(
       new Test(
         OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC)
@@ -541,11 +547,10 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
-      ).decodeData(Hex.decode('A1 64 74657374 85 04 05 06 19 0315 61 5A'), [
-        Test,
-      ])
+      new CBORDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeData(
+        Hex.decode('A1 64 74657374 85 04 05 06 19 0315 61 5A'),
+        [Test]
+      )
     ).toEqual(new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)));
   });
 
@@ -600,9 +605,7 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
-      ).decodeData(
+      new CBORDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeData(
         Hex.decode('A1 64 74657374 87 19 07D1 02 03 04 05 06 19 0315'),
         [Test]
       )
@@ -655,9 +658,10 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
-      ).decodeData(Hex.decode('A1 64 74657374 83 19 07D1 02 03'), [Test])
+      new CBORDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeData(
+        Hex.decode('A1 64 74657374 83 19 07D1 02 03'),
+        [Test]
+      )
     ).toEqual(new Test(LocalDate.of(2001, 2, 3)));
   });
 
@@ -707,9 +711,10 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
-      ).decodeData(Hex.decode('A1 64 74657374 84 04 05 06 19 0315'), [Test])
+      new CBORDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeData(
+        Hex.decode('A1 64 74657374 84 04 05 06 19 0315'),
+        [Test]
+      )
     ).toEqual(new Test(LocalTime.of(4, 5, 6, 789000000)));
   });
 
@@ -787,9 +792,10 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
-      ).decodeData(Hex.decode('A1 64 74657374 1B 000000E472797865'), [Test])
+      new CBORDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeData(
+        Hex.decode('A1 64 74657374 1B 000000E472797865'),
+        [Test]
+      )
     ).toEqual(
       new Test(new Date(Instant.ofEpochMilli(981173106789).toString()))
     );
@@ -825,9 +831,10 @@ describe('CBORDecoder', () => {
     }
 
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
-      ).decodeData(Hex.decode('A1 64 74657374 C1 1B 000000E472797865'), [Test])
+      new CBORDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeData(
+        Hex.decode('A1 64 74657374 C1 1B 000000E472797865'),
+        [Test]
+      )
     ).toEqual(
       new Test(new Date(Instant.ofEpochMilli(981173106789).toString()))
     );

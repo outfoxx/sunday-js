@@ -134,9 +134,10 @@ describe('JSONDecoder', () => {
     }
 
     expect(
-      new JSONDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
-      ).decodeText('{"test":981173106789}', [Test])
+      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
+        '{"test":981173106789}',
+        [Test]
+      )
     ).toEqual(
       new Test(
         ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC).toInstant()
@@ -193,9 +194,10 @@ describe('JSONDecoder', () => {
     }
 
     expect(
-      new JSONDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
-      ).decodeText('{"test":981173106789}', [Test])
+      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
+        '{"test":981173106789}',
+        [Test]
+      )
     ).toEqual(
       new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC))
     );
@@ -252,9 +254,10 @@ describe('JSONDecoder', () => {
     }
 
     expect(
-      new JSONDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
-      ).decodeText('{"test":981173106789}', [Test])
+      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
+        '{"test":981173106789}',
+        [Test]
+      )
     ).toEqual(
       new Test(
         OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC)
@@ -305,9 +308,10 @@ describe('JSONDecoder', () => {
     }
 
     expect(
-      new JSONDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
-      ).decodeText('{"test":[4,5,6,789,"Z"]}', [Test])
+      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
+        '{"test":[4,5,6,789,"Z"]}',
+        [Test]
+      )
     ).toEqual(new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)));
   });
 
@@ -356,9 +360,10 @@ describe('JSONDecoder', () => {
     }
 
     expect(
-      new JSONDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
-      ).decodeText('{"test":[2001,2,3,4,5,6,789]}', [Test])
+      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
+        '{"test":[2001,2,3,4,5,6,789]}',
+        [Test]
+      )
     ).toEqual(new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)));
   });
 
@@ -405,9 +410,10 @@ describe('JSONDecoder', () => {
     }
 
     expect(
-      new JSONDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
-      ).decodeText('{"test":[2001,2,3]}', [Test])
+      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
+        '{"test":[2001,2,3]}',
+        [Test]
+      )
     ).toEqual(new Test(LocalDate.of(2001, 2, 3)));
   });
 
@@ -454,9 +460,10 @@ describe('JSONDecoder', () => {
     }
 
     expect(
-      new JSONDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
-      ).decodeText('{"test":[4,5,6,789]}', [Test])
+      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
+        '{"test":[4,5,6,789]}',
+        [Test]
+      )
     ).toEqual(new Test(LocalTime.of(4, 5, 6, 789000000)));
   });
 
@@ -509,9 +516,10 @@ describe('JSONDecoder', () => {
     }
 
     expect(
-      new JSONDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH
-      ).decodeText('{"test":981173106789}', [Test])
+      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
+        '{"test":981173106789}',
+        [Test]
+      )
     ).toEqual(
       new Test(new Date(Instant.ofEpochMilli(981173106789).toString()))
     );

@@ -20,7 +20,8 @@ export interface MediaTypeDecodersBuilderConstructor {
 
 export class MediaTypeDecoders {
   static Builder: MediaTypeDecodersBuilderConstructor = class Builder
-    implements MediaTypeDecodersBuilder {
+    implements MediaTypeDecodersBuilder
+  {
     decoders = new Map<MediaType, MediaTypeDecoder>();
 
     add(

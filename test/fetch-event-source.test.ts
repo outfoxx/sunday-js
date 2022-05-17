@@ -30,7 +30,7 @@ describe('FetchEventSource', () => {
     );
 
     const eventSource = new FetchEventSource('http://example.com');
-    eventSource.onmessage = done;
+    eventSource.onmessage = () => done();
     eventSource.connect();
     eventSource.connect();
   });

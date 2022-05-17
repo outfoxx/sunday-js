@@ -1,10 +1,9 @@
-import { defer, Observable, of } from 'rxjs';
-import { mapTo, switchMap } from 'rxjs/operators';
+import { defer, map, Observable, of, switchMap } from 'rxjs';
 import { AnyType } from './any-type';
 import { ConstructableClassType } from './class-type';
 import { validate } from './fetch';
 import { FetchEventSource } from './fetch-event-source';
-import { SundayError } from './sunday-error';
+import { HeaderParameters } from './header-parameters';
 import { Logger } from './logger';
 import { MediaType } from './media-type';
 import { TextMediaTypeDecoder } from './media-type-codecs/media-type-decoder';
@@ -18,8 +17,8 @@ import {
   RequestFactory,
   RequestSpec,
 } from './request-factory';
+import { SundayError } from './sunday-error';
 import { URLTemplate } from './url-template';
-import { HeaderParameters } from './header-parameters';
 
 export class FetchRequestFactory implements RequestFactory {
   public baseUrl: URLTemplate;
@@ -159,7 +158,7 @@ export class FetchRequestFactory implements RequestFactory {
     const response$ = this.response(request, !!responseType);
 
     if (!responseType) {
-      return response$.pipe(mapTo(undefined));
+      return response$.pipe(map(() => undefined));
     } else {
       return response$.pipe(
         switchMap(async (response) => {
@@ -193,12 +192,10 @@ export class FetchRequestFactory implements RequestFactory {
       return this.request(eventSourceSpec, requestInit);
     };
 
-    const eventSource = new FetchEventSource(requestSpec.pathTemplate, {
+    return new FetchEventSource(requestSpec.pathTemplate, {
       logger: this.logger,
       adapter,
     });
-
-    return eventSource;
   }
 
   eventStream<E>(

@@ -8,7 +8,7 @@ export class BinaryDecoder implements MediaTypeDecoder {
     const arrayBuffer = await response.arrayBuffer();
 
     if (type[0] === ArrayBuffer) {
-      return (arrayBuffer as unknown) as T;
+      return arrayBuffer as unknown as T;
     } else if (
       type[0] === Uint8Array ||
       type[0] === Int8Array ||
