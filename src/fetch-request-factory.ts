@@ -19,6 +19,7 @@ import {
 } from './request-factory';
 import { SundayError } from './sunday-error';
 import { URLTemplate } from './url-template';
+import { errorToMessage } from './util/error';
 
 export class FetchRequestFactory implements RequestFactory {
   public baseUrl: URLTemplate;
@@ -171,7 +172,7 @@ export class FetchRequestFactory implements RequestFactory {
             return await decoder.decode(response, responseType);
           } catch (error) {
             throw await SundayError.fromResponse(
-              error.message ?? 'Response Decoding Failed',
+              errorToMessage(error, 'Response Decoding Failed'),
               response
             );
           }

@@ -3,6 +3,7 @@ import { MediaType } from './media-type';
 import { Problem } from './problem';
 import { SundayError } from './sunday-error';
 import { Base64 } from './util/base64';
+import { errorToMessage } from './util/error';
 
 export async function validate(
   response: Response,
@@ -70,9 +71,9 @@ export namespace ResponseExample {
           bodyExcerpt = Base64.encode(dataSlice);
         }
       }
-    } catch (e) {
+    } catch (error) {
       // ignore errors
-      const message = e.message || e.toString();
+      const message = errorToMessage(error);
       body = bodyExcerpt = `<<error displaying response data: ${message}>>`;
     }
     return [bodyExcerpt, body];
