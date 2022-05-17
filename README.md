@@ -19,7 +19,7 @@ Sunday is delivered as a standard NPM package.
 
 Package Name:
 
-    outfoxx/sunday
+    @outfoxx/sunday
 
 ## License
 
