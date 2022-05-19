@@ -12,7 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Instant } from '@js-joda/core';
+import {
+  DateTimeFormatter,
+  Instant,
+  LocalDate,
+  LocalDateTime,
+  LocalTime,
+  OffsetDateTime,
+  OffsetTime,
+  Temporal,
+  ZonedDateTime,
+} from '@js-joda/core';
 import { JsonStringifier } from '@outfoxx/jackson-js';
 import { URLQueryParamsEncoder } from './media-type-encoder';
 
@@ -68,12 +78,24 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
           )
         );
       }
-    } else if (value instanceof Instant) {
+    } else if (value instanceof Date) {
       //
       components.push(
         encodeURIComponent(key) +
           '=' +
-          encodeURIComponent(encodeDate(value, this.dateEncoding))
+          encodeURIComponent(
+            encodeInstant(
+              Instant.ofEpochMilli(value.getTime()),
+              this.dateEncoding
+            )
+          )
+      );
+    } else if (value instanceof Temporal) {
+      //
+      components.push(
+        encodeURIComponent(key) +
+          '=' +
+          encodeURIComponent(encodeTemporal(value, this.dateEncoding))
       );
     } else if (typeof value === 'boolean') {
       //
@@ -125,18 +147,46 @@ function encodeBoolean(
   }
 }
 
-function encodeDate(
-  value: Date | Instant,
+function encodeTemporal(
+  value: Temporal,
   encoding: WWWFormUrlEncoder.DateEncoding
 ): string {
-  value = value instanceof Date ? Instant.ofEpochMilli(value.getTime()) : value;
+  if (value instanceof Instant) {
+    return encodeInstant(value, encoding);
+  } else if (value instanceof OffsetDateTime) {
+    if (encoding == WWWFormUrlEncoder.DateEncoding.ISO8601) {
+      return value.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+    }
+    return encodeInstant(value.toInstant(), encoding);
+  } else if (value instanceof ZonedDateTime) {
+    if (encoding == WWWFormUrlEncoder.DateEncoding.ISO8601) {
+      return value.format(DateTimeFormatter.ISO_ZONED_DATE_TIME);
+    }
+    return encodeInstant(value.toInstant(), encoding);
+  } else if (value instanceof LocalDateTime) {
+    return value.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+  } else if (value instanceof LocalDate) {
+    return value.format(DateTimeFormatter.ISO_LOCAL_DATE);
+  } else if (value instanceof LocalTime) {
+    return value.format(DateTimeFormatter.ISO_LOCAL_TIME);
+  } else if (value instanceof OffsetTime) {
+    return value.format(DateTimeFormatter.ISO_OFFSET_TIME);
+  } else {
+    throw Error('unsupported temporal value for ');
+  }
+}
+
+function encodeInstant(
+  value: Instant,
+  encoding: WWWFormUrlEncoder.DateEncoding
+): string {
   switch (encoding) {
     case WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH:
       return (value.epochSecond() + value.nano() / 1_000_000_000.0).toFixed(7);
     case WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH:
       return `${value.toEpochMilli()}`;
     case WWWFormUrlEncoder.DateEncoding.ISO8601:
-      return value.toString();
+      return DateTimeFormatter.ISO_INSTANT.format(value);
     default:
       throw new Error('unknown date encoding');
   }
