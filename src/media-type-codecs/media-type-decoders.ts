@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { AnyTextDecoder } from './any-text-decoder';
 import { BinaryDecoder } from './binary-decoder';
+import { BinaryEncoder } from './binary-encoder';
 import { CBORDecoder } from './cbor-decoder';
 import { JSONDecoder } from './json-decoder';
 import { MediaType } from '../media-type';
@@ -47,9 +49,13 @@ export class MediaTypeDecoders {
     }
 
     addDefaults(): MediaTypeDecodersBuilder {
-      return this.add(MediaType.JSON, JSONDecoder.default)
-        .add(MediaType.OctetStream, new BinaryDecoder())
-        .add(MediaType.CBOR, CBORDecoder.default);
+      return this.add(MediaType.OctetStream, BinaryDecoder.default)
+        .add(MediaType.JSON, JSONDecoder.default)
+        .add(MediaType.CBOR, CBORDecoder.default)
+        .add(MediaType.EventStream, BinaryDecoder.default)
+        .add(MediaType.AnyText, AnyTextDecoder.default)
+        .add(MediaType.X509CACert, BinaryDecoder.default)
+        .add(MediaType.X509UserCert, BinaryDecoder.default);
     }
 
     build(): MediaTypeDecoders {

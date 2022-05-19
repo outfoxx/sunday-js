@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { MediaType } from '../media-type';
+import { AnyTextEncoder } from './any-text-encoder';
 import { BinaryEncoder } from './binary-encoder';
 import { CBOREncoder } from './cbor-encoder';
 import { JSONEncoder } from './json-encoder';
@@ -48,10 +49,13 @@ export class MediaTypeEncoders {
     }
 
     addDefaults(): MediaTypeEncodersBuilder {
-      return this.add(MediaType.JSON, JSONEncoder.default)
-        .add(MediaType.OctetStream, BinaryEncoder.default)
+      return this.add(MediaType.OctetStream, BinaryEncoder.default)
         .add(MediaType.WWWFormUrlEncoded, WWWFormUrlEncoder.default)
-        .add(MediaType.CBOR, CBOREncoder.default);
+        .add(MediaType.JSON, JSONEncoder.default)
+        .add(MediaType.CBOR, CBOREncoder.default)
+        .add(MediaType.AnyText, AnyTextEncoder.default)
+        .add(MediaType.X509CACert, BinaryEncoder.default)
+        .add(MediaType.X509UserCert, BinaryEncoder.default);
     }
 
     build(): MediaTypeEncoders {
