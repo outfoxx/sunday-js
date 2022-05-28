@@ -36,7 +36,7 @@ import { StructuredMediaTypeEncoder } from './media-type-encoder';
 export class JSONEncoder implements StructuredMediaTypeEncoder {
   static get default(): JSONEncoder {
     return new JSONEncoder(
-      JSONEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
+      JSONEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
     );
   }
 
@@ -94,7 +94,7 @@ export class JSONEncoder implements StructuredMediaTypeEncoder {
       Reflect.hasMetadata(
         'jackson:defaultContextGroup:JsonSubTypes',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (value as any).constructor ?? {}
+        (value as any).constructor ?? {},
       )
     ) {
       type = [Object];
@@ -118,14 +118,14 @@ export class JSONEncoder implements StructuredMediaTypeEncoder {
   encodeObject<T>(
     value: T,
     type?: AnyType,
-    includeNulls = false
+    includeNulls = false,
   ): Record<string, unknown> {
     // Use natural type when subtypes exist
     if (
       Reflect.hasMetadata(
         'jackson:defaultContextGroup:JsonSubTypes',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (value as any).constructor ?? {}
+        (value as any).constructor ?? {},
       )
     ) {
       type = [Object];
@@ -216,7 +216,7 @@ export class JSONEncoder implements StructuredMediaTypeEncoder {
             this.dateEncoding ==
               JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
               ? value.get(ChronoField.MILLI_OF_SECOND)
-              : value.nano()
+              : value.nano(),
           ),
           value.offset().toString(),
         ];
@@ -243,7 +243,7 @@ export class JSONEncoder implements StructuredMediaTypeEncoder {
             this.dateEncoding ==
               JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
               ? value.get(ChronoField.MILLI_OF_SECOND)
-              : value.nano()
+              : value.nano(),
           ),
         ];
     }
@@ -279,7 +279,7 @@ export class JSONEncoder implements StructuredMediaTypeEncoder {
             this.dateEncoding ==
               JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
               ? value.get(ChronoField.MILLI_OF_SECOND)
-              : value.nano()
+              : value.nano(),
           ),
         ];
     }

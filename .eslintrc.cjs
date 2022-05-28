@@ -3,7 +3,7 @@ module.exports = {
   plugins: ['@typescript-eslint', 'header'],
   extends: [
     'plugin:@typescript-eslint/recommended',
-    'plugin:prettier/recommended',
+    'prettier',
   ],
   parserOptions: {
     project: './tsconfig.json',

@@ -17,7 +17,7 @@ import { URI } from 'uri-template-lite';
 export class URLTemplate {
   constructor(
     public template: string,
-    public parameters: Record<string, unknown> = {}
+    public parameters: Record<string, unknown> = {},
   ) {}
 
   complete(relativeTemplate: string, parameters: Record<string, unknown>): URL {

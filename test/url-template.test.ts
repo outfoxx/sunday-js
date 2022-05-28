@@ -25,7 +25,7 @@ describe('URLTemplate', () => {
           id: '12345',
           env: 'stg',
         })
-        .toString()
+        .toString(),
     ).toBe('http://stg.example.com/api/v1/contents/12345');
   });
 
@@ -36,7 +36,7 @@ describe('URLTemplate', () => {
     expect(
       base
         .complete('/contents/{id}', { id: '12345', env: 'stg', ver: 2 })
-        .toString()
+        .toString(),
     ).toBe('http://stg.example.com/api/v2/contents/12345');
   });
 
@@ -47,7 +47,7 @@ describe('URLTemplate', () => {
       env: 'stg',
     });
     expect(base.complete('/contents/{id}', { id: '12345' }).toString()).toBe(
-      'http://stg.example.com/api/v1/contents/12345'
+      'http://stg.example.com/api/v1/contents/12345',
     );
 
     // only relative has a slash
@@ -56,7 +56,7 @@ describe('URLTemplate', () => {
       env: 'stg',
     });
     expect(base2.complete('/contents/{id}', { id: '12345' }).toString()).toBe(
-      'http://stg.example.com/api/v1/contents/12345'
+      'http://stg.example.com/api/v1/contents/12345',
     );
 
     // only base has a slash
@@ -65,7 +65,7 @@ describe('URLTemplate', () => {
       env: 'stg',
     });
     expect(base3.complete('contents/{id}', { id: '12345' }).toString()).toBe(
-      'http://stg.example.com/api/v1/contents/12345'
+      'http://stg.example.com/api/v1/contents/12345',
     );
 
     // neither base or relative has slashes
@@ -74,7 +74,7 @@ describe('URLTemplate', () => {
       env: 'stg',
     });
     expect(base4.complete('contents/{id}', { id: '12345' }).toString()).toBe(
-      'http://stg.example.com/api/v1/contents/12345'
+      'http://stg.example.com/api/v1/contents/12345',
     );
   });
 
@@ -84,7 +84,7 @@ describe('URLTemplate', () => {
       env: 'stg',
     });
     expect(base.complete('', { id: '12345' }).toString()).toBe(
-      'http://stg.example.com/api/v1'
+      'http://stg.example.com/api/v1',
     );
   });
 });

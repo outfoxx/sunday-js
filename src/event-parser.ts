@@ -25,7 +25,7 @@ export class EventParser {
 
   process(
     buffer: ArrayBuffer,
-    dispatcher: (eventInfo: EventInfo) => void
+    dispatcher: (eventInfo: EventInfo) => void,
   ): void {
     const availableBuffer = this.buildAvailableBuffer(buffer);
     if (!availableBuffer) {
@@ -52,7 +52,7 @@ export class EventParser {
     }
 
     const newBuffer = new Uint8Array(
-      unprocessedBuffer.byteLength + buffer.byteLength
+      unprocessedBuffer.byteLength + buffer.byteLength,
     );
     newBuffer.set(new Uint8Array(unprocessedBuffer), 0);
     newBuffer.set(new Uint8Array(buffer), unprocessedBuffer.byteLength);
@@ -88,7 +88,7 @@ export class EventParser {
   }
 
   private static findEventSeparator(
-    buffer: ArrayBuffer
+    buffer: ArrayBuffer,
   ): [number, number] | undefined {
     const bytes = new Uint8Array(buffer);
 
@@ -135,7 +135,7 @@ export class EventParser {
 
   private static parseAndDispatchEvents(
     eventStrings: string[],
-    dispatcher: (eventInfo: EventInfo) => void
+    dispatcher: (eventInfo: EventInfo) => void,
   ) {
     for (const eventString of eventStrings) {
       if (!eventString.length) {

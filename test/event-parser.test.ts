@@ -19,7 +19,7 @@ describe('EventParser', () => {
 
   it('dispatches events with line-feeds', () => {
     const eventBuffer = text.encode(
-      'event: hello\nid: 12345\ndata: Hello World!\n\n'
+      'event: hello\nid: 12345\ndata: Hello World!\n\n',
     ).buffer;
 
     const parser = new EventParser();
@@ -35,7 +35,7 @@ describe('EventParser', () => {
 
   it('dispatches events with carriage-returns', () => {
     const eventBuffer = text.encode(
-      'event: hello\rid: 12345\rdata: Hello World!\r\r'
+      'event: hello\rid: 12345\rdata: Hello World!\r\r',
     ).buffer;
 
     const parser = new EventParser();
@@ -51,7 +51,7 @@ describe('EventParser', () => {
 
   it('dispatches events with carriage-returns/line-feeds', () => {
     const eventBuffer = text.encode(
-      'event: hello\r\nid: 12345\r\ndata: Hello World!\r\n\r\n'
+      'event: hello\r\nid: 12345\r\ndata: Hello World!\r\n\r\n',
     ).buffer;
 
     const parser = new EventParser();
@@ -67,7 +67,7 @@ describe('EventParser', () => {
 
   it('dispatches events with mixed carriage-returns, line-feeds & cr/lfs', () => {
     const eventBuffer = text.encode(
-      'event: hello\nid: 12345\rdata: Hello World!\r\n\r\n'
+      'event: hello\nid: 12345\rdata: Hello World!\r\n\r\n',
     ).buffer;
 
     const parser = new EventParser();
@@ -125,7 +125,7 @@ describe('EventParser', () => {
 
   it('concatenates data fields', () => {
     const eventBuffer = text.encode(
-      'event: hello\ndata: Hello \ndata: World!\n\n'
+      'event: hello\ndata: Hello \ndata: World!\n\n',
     ).buffer;
 
     const parser = new EventParser();
@@ -140,7 +140,7 @@ describe('EventParser', () => {
 
   it('allows empty values for fields', () => {
     const eventBuffer = text.encode(
-      'retry: \nevent: \nid: \ndata: \n\n'
+      'retry: \nevent: \nid: \ndata: \n\n',
     ).buffer;
 
     const parser = new EventParser();
@@ -187,7 +187,7 @@ describe('EventParser', () => {
 
   it('ignores comment lines', () => {
     const eventBuffer = text.encode(
-      ': this is a common\nevent\nid\ndata\n\n'
+      ': this is a common\nevent\nid\ndata\n\n',
     ).buffer;
 
     const parser = new EventParser();

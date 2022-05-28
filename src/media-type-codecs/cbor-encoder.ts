@@ -38,7 +38,7 @@ import { MediaTypeEncoder } from './media-type-encoder';
 export class CBOREncoder implements MediaTypeEncoder {
   static get default(): CBOREncoder {
     return new CBOREncoder(
-      CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
+      CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
     );
   }
 
@@ -96,7 +96,7 @@ export class CBOREncoder implements MediaTypeEncoder {
       Reflect.hasMetadata(
         'jackson:defaultContextGroup:JsonSubTypes',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (value as any).constructor ?? {}
+        (value as any).constructor ?? {},
       )
     ) {
       type = [Object];
@@ -117,16 +117,16 @@ export class CBOREncoder implements MediaTypeEncoder {
       case CBOREncoder.DateEncoding.ISO8601:
         return new TaggedValue(
           DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(
-            value.atZone(ZoneId.UTC)
+            value.atZone(ZoneId.UTC),
           ),
-          isoDateTimeTag
+          isoDateTimeTag,
         );
       case CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH:
         return new TaggedValue(value.toEpochMilli(), epochDateTimeTag);
       case CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH:
         return new TaggedValue(
           secondsToNumber(value.epochSecond(), value.nano()),
-          epochDateTimeTag
+          epochDateTimeTag,
         );
     }
   };
@@ -140,18 +140,18 @@ export class CBOREncoder implements MediaTypeEncoder {
       case CBOREncoder.DateEncoding.ISO8601:
         return new TaggedValue(
           DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(value),
-          isoDateTimeTag
+          isoDateTimeTag,
         );
       case CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH:
         return new TaggedValue(
           value.toInstant().toEpochMilli(),
-          epochDateTimeTag
+          epochDateTimeTag,
         );
       case CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH:
         const instant = value.toInstant();
         return new TaggedValue(
           secondsToNumber(instant.epochSecond(), instant.nano()),
-          epochDateTimeTag
+          epochDateTimeTag,
         );
     }
   };
@@ -165,18 +165,18 @@ export class CBOREncoder implements MediaTypeEncoder {
       case CBOREncoder.DateEncoding.ISO8601:
         return new TaggedValue(
           DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(value),
-          isoDateTimeTag
+          isoDateTimeTag,
         );
       case CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH:
         return new TaggedValue(
           value.toInstant().toEpochMilli(),
-          epochDateTimeTag
+          epochDateTimeTag,
         );
       case CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH:
         const instant = value.toInstant();
         return new TaggedValue(
           secondsToNumber(instant.epochSecond(), instant.nano()),
-          epochDateTimeTag
+          epochDateTimeTag,
         );
     }
   };
@@ -203,7 +203,7 @@ export class CBOREncoder implements MediaTypeEncoder {
             this.dateEncoding ==
               CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
               ? value.get(ChronoField.MILLI_OF_SECOND)
-              : value.nano()
+              : value.nano(),
           ),
           value.offset().toString(),
         ];
@@ -230,7 +230,7 @@ export class CBOREncoder implements MediaTypeEncoder {
             this.dateEncoding ==
               CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
               ? value.get(ChronoField.MILLI_OF_SECOND)
-              : value.nano()
+              : value.nano(),
           ),
         ];
     }
@@ -266,7 +266,7 @@ export class CBOREncoder implements MediaTypeEncoder {
             this.dateEncoding ==
               CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
               ? value.get(ChronoField.MILLI_OF_SECOND)
-              : value.nano()
+              : value.nano(),
           ),
         ];
     }

@@ -29,7 +29,7 @@ describe('Fetch API Utilities', () => {
         status: 204,
         statusText: 'No Content',
         headers: {},
-      })
+      }),
     );
 
     const requestFactory = new FetchRequestFactory('http://example.com');
@@ -40,9 +40,9 @@ describe('Fetch API Utilities', () => {
           .pipe(
             catchError((err) => {
               throw err;
-            })
-          )
-      )
+            }),
+          ),
+      ),
     ).toBeRejectedWith(any(SundayError));
   });
 
@@ -53,7 +53,7 @@ describe('Fetch API Utilities', () => {
         status: 400,
         statusText: 'Bad Request',
         headers: { 'content-type': 'text/html' },
-      })
+      }),
     );
 
     const requestFactory = new FetchRequestFactory('http://example.com');
@@ -64,9 +64,9 @@ describe('Fetch API Utilities', () => {
           .pipe(
             catchError((err) => {
               throw err;
-            })
-          )
-      )
+            }),
+          ),
+      ),
     ).toBeRejectedWith(any(Problem));
   });
 
@@ -84,7 +84,7 @@ describe('Fetch API Utilities', () => {
         status: 400,
         statusText: 'Bad Request',
         headers: { 'content-type': MediaType.ProblemJSON.value },
-      })
+      }),
     );
 
     const requestFactory = new FetchRequestFactory('http://example.com');
@@ -95,9 +95,9 @@ describe('Fetch API Utilities', () => {
           .pipe(
             catchError((err) => {
               throw err;
-            })
-          )
-      )
+            }),
+          ),
+      ),
     ).toBeRejectedWith(any(Problem));
   });
 });

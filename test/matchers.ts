@@ -24,7 +24,7 @@ beforeAll(() => {
         return;
       }
       return a.toJSON() === b.toJSON();
-    }
+    },
   );
 
   jasmine.addCustomEqualityTester(
@@ -38,7 +38,7 @@ beforeAll(() => {
         actualBytes.length === expectedBytes.length &&
         actualBytes.every((value, index) => value === expectedBytes[index])
       );
-    }
+    },
   );
 
   jasmine.addMatchers({

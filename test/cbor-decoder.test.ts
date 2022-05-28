@@ -37,7 +37,7 @@ describe('CBORDecoder', () => {
     class Sub {
       constructor(
         @JsonProperty()
-        public value: number
+        public value: number,
       ) {}
     }
 
@@ -47,18 +47,18 @@ describe('CBORDecoder', () => {
         public test: string,
         @JsonProperty()
         @JsonClassType({ type: () => [Sub] })
-        public sub: Sub
+        public sub: Sub,
       ) {}
     }
 
     fetchMock.getOnce(
       'http://example.com',
       new Response(
-        Hex.decode('A2 64 74657374 61 61 63 737562 A1 65 76616C7565 05')
-      )
+        Hex.decode('A2 64 74657374 61 61 63 737562 A1 65 76616C7565 05'),
+      ),
     );
     await expectAsync(
-      CBORDecoder.default.decode(await fetch('http://example.com'), [Test])
+      CBORDecoder.default.decode(await fetch('http://example.com'), [Test]),
     ).toBeResolvedTo(new Test('a', new Sub(5)));
   });
 
@@ -67,7 +67,7 @@ describe('CBORDecoder', () => {
     class Sub {
       constructor(
         @JsonProperty()
-        public value: number
+        public value: number,
       ) {}
     }
 
@@ -77,15 +77,15 @@ describe('CBORDecoder', () => {
         public test: string,
         @JsonProperty()
         @JsonClassType({ type: () => [Sub] })
-        public sub: Sub
+        public sub: Sub,
       ) {}
     }
 
     expect(
       CBORDecoder.default.decodeData(
         Hex.decode('A2 64 74657374 61 61 63 737562 A1 65 76616C7565 05'),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(new Test('a', new Sub(5)));
   });
 
@@ -95,15 +95,15 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [URL] })
-        public test: URL
+        public test: URL,
       ) {}
     }
 
     expect(
       CBORDecoder.default.decodeData(
         Hex.decode('A1 64 74657374 73 687474703A2F2F6578616D706C652E636F6D2F'),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(new Test(new URL('http://example.com')));
   });
 
@@ -113,17 +113,17 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [URL] })
-        public test: URL
+        public test: URL,
       ) {}
     }
 
     expect(
       CBORDecoder.default.decodeData(
         Hex.decode(
-          'A1 64 74657374 D8 20 72 687474703A2F2F6578616D706C652E636F6D'
+          'A1 64 74657374 D8 20 72 687474703A2F2F6578616D706C652E636F6D',
         ),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(new Test(new URL('http://example.com')));
   });
 
@@ -133,21 +133,21 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Instant] })
-        public test: Instant
+        public test: Instant,
       ) {}
     }
 
     expect(
       CBORDecoder.default.decodeData(
         Hex.decode(
-          'A1 64 74657374 78 18 323030322D30312D30315430313A30323A30332E3030345A'
+          'A1 64 74657374 78 18 323030322D30312D30315430313A30323A30332E3030345A',
         ),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
       new Test(
-        ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC).toInstant()
-      )
+        ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC).toInstant(),
+      ),
     );
   });
 
@@ -157,21 +157,21 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Instant] })
-        public test: Instant
+        public test: Instant,
       ) {}
     }
 
     expect(
       CBORDecoder.default.decodeData(
         Hex.decode(
-          'A1 64 74657374 C0 78 18 323030322D30312D30315430313A30323A30332E3030345A'
+          'A1 64 74657374 C0 78 18 323030322D30312D30315430313A30323A30332E3030345A',
         ),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
       new Test(
-        ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC).toInstant()
-      )
+        ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC).toInstant(),
+      ),
     );
   });
 
@@ -181,18 +181,27 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Instant] })
-        public test: Instant
+        public test: Instant,
       ) {}
     }
 
     expect(
       new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
-      ).decodeData(Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'), [Test])
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      ).decodeData(Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'), [Test]),
     ).toEqual(
       new Test(
-        ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC).toInstant()
-      )
+        ZonedDateTime.of(
+          2001,
+          2,
+          3,
+          4,
+          5,
+          6,
+          789000000,
+          ZoneId.UTC,
+        ).toInstant(),
+      ),
     );
   });
 
@@ -202,18 +211,27 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Instant] })
-        public test: Instant
+        public test: Instant,
       ) {}
     }
 
     expect(
       new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
-      ).decodeData(Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'), [Test])
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      ).decodeData(Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'), [Test]),
     ).toEqual(
       new Test(
-        ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC).toInstant()
-      )
+        ZonedDateTime.of(
+          2001,
+          2,
+          3,
+          4,
+          5,
+          6,
+          789000000,
+          ZoneId.UTC,
+        ).toInstant(),
+      ),
     );
   });
 
@@ -223,19 +241,28 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Instant] })
-        public test: Instant
+        public test: Instant,
       ) {}
     }
 
     expect(
       new CBORDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeData(
         Hex.decode('A1 64 74657374 1B 000000E472797865'),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
       new Test(
-        ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC).toInstant()
-      )
+        ZonedDateTime.of(
+          2001,
+          2,
+          3,
+          4,
+          5,
+          6,
+          789000000,
+          ZoneId.UTC,
+        ).toInstant(),
+      ),
     );
   });
 
@@ -245,19 +272,28 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Instant] })
-        public test: Instant
+        public test: Instant,
       ) {}
     }
 
     expect(
       new CBORDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeData(
         Hex.decode('A1 64 74657374 C1 1B 000000E472797865'),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
       new Test(
-        ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC).toInstant()
-      )
+        ZonedDateTime.of(
+          2001,
+          2,
+          3,
+          4,
+          5,
+          6,
+          789000000,
+          ZoneId.UTC,
+        ).toInstant(),
+      ),
     );
   });
 
@@ -267,19 +303,19 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [ZonedDateTime] })
-        public test: ZonedDateTime
+        public test: ZonedDateTime,
       ) {}
     }
 
     expect(
       CBORDecoder.default.decodeData(
         Hex.decode(
-          'A1 64 74657374 78 18 323030322D30312D30315430313A30323A30332E3030345A'
+          'A1 64 74657374 78 18 323030322D30312D30315430313A30323A30332E3030345A',
         ),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
-      new Test(ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC))
+      new Test(ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC)),
     );
   });
 
@@ -289,19 +325,19 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [ZonedDateTime] })
-        public test: ZonedDateTime
+        public test: ZonedDateTime,
       ) {}
     }
 
     expect(
       CBORDecoder.default.decodeData(
         Hex.decode(
-          'A1 64 74657374 C0 78 18 323030322D30312D30315430313A30323A30332E3030345A'
+          'A1 64 74657374 C0 78 18 323030322D30312D30315430313A30323A30332E3030345A',
         ),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
-      new Test(ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC))
+      new Test(ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC)),
     );
   });
 
@@ -311,16 +347,16 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [ZonedDateTime] })
-        public test: ZonedDateTime
+        public test: ZonedDateTime,
       ) {}
     }
 
     expect(
       new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
-      ).decodeData(Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'), [Test])
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      ).decodeData(Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'), [Test]),
     ).toEqual(
-      new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC))
+      new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC)),
     );
   });
 
@@ -330,16 +366,16 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [ZonedDateTime] })
-        public test: ZonedDateTime
+        public test: ZonedDateTime,
       ) {}
     }
 
     expect(
       new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
-      ).decodeData(Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'), [Test])
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      ).decodeData(Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'), [Test]),
     ).toEqual(
-      new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC))
+      new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC)),
     );
   });
 
@@ -349,17 +385,17 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [ZonedDateTime] })
-        public test: ZonedDateTime
+        public test: ZonedDateTime,
       ) {}
     }
 
     expect(
       new CBORDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeData(
         Hex.decode('A1 64 74657374 1B 000000E472797865'),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
-      new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC))
+      new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC)),
     );
   });
 
@@ -369,17 +405,17 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [ZonedDateTime] })
-        public test: ZonedDateTime
+        public test: ZonedDateTime,
       ) {}
     }
 
     expect(
       new CBORDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeData(
         Hex.decode('A1 64 74657374 C1 1B 000000E472797865'),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
-      new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC))
+      new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC)),
     );
   });
 
@@ -389,19 +425,19 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [OffsetDateTime] })
-        public test: OffsetDateTime
+        public test: OffsetDateTime,
       ) {}
     }
 
     expect(
       CBORDecoder.default.decodeData(
         Hex.decode(
-          'A1 64 74657374 78 18 323030322D30312D30315430313A30323A30332E3030345A'
+          'A1 64 74657374 78 18 323030322D30312D30315430313A30323A30332E3030345A',
         ),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
-      new Test(OffsetDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneOffset.UTC))
+      new Test(OffsetDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneOffset.UTC)),
     );
   });
 
@@ -411,19 +447,19 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [OffsetDateTime] })
-        public test: OffsetDateTime
+        public test: OffsetDateTime,
       ) {}
     }
 
     expect(
       CBORDecoder.default.decodeData(
         Hex.decode(
-          'A1 64 74657374 C0 78 18 323030322D30312D30315430313A30323A30332E3030345A'
+          'A1 64 74657374 C0 78 18 323030322D30312D30315430313A30323A30332E3030345A',
         ),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
-      new Test(OffsetDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneOffset.UTC))
+      new Test(OffsetDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneOffset.UTC)),
     );
   });
 
@@ -433,18 +469,18 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [OffsetDateTime] })
-        public test: OffsetDateTime
+        public test: OffsetDateTime,
       ) {}
     }
 
     expect(
       new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
-      ).decodeData(Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'), [Test])
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      ).decodeData(Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'), [Test]),
     ).toEqual(
       new Test(
-        OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC)
-      )
+        OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC),
+      ),
     );
   });
 
@@ -454,18 +490,18 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [OffsetDateTime] })
-        public test: OffsetDateTime
+        public test: OffsetDateTime,
       ) {}
     }
 
     expect(
       new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
-      ).decodeData(Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'), [Test])
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      ).decodeData(Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'), [Test]),
     ).toEqual(
       new Test(
-        OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC)
-      )
+        OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC),
+      ),
     );
   });
 
@@ -475,19 +511,19 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [OffsetDateTime] })
-        public test: OffsetDateTime
+        public test: OffsetDateTime,
       ) {}
     }
 
     expect(
       new CBORDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeData(
         Hex.decode('A1 64 74657374 1B 000000E472797865'),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
       new Test(
-        OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC)
-      )
+        OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC),
+      ),
     );
   });
 
@@ -497,19 +533,19 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [OffsetDateTime] })
-        public test: OffsetDateTime
+        public test: OffsetDateTime,
       ) {}
     }
 
     expect(
       new CBORDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeData(
         Hex.decode('A1 64 74657374 C1 1B 000000E472797865'),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
       new Test(
-        OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC)
-      )
+        OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC),
+      ),
     );
   });
 
@@ -519,15 +555,15 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [OffsetTime] })
-        public test: OffsetTime
+        public test: OffsetTime,
       ) {}
     }
 
     expect(
       CBORDecoder.default.decodeData(
         Hex.decode('A1 64 74657374 6D 30313A30323A30332E3030345A'),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(new Test(OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC)));
   });
 
@@ -537,16 +573,16 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [OffsetTime] })
-        public test: OffsetTime
+        public test: OffsetTime,
       ) {}
     }
 
     expect(
       new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
       ).decodeData(Hex.decode('A1 64 74657374 85 04 05 06 1A 2F072F40 61 5A'), [
         Test,
-      ])
+      ]),
     ).toEqual(new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)));
   });
 
@@ -556,15 +592,15 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [OffsetTime] })
-        public test: OffsetTime
+        public test: OffsetTime,
       ) {}
     }
 
     expect(
       new CBORDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeData(
         Hex.decode('A1 64 74657374 85 04 05 06 19 0315 61 5A'),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)));
   });
 
@@ -574,17 +610,17 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalDateTime] })
-        public test: LocalDateTime
+        public test: LocalDateTime,
       ) {}
     }
 
     expect(
       CBORDecoder.default.decodeData(
         Hex.decode(
-          'A1 64 74657374 77 323030322D30312D30315430313A30323A30332E303034'
+          'A1 64 74657374 77 323030322D30312D30315430313A30323A30332E303034',
         ),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(new Test(LocalDateTime.of(2002, 1, 1, 1, 2, 3, 4000000)));
   });
 
@@ -594,17 +630,17 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalDateTime] })
-        public test: LocalDateTime
+        public test: LocalDateTime,
       ) {}
     }
 
     expect(
       new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
       ).decodeData(
         Hex.decode('A1 64 74657374 87 19 07D1 02 03 04 05 06 1A 2F072F40'),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)));
   });
 
@@ -614,15 +650,15 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalDateTime] })
-        public test: LocalDateTime
+        public test: LocalDateTime,
       ) {}
     }
 
     expect(
       new CBORDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeData(
         Hex.decode('A1 64 74657374 87 19 07D1 02 03 04 05 06 19 0315'),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)));
   });
 
@@ -632,15 +668,15 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalDate] })
-        public test: LocalDate
+        public test: LocalDate,
       ) {}
     }
 
     expect(
       CBORDecoder.default.decodeData(
         Hex.decode('A1 64 74657374 6A 323030322D30312D3031'),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(new Test(LocalDate.of(2002, 1, 1)));
   });
 
@@ -650,14 +686,14 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalDate] })
-        public test: LocalDate
+        public test: LocalDate,
       ) {}
     }
 
     expect(
       new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
-      ).decodeData(Hex.decode('A1 64 74657374 83 19 07D1 02 03'), [Test])
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      ).decodeData(Hex.decode('A1 64 74657374 83 19 07D1 02 03'), [Test]),
     ).toEqual(new Test(LocalDate.of(2001, 2, 3)));
   });
 
@@ -667,15 +703,15 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalDate] })
-        public test: LocalDate
+        public test: LocalDate,
       ) {}
     }
 
     expect(
       new CBORDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeData(
         Hex.decode('A1 64 74657374 83 19 07D1 02 03'),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(new Test(LocalDate.of(2001, 2, 3)));
   });
 
@@ -685,15 +721,15 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalTime] })
-        public test: LocalTime
+        public test: LocalTime,
       ) {}
     }
 
     expect(
       CBORDecoder.default.decodeData(
         Hex.decode('A1 64 74657374 6C 30313A30323A30332E303034'),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(new Test(LocalTime.of(1, 2, 3, 4000000)));
   });
 
@@ -703,14 +739,16 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalTime] })
-        public test: LocalTime
+        public test: LocalTime,
       ) {}
     }
 
     expect(
       new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
-      ).decodeData(Hex.decode('A1 64 74657374 84 04 05 06 1A 2F072F40'), [Test])
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      ).decodeData(Hex.decode('A1 64 74657374 84 04 05 06 1A 2F072F40'), [
+        Test,
+      ]),
     ).toEqual(new Test(LocalTime.of(4, 5, 6, 789000000)));
   });
 
@@ -720,15 +758,15 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalTime] })
-        public test: LocalTime
+        public test: LocalTime,
       ) {}
     }
 
     expect(
       new CBORDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeData(
         Hex.decode('A1 64 74657374 84 04 05 06 19 0315'),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(new Test(LocalTime.of(4, 5, 6, 789000000)));
   });
 
@@ -738,19 +776,19 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Date] })
-        public test: Date
+        public test: Date,
       ) {}
     }
 
     expect(
       CBORDecoder.default.decodeData(
         Hex.decode(
-          'A1 64 74657374 78 18 323030312D30322D30335430343A30353A30362E3738395A'
+          'A1 64 74657374 78 18 323030312D30322D30335430343A30353A30362E3738395A',
         ),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
-      new Test(new Date(Instant.ofEpochMilli(981173106789).toString()))
+      new Test(new Date(Instant.ofEpochMilli(981173106789).toString())),
     );
   });
 
@@ -760,19 +798,19 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Date] })
-        public test: Date
+        public test: Date,
       ) {}
     }
 
     expect(
       CBORDecoder.default.decodeData(
         Hex.decode(
-          'A1 64 74657374 C0 78 18 323030312D30322D30335430343A30353A30362E3738395A'
+          'A1 64 74657374 C0 78 18 323030312D30322D30335430343A30353A30362E3738395A',
         ),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
-      new Test(new Date(Instant.ofEpochMilli(981173106789).toString()))
+      new Test(new Date(Instant.ofEpochMilli(981173106789).toString())),
     );
   });
 
@@ -782,16 +820,16 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Date] })
-        public test: Date
+        public test: Date,
       ) {}
     }
 
     expect(
       new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
-      ).decodeData(Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'), [Test])
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      ).decodeData(Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'), [Test]),
     ).toEqual(
-      new Test(new Date(Instant.ofEpochMilli(981173106789).toString()))
+      new Test(new Date(Instant.ofEpochMilli(981173106789).toString())),
     );
   });
 
@@ -801,17 +839,17 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Date] })
-        public test: Date
+        public test: Date,
       ) {}
     }
 
     expect(
       new CBORDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeData(
         Hex.decode('A1 64 74657374 1B 000000E472797865'),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
-      new Test(new Date(Instant.ofEpochMilli(981173106789).toString()))
+      new Test(new Date(Instant.ofEpochMilli(981173106789).toString())),
     );
   });
 
@@ -821,16 +859,16 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Date] })
-        public test: Date
+        public test: Date,
       ) {}
     }
 
     expect(
       new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
-      ).decodeData(Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'), [Test])
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      ).decodeData(Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'), [Test]),
     ).toEqual(
-      new Test(new Date(Instant.ofEpochMilli(981173106789).toString()))
+      new Test(new Date(Instant.ofEpochMilli(981173106789).toString())),
     );
   });
 
@@ -840,17 +878,17 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Date] })
-        public test: Date
+        public test: Date,
       ) {}
     }
 
     expect(
       new CBORDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeData(
         Hex.decode('A1 64 74657374 C1 1B 000000E472797865'),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
-      new Test(new Date(Instant.ofEpochMilli(981173106789).toString()))
+      new Test(new Date(Instant.ofEpochMilli(981173106789).toString())),
     );
   });
 
@@ -860,15 +898,15 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [ArrayBuffer] })
-        public test: ArrayBuffer
+        public test: ArrayBuffer,
       ) {}
     }
 
     expect(
       CBORDecoder.default.decodeData(
         Hex.decode(`A1 64 74657374 70 534756736247386751304A5055694568`),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(new Test(new TextEncoder().encode('Hello CBOR!!').buffer));
   });
 
@@ -878,15 +916,15 @@ describe('CBORDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [ArrayBuffer] })
-        public test: ArrayBuffer
+        public test: ArrayBuffer,
       ) {}
     }
 
     expect(
       CBORDecoder.default.decodeData(
         Hex.decode(`A1 64 74657374 4C 48656C6C6F2043424F522121`),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(new Test(new TextEncoder().encode('Hello CBOR!!').buffer));
   });
 });

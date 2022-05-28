@@ -32,7 +32,7 @@ export class BinaryDecoder implements MediaTypeDecoder {
     }
 
     throw Error(
-      'Invalid value, expected ArrayBuffer, (Int|Uint)Array or DataView'
+      'Invalid value, expected ArrayBuffer, (Int|Uint)Array or DataView',
     );
   }
 }

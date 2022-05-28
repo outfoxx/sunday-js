@@ -35,7 +35,7 @@ export class MediaType {
         obj[name.toLowerCase()] = value.toLowerCase();
         return obj;
       },
-      {} as Record<string, string>
+      {} as Record<string, string>,
     );
   }
 
@@ -61,7 +61,7 @@ export class MediaType {
 
   withParameter(
     parameter: MediaType.ParameterName | string,
-    value: string
+    value: string,
   ): MediaType {
     const parameters = Object.assign({}, this.parameters, {
       [parameter]: value,
@@ -198,11 +198,11 @@ export namespace MediaType {
   export function from(value?: string | null): MediaType | undefined;
   export function from(
     value: string | null | undefined,
-    def: MediaType
+    def: MediaType,
   ): MediaType;
   export function from(
     value?: string | null,
-    def: MediaType | undefined = undefined
+    def: MediaType | undefined = undefined,
   ): MediaType | undefined {
     if (!value) {
       return def;

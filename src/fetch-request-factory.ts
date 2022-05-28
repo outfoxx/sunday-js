@@ -50,7 +50,7 @@ export class FetchRequestFactory implements RequestFactory {
       mediaTypeEncoders?: MediaTypeEncoders;
       mediaTypeDecoders?: MediaTypeDecoders;
       logger?: Logger;
-    }
+    },
   ) {
     this.baseUrl =
       typeof baseUrl === 'string' ? new URLTemplate(baseUrl) : baseUrl;
@@ -64,7 +64,7 @@ export class FetchRequestFactory implements RequestFactory {
 
   registerProblem(
     type: URL | string,
-    problemType: ConstructableClassType<Problem>
+    problemType: ConstructableClassType<Problem>,
   ): void {
     const typeStr = type instanceof URL ? type.toString() : type;
     this.problemTypes.set(typeStr, problemType);
@@ -72,26 +72,26 @@ export class FetchRequestFactory implements RequestFactory {
 
   request(
     requestSpec: RequestSpec<unknown>,
-    requestInit?: RequestInit
+    requestInit?: RequestInit,
   ): Observable<Request> {
     //
     return defer(() => {
       const url = this.baseUrl.complete(
         requestSpec.pathTemplate,
-        requestSpec.pathParameters ?? {}
+        requestSpec.pathParameters ?? {},
       );
 
       if (requestSpec.queryParameters) {
         const encoder = this.mediaTypeEncoders.find(
-          MediaType.WWWFormUrlEncoded
+          MediaType.WWWFormUrlEncoded,
         );
         if (!isURLQueryParamsEncoder(encoder)) {
           throw Error(
-            `MediaTypeEncoder for ${MediaType.WWWFormUrlEncoded} must be an instance of URLQueryParamsEncoder`
+            `MediaTypeEncoder for ${MediaType.WWWFormUrlEncoded} must be an instance of URLQueryParamsEncoder`,
           );
         }
         url.search = `?${encoder.encodeQueryString(
-          requestSpec.queryParameters
+          requestSpec.queryParameters,
         )}`;
       }
 
@@ -100,12 +100,12 @@ export class FetchRequestFactory implements RequestFactory {
       // Determine & add accept header
       if (requestSpec.acceptTypes) {
         const supportedAcceptTypes = requestSpec.acceptTypes.filter((type) =>
-          this.mediaTypeDecoders.supports(type)
+          this.mediaTypeDecoders.supports(type),
         );
 
         if (!supportedAcceptTypes.length) {
           throw Error(
-            'None of the provided accept types has a reqistered decoder'
+            'None of the provided accept types has a reqistered decoder',
           );
         }
 
@@ -116,7 +116,7 @@ export class FetchRequestFactory implements RequestFactory {
 
       // Determine content type
       const contentType = requestSpec.contentTypes?.find((type) =>
-        this.mediaTypeEncoders.supports(type)
+        this.mediaTypeEncoders.supports(type),
       );
 
       // If matched, add content type (even if body is nil, to match any expected server requirements)
@@ -129,7 +129,7 @@ export class FetchRequestFactory implements RequestFactory {
       if (requestSpec.body) {
         if (!contentType) {
           throw Error(
-            'None of the provided content types has a registered encoder'
+            'None of the provided content types has a registered encoder',
           );
         }
 
@@ -152,15 +152,15 @@ export class FetchRequestFactory implements RequestFactory {
 
   response(
     request: Request | RequestSpec<unknown>,
-    dataExpected?: boolean
+    dataExpected?: boolean,
   ): Observable<Response> {
     const request$ =
       request instanceof Request ? of(request) : this.request(request);
     return request$.pipe(
       switchMap((req) => fetch(req)),
       switchMap((response) =>
-        validate(response, dataExpected ?? false, this.problemTypes)
-      )
+        validate(response, dataExpected ?? false, this.problemTypes),
+      ),
     );
   }
 
@@ -168,7 +168,7 @@ export class FetchRequestFactory implements RequestFactory {
   result<B>(requestSpec: RequestSpec<B>): Observable<void>;
   result(
     request: RequestSpec<unknown>,
-    responseType?: AnyType
+    responseType?: AnyType,
   ): Observable<unknown> {
     const response$ = this.response(request, !!responseType);
 
@@ -180,17 +180,17 @@ export class FetchRequestFactory implements RequestFactory {
           try {
             const contentType = MediaType.from(
               response.headers.get('content-type'),
-              MediaType.OctetStream
+              MediaType.OctetStream,
             );
             const decoder = this.mediaTypeDecoders.find(contentType);
             return await decoder.decode(response, responseType);
           } catch (error) {
             throw await SundayError.fromResponse(
               errorToMessage(error, 'Response Decoding Failed'),
-              response
+              response,
             );
           }
-        })
+        }),
       );
     }
   }
@@ -199,7 +199,7 @@ export class FetchRequestFactory implements RequestFactory {
     //
     const adapter = (
       url: string,
-      requestInit: RequestInit
+      requestInit: RequestInit,
     ): Observable<Request> => {
       const eventSourceSpec = Object.assign({}, requestSpec, {
         pathTemplate: url,
@@ -220,13 +220,13 @@ export class FetchRequestFactory implements RequestFactory {
       event: string | undefined,
       id: string | undefined,
       data: string,
-      logger?: Logger
-    ) => E | undefined
+      logger?: Logger,
+    ) => E | undefined,
   ): Observable<E> {
     const eventSource = this.eventSource(requestSpec);
 
     const jsonDecoder = this.mediaTypeDecoders.find(
-      MediaType.JSON
+      MediaType.JSON,
     ) as TextMediaTypeDecoder;
 
     return new Observable((subscriber) => {
@@ -241,7 +241,7 @@ export class FetchRequestFactory implements RequestFactory {
             event.type,
             event.lastEventId,
             event.data,
-            this.logger
+            this.logger,
           );
           if (!decodedEvent) {
             return;

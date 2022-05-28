@@ -25,7 +25,7 @@ export interface MediaTypeEncodersBuilder {
 
   add(
     mediaType: MediaType,
-    encoder: MediaTypeEncoder
+    encoder: MediaTypeEncoder,
   ): MediaTypeEncodersBuilder;
 
   build(): MediaTypeEncoders;
@@ -42,7 +42,7 @@ export class MediaTypeEncoders {
 
     add(
       mediaType: MediaType,
-      encoder: MediaTypeEncoder
+      encoder: MediaTypeEncoder,
     ): MediaTypeEncodersBuilder {
       this.encoders.set(mediaType, encoder);
       return this;
@@ -71,13 +71,13 @@ export class MediaTypeEncoders {
 
   supports(mediaType: MediaType): boolean {
     return Array.from(this.encoders.keys()).some((key) =>
-      key.compatible(mediaType)
+      key.compatible(mediaType),
     );
   }
 
   find(mediaType: MediaType): MediaTypeEncoder {
     const found = Array.from(this.encoders.entries()).find(([type]) =>
-      type.compatible(mediaType)
+      type.compatible(mediaType),
     );
     if (!found) {
       throw Error(`Unsupported media type - ${mediaType}`);

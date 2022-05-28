@@ -32,7 +32,7 @@ describe('CBOREncoder', () => {
     class Sub {
       constructor(
         @JsonProperty()
-        public value: number
+        public value: number,
       ) {}
     }
 
@@ -42,14 +42,14 @@ describe('CBOREncoder', () => {
         public test: string,
         @JsonProperty()
         @JsonClassType({ type: () => [Sub] })
-        public sub: Sub
+        public sub: Sub,
       ) {}
     }
 
     expect(
-      CBOREncoder.default.encode(new Test('a', new Sub(5)), [Test])
+      CBOREncoder.default.encode(new Test('a', new Sub(5)), [Test]),
     ).toHaveBytes(
-      Hex.decode('A2 64 74657374 61 61 63 737562 A1 65 76616C7565 05')
+      Hex.decode('A2 64 74657374 61 61 63 737562 A1 65 76616C7565 05'),
     );
   });
 
@@ -59,18 +59,18 @@ describe('CBOREncoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [URL] })
-        public test: URL
+        public test: URL,
       ) {}
     }
 
     expect(
       CBOREncoder.default.encode(new Test(new URL('http://example.com')), [
         Test,
-      ])
+      ]),
     ).toEqual(
       Hex.decode(
-        'A1 64 74657374 D8 20 73 687474703A2F2F6578616D706C652E636F6D2F'
-      )
+        'A1 64 74657374 D8 20 73 687474703A2F2F6578616D706C652E636F6D2F',
+      ),
     );
   });
 
@@ -80,7 +80,7 @@ describe('CBOREncoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Instant] })
-        public test: Instant
+        public test: Instant,
       ) {}
     }
 
@@ -95,15 +95,15 @@ describe('CBOREncoder', () => {
             5,
             6,
             789000000,
-            ZoneId.UTC
-          ).toInstant()
+            ZoneId.UTC,
+          ).toInstant(),
         ),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
       Hex.decode(
-        'A1 64 74657374 C0 78 18 323030312D30322D30335430343A30353A30362E3738395A'
-      )
+        'A1 64 74657374 C0 78 18 323030312D30322D30335430343A30353A30362E3738395A',
+      ),
     );
   });
 
@@ -113,13 +113,13 @@ describe('CBOREncoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Instant] })
-        public test: Instant
+        public test: Instant,
       ) {}
     }
 
     expect(
       new CBOREncoder(
-        CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
+        CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
       ).encode(
         new Test(
           ZonedDateTime.of(
@@ -130,11 +130,11 @@ describe('CBOREncoder', () => {
             5,
             6,
             789000000,
-            ZoneId.UTC
-          ).toInstant()
+            ZoneId.UTC,
+          ).toInstant(),
         ),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'));
   });
 
@@ -144,7 +144,7 @@ describe('CBOREncoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Instant] })
-        public test: Instant
+        public test: Instant,
       ) {}
     }
 
@@ -159,11 +159,11 @@ describe('CBOREncoder', () => {
             5,
             6,
             789000000,
-            ZoneId.UTC
-          ).toInstant()
+            ZoneId.UTC,
+          ).toInstant(),
         ),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(Hex.decode('A1 64 74657374 C1 1B 000000E472797865'));
   });
 
@@ -173,19 +173,19 @@ describe('CBOREncoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [ZonedDateTime] })
-        public test: ZonedDateTime
+        public test: ZonedDateTime,
       ) {}
     }
 
     expect(
       new CBOREncoder(CBOREncoder.DateEncoding.ISO8601).encode(
         new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC)),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
       Hex.decode(
-        'A1 64 74657374 C0 78 18 323030312D30322D30335430343A30353A30362E3738395A'
-      )
+        'A1 64 74657374 C0 78 18 323030312D30322D30335430343A30353A30362E3738395A',
+      ),
     );
   });
 
@@ -195,17 +195,17 @@ describe('CBOREncoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [ZonedDateTime] })
-        public test: ZonedDateTime
+        public test: ZonedDateTime,
       ) {}
     }
 
     expect(
       new CBOREncoder(
-        CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
+        CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
       ).encode(
         new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC)),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'));
   });
 
@@ -215,15 +215,15 @@ describe('CBOREncoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [ZonedDateTime] })
-        public test: ZonedDateTime
+        public test: ZonedDateTime,
       ) {}
     }
 
     expect(
       new CBOREncoder(CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
         new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC)),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(Hex.decode('A1 64 74657374 C1 1B 000000E472797865'));
   });
 
@@ -233,21 +233,21 @@ describe('CBOREncoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [OffsetDateTime] })
-        public test: OffsetDateTime
+        public test: OffsetDateTime,
       ) {}
     }
 
     expect(
       new CBOREncoder(CBOREncoder.DateEncoding.ISO8601).encode(
         new Test(
-          OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC)
+          OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC),
         ),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
       Hex.decode(
-        'A1 64 74657374 C0 78 18 323030312D30322D30335430343A30353A30362E3738395A'
-      )
+        'A1 64 74657374 C0 78 18 323030312D30322D30335430343A30353A30362E3738395A',
+      ),
     );
   });
 
@@ -257,19 +257,19 @@ describe('CBOREncoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [OffsetDateTime] })
-        public test: OffsetDateTime
+        public test: OffsetDateTime,
       ) {}
     }
 
     expect(
       new CBOREncoder(
-        CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
+        CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
       ).encode(
         new Test(
-          OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC)
+          OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC),
         ),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'));
   });
 
@@ -279,17 +279,17 @@ describe('CBOREncoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [OffsetDateTime] })
-        public test: OffsetDateTime
+        public test: OffsetDateTime,
       ) {}
     }
 
     expect(
       new CBOREncoder(CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
         new Test(
-          OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC)
+          OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC),
         ),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(Hex.decode('A1 64 74657374 C1 1B 000000E472797865'));
   });
 
@@ -299,15 +299,15 @@ describe('CBOREncoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [OffsetTime] })
-        public test: OffsetTime
+        public test: OffsetTime,
       ) {}
     }
 
     expect(
       new CBOREncoder(CBOREncoder.DateEncoding.ISO8601).encode(
         new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(Hex.decode('A1 64 74657374 6D 30343A30353A30362E3738395A'));
   });
 
@@ -317,16 +317,16 @@ describe('CBOREncoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [OffsetTime] })
-        public test: OffsetTime
+        public test: OffsetTime,
       ) {}
     }
 
     expect(
       new CBOREncoder(
-        CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
+        CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
       ).encode(new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)), [
         Test,
-      ])
+      ]),
     ).toEqual(Hex.decode('A1 64 74657374 85 04 05 06 1A 2F072F40 61 5A'));
   });
 
@@ -336,15 +336,15 @@ describe('CBOREncoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [OffsetTime] })
-        public test: OffsetTime
+        public test: OffsetTime,
       ) {}
     }
 
     expect(
       new CBOREncoder(CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
         new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(Hex.decode('A1 64 74657374 85 04 05 06 19 0315 61 5A'));
   });
 
@@ -354,19 +354,19 @@ describe('CBOREncoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalDateTime] })
-        public test: LocalDateTime
+        public test: LocalDateTime,
       ) {}
     }
 
     expect(
       new CBOREncoder(CBOREncoder.DateEncoding.ISO8601).encode(
         new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
       Hex.decode(
-        'A1 64 74657374 77 323030312D30322D30335430343A30353A30362E373839'
-      )
+        'A1 64 74657374 77 323030312D30322D30335430343A30353A30362E373839',
+      ),
     );
   });
 
@@ -376,18 +376,18 @@ describe('CBOREncoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalDateTime] })
-        public test: LocalDateTime
+        public test: LocalDateTime,
       ) {}
     }
 
     expect(
       new CBOREncoder(
-        CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
+        CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
       ).encode(new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)), [
         Test,
-      ])
+      ]),
     ).toEqual(
-      Hex.decode('A1 64 74657374 87 19 07D1 02 03 04 05 06 1A 2F072F40')
+      Hex.decode('A1 64 74657374 87 19 07D1 02 03 04 05 06 1A 2F072F40'),
     );
   });
 
@@ -397,15 +397,15 @@ describe('CBOREncoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalDateTime] })
-        public test: LocalDateTime
+        public test: LocalDateTime,
       ) {}
     }
 
     expect(
       new CBOREncoder(CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
         new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(Hex.decode('A1 64 74657374 87 19 07D1 02 03 04 05 06 19 0315'));
   });
 
@@ -415,15 +415,15 @@ describe('CBOREncoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalDate] })
-        public test: LocalDate
+        public test: LocalDate,
       ) {}
     }
 
     expect(
       new CBOREncoder(CBOREncoder.DateEncoding.ISO8601).encode(
         new Test(LocalDate.of(2001, 2, 3)),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(Hex.decode('A1 64 74657374 6A 323030312D30322D3033'));
   });
 
@@ -433,14 +433,14 @@ describe('CBOREncoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalDate] })
-        public test: LocalDate
+        public test: LocalDate,
       ) {}
     }
 
     expect(
       new CBOREncoder(
-        CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
-      ).encode(new Test(LocalDate.of(2001, 2, 3)), [Test])
+        CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      ).encode(new Test(LocalDate.of(2001, 2, 3)), [Test]),
     ).toEqual(Hex.decode('A1 64 74657374 83 19 07D1 02 03'));
   });
 
@@ -450,15 +450,15 @@ describe('CBOREncoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalDate] })
-        public test: LocalDate
+        public test: LocalDate,
       ) {}
     }
 
     expect(
       new CBOREncoder(CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
         new Test(LocalDate.of(2001, 2, 3)),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(Hex.decode('A1 64 74657374 83 19 07D1 02 03'));
   });
 
@@ -468,15 +468,15 @@ describe('CBOREncoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalTime] })
-        public test: LocalTime
+        public test: LocalTime,
       ) {}
     }
 
     expect(
       new CBOREncoder(CBOREncoder.DateEncoding.ISO8601).encode(
         new Test(LocalTime.of(4, 5, 6, 789000000)),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(Hex.decode('A1 64 74657374 6C 30343A30353A30362E373839'));
   });
 
@@ -486,14 +486,14 @@ describe('CBOREncoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalTime] })
-        public test: LocalTime
+        public test: LocalTime,
       ) {}
     }
 
     expect(
       new CBOREncoder(
-        CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
-      ).encode(new Test(LocalTime.of(4, 5, 6, 789000000)), [Test])
+        CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      ).encode(new Test(LocalTime.of(4, 5, 6, 789000000)), [Test]),
     ).toEqual(Hex.decode('A1 64 74657374 84 04 05 06 1A 2F072F40'));
   });
 
@@ -503,15 +503,15 @@ describe('CBOREncoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalTime] })
-        public test: LocalTime
+        public test: LocalTime,
       ) {}
     }
 
     expect(
       new CBOREncoder(CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
         new Test(LocalTime.of(4, 5, 6, 789000000)),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(Hex.decode('A1 64 74657374 84 04 05 06 19 0315'));
   });
 
@@ -521,21 +521,21 @@ describe('CBOREncoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Date] })
-        public test: Date
+        public test: Date,
       ) {}
     }
 
     expect(
       new CBOREncoder(CBOREncoder.DateEncoding.ISO8601).encode(
         new Test(
-          new Date(Instant.parse('2001-02-03T04:05:06.789Z').toString())
+          new Date(Instant.parse('2001-02-03T04:05:06.789Z').toString()),
         ),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
       Hex.decode(
-        'A1 64 74657374 C0 78 18 323030312D30322D30335430343A30353A30362E3738395A'
-      )
+        'A1 64 74657374 C0 78 18 323030312D30322D30335430343A30353A30362E3738395A',
+      ),
     );
   });
 
@@ -545,17 +545,17 @@ describe('CBOREncoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Date] })
-        public test: Date
+        public test: Date,
       ) {}
     }
 
     expect(
       new CBOREncoder(
-        CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
+        CBOREncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
       ).encode(
         new Test(new Date(Instant.ofEpochMilli(981173106789).toString())),
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'));
   });
 });

@@ -14,7 +14,6 @@
 
 import { AnyTextDecoder } from './any-text-decoder';
 import { BinaryDecoder } from './binary-decoder';
-import { BinaryEncoder } from './binary-encoder';
 import { CBORDecoder } from './cbor-decoder';
 import { JSONDecoder } from './json-decoder';
 import { MediaType } from '../media-type';
@@ -25,7 +24,7 @@ export interface MediaTypeDecodersBuilder {
 
   add(
     mediaType: MediaType,
-    decoder: MediaTypeDecoder
+    decoder: MediaTypeDecoder,
   ): MediaTypeDecodersBuilder;
 
   build(): MediaTypeDecoders;
@@ -42,7 +41,7 @@ export class MediaTypeDecoders {
 
     add(
       mediaType: MediaType,
-      decoder: MediaTypeDecoder
+      decoder: MediaTypeDecoder,
     ): MediaTypeDecodersBuilder {
       this.decoders.set(mediaType, decoder);
       return this;
@@ -71,13 +70,13 @@ export class MediaTypeDecoders {
 
   supports(mediaType: MediaType): boolean {
     return Array.from(this.decoders.keys()).some((key) =>
-      key.compatible(mediaType)
+      key.compatible(mediaType),
     );
   }
 
   find(mediaType: MediaType): MediaTypeDecoder {
     const found = Array.from(this.decoders.entries()).find(([type]) =>
-      type.compatible(mediaType)
+      type.compatible(mediaType),
     );
     if (!found) {
       throw Error(`Unsupported media type - ${mediaType}`);

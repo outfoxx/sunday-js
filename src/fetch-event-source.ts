@@ -59,7 +59,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
   private adapter: (
     url: string,
-    requestInit: RequestInit
+    requestInit: RequestInit,
   ) => Observable<Request>;
   private connectionSubscription?: Subscription;
   private internalRetryTime = 100;
@@ -82,7 +82,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       eventTimeout?: number;
       logger?: Logger;
       abortController?: AbortController;
-    }
+    },
   ) {
     super();
     this.url = url;
@@ -146,7 +146,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
           return fromStream(body);
         }),
-        map((value) => this.receivedData(value))
+        map((value) => this.receivedData(value)),
       )
       .subscribe({
         error: (error: unknown) => {
@@ -199,7 +199,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
     this.eventTimeoutCheckHandle = window.setInterval(
       () => this.checkEventTimeout(),
-      FetchEventSource.EVENT_TIMEOUT_CHECK_INTERVAL * 1000
+      FetchEventSource.EVENT_TIMEOUT_CHECK_INTERVAL * 1000,
     );
   }
 
@@ -314,7 +314,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     const backOffDelay = Math.pow(this.retryAttempt, 2) * this.retryTime;
     let retryDelay = Math.min(
       this.retryTime + backOffDelay,
-      this.retryTime * FetchEventSource.MAX_RETRY_TIME_MULTIPLE
+      this.retryTime * FetchEventSource.MAX_RETRY_TIME_MULTIPLE,
     );
 
     // Adjust delay by amount of time last connect
@@ -333,7 +333,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
     this.reconnectTimeoutHandle = window.setTimeout(
       () => this.internalConnect(),
-      retryDelay
+      retryDelay,
     );
   }
 
@@ -382,7 +382,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
         this.lastEventId = eventInfo.id;
       } else {
         this.logger?.debug?.(
-          'event id contains null, unable to use for last-event-id'
+          'event id contains null, unable to use for last-event-id',
         );
       }
     }

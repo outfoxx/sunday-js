@@ -31,7 +31,7 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
     return new WWWFormUrlEncoder(
       WWWFormUrlEncoder.ArrayEncoding.UNBRACKETED,
       WWWFormUrlEncoder.BoolEncoding.LITERAL,
-      WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH
+      WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
     );
   }
 
@@ -40,7 +40,7 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
     private boolEncoding: WWWFormUrlEncoder.BoolEncoding,
     private dateEncoding: WWWFormUrlEncoder.DateEncoding,
     private json = new JsonStringifier(),
-    private encoder = new TextEncoder()
+    private encoder = new TextEncoder(),
   ) {}
 
   encode<T = unknown>(value: T): ArrayBuffer | SharedArrayBuffer {
@@ -74,8 +74,8 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
         components.push(
           ...this.encodeQueryComponent(
             encodeArrayKey(key, this.arrayEncoding),
-            item
-          )
+            item,
+          ),
         );
       }
     } else if (value instanceof Date) {
@@ -86,23 +86,23 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
           encodeURIComponent(
             encodeInstant(
               Instant.ofEpochMilli(value.getTime()),
-              this.dateEncoding
-            )
-          )
+              this.dateEncoding,
+            ),
+          ),
       );
     } else if (value instanceof Temporal) {
       //
       components.push(
         encodeURIComponent(key) +
           '=' +
-          encodeURIComponent(encodeTemporal(value, this.dateEncoding))
+          encodeURIComponent(encodeTemporal(value, this.dateEncoding)),
       );
     } else if (typeof value === 'boolean') {
       //
       components.push(
         encodeURIComponent(key) +
           '=' +
-          encodeURIComponent(encodeBoolean(value, this.boolEncoding))
+          encodeURIComponent(encodeBoolean(value, this.boolEncoding)),
       );
     } else if (typeof value === 'object') {
       //
@@ -110,13 +110,13 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
 
       for (const nestedKey of Object.keys(rec).sort()) {
         components.push(
-          ...this.encodeQueryComponent(`${key}[${nestedKey}]`, rec[nestedKey])
+          ...this.encodeQueryComponent(`${key}[${nestedKey}]`, rec[nestedKey]),
         );
       }
     } else {
       //
       components.push(
-        encodeURIComponent(key) + '=' + encodeURIComponent(`${value}`)
+        encodeURIComponent(key) + '=' + encodeURIComponent(`${value}`),
       );
     }
 
@@ -126,7 +126,7 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
 
 function encodeArrayKey(
   key: string,
-  encoding: WWWFormUrlEncoder.ArrayEncoding
+  encoding: WWWFormUrlEncoder.ArrayEncoding,
 ): string {
   return encoding === WWWFormUrlEncoder.ArrayEncoding.BRACKETED
     ? `${key}[]`
@@ -135,7 +135,7 @@ function encodeArrayKey(
 
 function encodeBoolean(
   value: boolean,
-  encoding: WWWFormUrlEncoder.BoolEncoding
+  encoding: WWWFormUrlEncoder.BoolEncoding,
 ): string {
   switch (encoding) {
     case WWWFormUrlEncoder.BoolEncoding.NUMERIC:
@@ -149,7 +149,7 @@ function encodeBoolean(
 
 function encodeTemporal(
   value: Temporal,
-  encoding: WWWFormUrlEncoder.DateEncoding
+  encoding: WWWFormUrlEncoder.DateEncoding,
 ): string {
   if (value instanceof Instant) {
     return encodeInstant(value, encoding);
@@ -178,7 +178,7 @@ function encodeTemporal(
 
 function encodeInstant(
   value: Instant,
-  encoding: WWWFormUrlEncoder.DateEncoding
+  encoding: WWWFormUrlEncoder.DateEncoding,
 ): string {
   switch (encoding) {
     case WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH:

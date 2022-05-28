@@ -23,18 +23,18 @@ export class SundayError extends Error {
     public statusText: string,
     public headers: Headers,
     public body: unknown | undefined,
-    public responseExample: string
+    public responseExample: string,
   ) {
     super(message);
   }
 
   static async fromResponse(
     message: string,
-    response: Response
+    response: Response,
   ): Promise<SundayError> {
     const [bodyExcerpt, body] = await ResponseExample.bodyExcerpt(
       response,
-      256
+      256,
     );
 
     return new SundayError(
@@ -45,7 +45,7 @@ export class SundayError extends Error {
       response.statusText,
       response.headers,
       body,
-      ResponseExample.build(response, bodyExcerpt)
+      ResponseExample.build(response, bodyExcerpt),
     );
   }
 }

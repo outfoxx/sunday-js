@@ -39,7 +39,7 @@ import { MediaTypeDecoder } from './media-type-decoder';
 export class CBORDecoder implements MediaTypeDecoder {
   static get default(): CBORDecoder {
     return new CBORDecoder(
-      CBORDecoder.NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
+      CBORDecoder.NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
     );
   }
 
@@ -170,7 +170,7 @@ export class CBORDecoder implements MediaTypeDecoder {
 
   private zonedDateTimeDeserializer: Deserializer = (
     key: string,
-    value: unknown
+    value: unknown,
   ) => {
     if (value == null) {
       return value;
@@ -199,7 +199,7 @@ export class CBORDecoder implements MediaTypeDecoder {
         const duration = Duration.parse(`PT${value}S`);
         const instant = Instant.ofEpochSecond(
           duration.seconds(),
-          duration.nano()
+          duration.nano(),
         );
         return ZonedDateTime.ofInstant(instant, ZoneId.UTC);
       } else {
@@ -208,7 +208,7 @@ export class CBORDecoder implements MediaTypeDecoder {
     }
     if (typeof value === 'string') {
       return ZonedDateTime.from(
-        DateTimeFormatter.ISO_ZONED_DATE_TIME.parse(value)
+        DateTimeFormatter.ISO_ZONED_DATE_TIME.parse(value),
       );
     }
     throw new Error(`Invalid date value for property ${key}`);
@@ -216,7 +216,7 @@ export class CBORDecoder implements MediaTypeDecoder {
 
   private offsetDateTimeDeserializer: Deserializer = (
     key: string,
-    value: unknown
+    value: unknown,
   ) => {
     if (value == null) {
       return value;
@@ -248,7 +248,7 @@ export class CBORDecoder implements MediaTypeDecoder {
         const duration = Duration.parse(`PT${value}S`);
         const instant = Instant.ofEpochSecond(
           duration.seconds(),
-          duration.nano()
+          duration.nano(),
         );
         return OffsetDateTime.ofInstant(instant, ZoneId.UTC);
       } else {
@@ -257,7 +257,7 @@ export class CBORDecoder implements MediaTypeDecoder {
     }
     if (typeof value === 'string') {
       return OffsetDateTime.from(
-        DateTimeFormatter.ISO_OFFSET_DATE_TIME.parse(value)
+        DateTimeFormatter.ISO_OFFSET_DATE_TIME.parse(value),
       );
     }
     throw new Error(`Invalid date value for property ${key}`);
@@ -271,7 +271,7 @@ export class CBORDecoder implements MediaTypeDecoder {
 
   private offsetTimeDeserializer: Deserializer = (
     key: string,
-    value: unknown
+    value: unknown,
   ) => {
     if (value == null) {
       return value;
@@ -304,7 +304,7 @@ export class CBORDecoder implements MediaTypeDecoder {
         minute,
         second,
         nanoOfSecond,
-        ZoneOffset.of(offset)
+        ZoneOffset.of(offset),
       );
     }
     if (typeof value === 'string') {
@@ -315,7 +315,7 @@ export class CBORDecoder implements MediaTypeDecoder {
 
   private localDateTimeDeserializer: Deserializer = (
     key: string,
-    value: unknown
+    value: unknown,
   ) => {
     if (value == null) {
       return value;
@@ -356,12 +356,12 @@ export class CBORDecoder implements MediaTypeDecoder {
         hour,
         minute,
         second,
-        nanoOfSecond
+        nanoOfSecond,
       );
     }
     if (typeof value === 'string') {
       return LocalDateTime.from(
-        DateTimeFormatter.ISO_LOCAL_DATE_TIME.parse(value)
+        DateTimeFormatter.ISO_LOCAL_DATE_TIME.parse(value),
       );
     }
     throw new Error(`Invalid date value for property ${key}`);
@@ -369,7 +369,7 @@ export class CBORDecoder implements MediaTypeDecoder {
 
   private localDateDeserializer: Deserializer = (
     key: string,
-    value: unknown
+    value: unknown,
   ) => {
     if (value == null) {
       return value;
@@ -398,7 +398,7 @@ export class CBORDecoder implements MediaTypeDecoder {
 
   private localTimeDeserializer: Deserializer = (
     key: string,
-    value: unknown
+    value: unknown,
   ) => {
     if (value == null) {
       return value;
@@ -489,7 +489,7 @@ export class CBORDecoder implements MediaTypeDecoder {
 
   private arrayBufferDeserializer: Deserializer = (
     key: string,
-    value: unknown
+    value: unknown,
   ) => {
     if (value == null) {
       return value;
@@ -500,7 +500,7 @@ export class CBORDecoder implements MediaTypeDecoder {
     if (ArrayBuffer.isView(value)) {
       return value.buffer.slice(
         value.byteOffset,
-        value.byteOffset + value.byteLength
+        value.byteOffset + value.byteLength,
       );
     }
     if (typeof value === 'string') {

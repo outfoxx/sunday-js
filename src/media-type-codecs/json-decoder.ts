@@ -42,7 +42,7 @@ export class JSONDecoder
 {
   static get default(): JSONDecoder {
     return new JSONDecoder(
-      JSONDecoder.NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
+      JSONDecoder.NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
     );
   }
 
@@ -146,7 +146,7 @@ export class JSONDecoder
 
   private zonedDateTimeDeserializer: Deserializer = (
     key: string,
-    value: unknown
+    value: unknown,
   ) => {
     if (value == null) {
       return value;
@@ -172,7 +172,7 @@ export class JSONDecoder
         const duration = Duration.parse(`PT${value}S`);
         const instant = Instant.ofEpochSecond(
           duration.seconds(),
-          duration.nano()
+          duration.nano(),
         );
         return ZonedDateTime.ofInstant(instant, ZoneId.UTC);
       } else {
@@ -181,7 +181,7 @@ export class JSONDecoder
     }
     if (typeof value === 'string') {
       return ZonedDateTime.from(
-        DateTimeFormatter.ISO_ZONED_DATE_TIME.parse(value)
+        DateTimeFormatter.ISO_ZONED_DATE_TIME.parse(value),
       );
     }
     throw new Error(`Invalid date value for property ${key}`);
@@ -189,7 +189,7 @@ export class JSONDecoder
 
   private offsetDateTimeDeserializer: Deserializer = (
     key: string,
-    value: unknown
+    value: unknown,
   ) => {
     if (value == null) {
       return value;
@@ -215,7 +215,7 @@ export class JSONDecoder
         const duration = Duration.parse(`PT${value}S`);
         const instant = Instant.ofEpochSecond(
           duration.seconds(),
-          duration.nano()
+          duration.nano(),
         );
         return OffsetDateTime.ofInstant(instant, ZoneId.UTC);
       } else {
@@ -224,7 +224,7 @@ export class JSONDecoder
     }
     if (typeof value === 'string') {
       return OffsetDateTime.from(
-        DateTimeFormatter.ISO_OFFSET_DATE_TIME.parse(value)
+        DateTimeFormatter.ISO_OFFSET_DATE_TIME.parse(value),
       );
     }
     throw new Error(`Invalid date value for property ${key}`);
@@ -238,7 +238,7 @@ export class JSONDecoder
 
   private offsetTimeDeserializer: Deserializer = (
     key: string,
-    value: unknown
+    value: unknown,
   ) => {
     if (value == null) {
       return value;
@@ -271,7 +271,7 @@ export class JSONDecoder
         minute,
         second,
         nanoOfSecond,
-        ZoneOffset.of(offset)
+        ZoneOffset.of(offset),
       );
     }
     if (typeof value === 'string') {
@@ -282,7 +282,7 @@ export class JSONDecoder
 
   private localDateTimeDeserializer: Deserializer = (
     key: string,
-    value: unknown
+    value: unknown,
   ) => {
     if (value == null) {
       return value;
@@ -323,12 +323,12 @@ export class JSONDecoder
         hour,
         minute,
         second,
-        nanoOfSecond
+        nanoOfSecond,
       );
     }
     if (typeof value === 'string') {
       return LocalDateTime.from(
-        DateTimeFormatter.ISO_LOCAL_DATE_TIME.parse(value)
+        DateTimeFormatter.ISO_LOCAL_DATE_TIME.parse(value),
       );
     }
     throw new Error(`Invalid date value for property ${key}`);
@@ -336,7 +336,7 @@ export class JSONDecoder
 
   private localDateDeserializer: Deserializer = (
     key: string,
-    value: unknown
+    value: unknown,
   ) => {
     if (value == null) {
       return value;
@@ -365,7 +365,7 @@ export class JSONDecoder
 
   private localTimeDeserializer: Deserializer = (
     key: string,
-    value: unknown
+    value: unknown,
   ) => {
     if (value == null) {
       return value;
@@ -450,7 +450,7 @@ export class JSONDecoder
 
   private arrayBufferDeserializer: Deserializer = (
     key: string,
-    value: unknown
+    value: unknown,
   ) => {
     if (value == null) {
       return value;

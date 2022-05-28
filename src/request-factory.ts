@@ -26,7 +26,7 @@ export interface RequestFactory {
 
   registerProblem(
     type: URL | string,
-    problemType: ConstructableClassType<Problem>
+    problemType: ConstructableClassType<Problem>,
   ): void;
 
   request(requestSpec: RequestSpec<unknown>): Observable<Request>;
@@ -35,22 +35,22 @@ export interface RequestFactory {
 
   response<B>(
     requestSpec: RequestSpec<B>,
-    dataExpected?: boolean
+    dataExpected?: boolean,
   ): Observable<Response>;
 
   result<B, R>(
     requestSpec: RequestSpec<B>,
-    resultType: [ClassType<R>]
+    resultType: [ClassType<R>],
   ): Observable<R>;
 
   result<B, R>(
     requestSpec: RequestSpec<B>,
-    resultType: [ClassType<Array<unknown>>, ClassType<R>]
+    resultType: [ClassType<Array<unknown>>, ClassType<R>],
   ): Observable<Array<R>>;
 
   result<B, R>(
     requestSpec: RequestSpec<B>,
-    resultType: [ClassType<Set<unknown>>, ClassType<R>]
+    resultType: [ClassType<Set<unknown>>, ClassType<R>],
   ): Observable<Set<R>>;
 
   result<B, R>(requestSpec: RequestSpec<B>, resultType: AnyType): Observable<R>;
@@ -66,8 +66,8 @@ export interface RequestFactory {
       event: string | undefined,
       id: string | undefined,
       data: string,
-      logger?: Logger
-    ) => E | undefined
+      logger?: Logger,
+    ) => E | undefined,
   ): Observable<E>;
 }
 

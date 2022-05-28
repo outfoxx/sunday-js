@@ -31,7 +31,7 @@ describe('Problem', () => {
 
     const decodedProblem = JSONDecoder.default.decodeObject<Problem>(
       problemJSON,
-      [Problem]
+      [Problem],
     );
 
     expect(decodedProblem).toEqual(problem);

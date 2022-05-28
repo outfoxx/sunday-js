@@ -36,7 +36,7 @@ describe('JSONDecoder', () => {
     class Sub {
       constructor(
         @JsonProperty()
-        public value: number
+        public value: number,
       ) {}
     }
 
@@ -46,13 +46,13 @@ describe('JSONDecoder', () => {
         public test: string,
         @JsonProperty()
         @JsonClassType({ type: () => [Sub] })
-        public sub: Sub
+        public sub: Sub,
       ) {}
     }
 
     fetchMock.getOnce('http://example.com', '{"test":"a","sub":{"value":5}}');
     await expectAsync(
-      JSONDecoder.default.decode(await fetch('http://example.com'), [Test])
+      JSONDecoder.default.decode(await fetch('http://example.com'), [Test]),
     ).toBeResolvedTo(new Test('a', new Sub(5)));
   });
 
@@ -61,7 +61,7 @@ describe('JSONDecoder', () => {
     class Sub {
       constructor(
         @JsonProperty()
-        public value: number
+        public value: number,
       ) {}
     }
 
@@ -71,12 +71,12 @@ describe('JSONDecoder', () => {
         public test: string,
         @JsonProperty()
         @JsonClassType({ type: () => [Sub] })
-        public sub: Sub
+        public sub: Sub,
       ) {}
     }
 
     expect(
-      JSONDecoder.default.decodeText('{"test":"a","sub":{"value":5}}', [Test])
+      JSONDecoder.default.decodeText('{"test":"a","sub":{"value":5}}', [Test]),
     ).toEqual(new Test('a', new Sub(5)));
   });
 
@@ -86,12 +86,12 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [URL] })
-        public test: URL
+        public test: URL,
       ) {}
     }
 
     expect(
-      JSONDecoder.default.decodeText('{"test":"http://example.com"}', [Test])
+      JSONDecoder.default.decodeText('{"test":"http://example.com"}', [Test]),
     ).toEqual(new Test(new URL('http://example.com')));
   });
 
@@ -101,18 +101,18 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Instant] })
-        public test: Instant
+        public test: Instant,
       ) {}
     }
 
     expect(
       JSONDecoder.default.decodeText('{"test":"2002-01-01T01:02:03.004Z"}', [
         Test,
-      ])
+      ]),
     ).toEqual(
       new Test(
-        ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC).toInstant()
-      )
+        ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC).toInstant(),
+      ),
     );
   });
 
@@ -122,18 +122,27 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Instant] })
-        public test: Instant
+        public test: Instant,
       ) {}
     }
 
     expect(
       new JSONDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
-      ).decodeText('{"test":981173106.789}', [Test])
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      ).decodeText('{"test":981173106.789}', [Test]),
     ).toEqual(
       new Test(
-        ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC).toInstant()
-      )
+        ZonedDateTime.of(
+          2001,
+          2,
+          3,
+          4,
+          5,
+          6,
+          789000000,
+          ZoneId.UTC,
+        ).toInstant(),
+      ),
     );
   });
 
@@ -143,19 +152,28 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Instant] })
-        public test: Instant
+        public test: Instant,
       ) {}
     }
 
     expect(
       new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
         '{"test":981173106789}',
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
       new Test(
-        ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC).toInstant()
-      )
+        ZonedDateTime.of(
+          2001,
+          2,
+          3,
+          4,
+          5,
+          6,
+          789000000,
+          ZoneId.UTC,
+        ).toInstant(),
+      ),
     );
   });
 
@@ -165,16 +183,16 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [ZonedDateTime] })
-        public test: ZonedDateTime
+        public test: ZonedDateTime,
       ) {}
     }
 
     expect(
       JSONDecoder.default.decodeText('{"test":"2002-01-01T01:02:03.004Z"}', [
         Test,
-      ])
+      ]),
     ).toEqual(
-      new Test(ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC))
+      new Test(ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC)),
     );
   });
 
@@ -184,16 +202,16 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [ZonedDateTime] })
-        public test: ZonedDateTime
+        public test: ZonedDateTime,
       ) {}
     }
 
     expect(
       new JSONDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
-      ).decodeText('{"test":981173106.789}', [Test])
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      ).decodeText('{"test":981173106.789}', [Test]),
     ).toEqual(
-      new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC))
+      new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC)),
     );
   });
 
@@ -203,17 +221,17 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [ZonedDateTime] })
-        public test: ZonedDateTime
+        public test: ZonedDateTime,
       ) {}
     }
 
     expect(
       new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
         '{"test":981173106789}',
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
-      new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC))
+      new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC)),
     );
   });
 
@@ -223,16 +241,16 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [OffsetDateTime] })
-        public test: OffsetDateTime
+        public test: OffsetDateTime,
       ) {}
     }
 
     expect(
       JSONDecoder.default.decodeText('{"test":"2002-01-01T01:02:03.004Z"}', [
         Test,
-      ])
+      ]),
     ).toEqual(
-      new Test(OffsetDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneOffset.UTC))
+      new Test(OffsetDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneOffset.UTC)),
     );
   });
 
@@ -242,18 +260,18 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [OffsetDateTime] })
-        public test: OffsetDateTime
+        public test: OffsetDateTime,
       ) {}
     }
 
     expect(
       new JSONDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
-      ).decodeText('{"test":981173106.789}', [Test])
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      ).decodeText('{"test":981173106.789}', [Test]),
     ).toEqual(
       new Test(
-        OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC)
-      )
+        OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC),
+      ),
     );
   });
 
@@ -263,19 +281,19 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [OffsetDateTime] })
-        public test: OffsetDateTime
+        public test: OffsetDateTime,
       ) {}
     }
 
     expect(
       new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
         '{"test":981173106789}',
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
       new Test(
-        OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC)
-      )
+        OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC),
+      ),
     );
   });
 
@@ -285,12 +303,12 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [OffsetTime] })
-        public test: OffsetTime
+        public test: OffsetTime,
       ) {}
     }
 
     expect(
-      JSONDecoder.default.decodeText('{"test":"01:02:03.004Z"}', [Test])
+      JSONDecoder.default.decodeText('{"test":"01:02:03.004Z"}', [Test]),
     ).toEqual(new Test(OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC)));
   });
 
@@ -300,14 +318,14 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [OffsetTime] })
-        public test: OffsetTime
+        public test: OffsetTime,
       ) {}
     }
 
     expect(
       new JSONDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
-      ).decodeText('{"test":[4,5,6,789000000,"Z"]}', [Test])
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      ).decodeText('{"test":[4,5,6,789000000,"Z"]}', [Test]),
     ).toEqual(new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)));
   });
 
@@ -317,15 +335,15 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [OffsetTime] })
-        public test: OffsetTime
+        public test: OffsetTime,
       ) {}
     }
 
     expect(
       new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
         '{"test":[4,5,6,789,"Z"]}',
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)));
   });
 
@@ -335,14 +353,14 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalDateTime] })
-        public test: LocalDateTime
+        public test: LocalDateTime,
       ) {}
     }
 
     expect(
       JSONDecoder.default.decodeText('{"test":"2002-01-01T01:02:03.004"}', [
         Test,
-      ])
+      ]),
     ).toEqual(new Test(LocalDateTime.of(2002, 1, 1, 1, 2, 3, 4000000)));
   });
 
@@ -352,14 +370,14 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalDateTime] })
-        public test: LocalDateTime
+        public test: LocalDateTime,
       ) {}
     }
 
     expect(
       new JSONDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
-      ).decodeText('{"test":[2001,2,3,4,5,6,789000000]}', [Test])
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      ).decodeText('{"test":[2001,2,3,4,5,6,789000000]}', [Test]),
     ).toEqual(new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)));
   });
 
@@ -369,15 +387,15 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalDateTime] })
-        public test: LocalDateTime
+        public test: LocalDateTime,
       ) {}
     }
 
     expect(
       new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
         '{"test":[2001,2,3,4,5,6,789]}',
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)));
   });
 
@@ -387,12 +405,12 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalDate] })
-        public test: LocalDate
+        public test: LocalDate,
       ) {}
     }
 
     expect(
-      JSONDecoder.default.decodeText('{"test":"2002-01-01"}', [Test])
+      JSONDecoder.default.decodeText('{"test":"2002-01-01"}', [Test]),
     ).toEqual(new Test(LocalDate.of(2002, 1, 1)));
   });
 
@@ -402,14 +420,14 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalDate] })
-        public test: LocalDate
+        public test: LocalDate,
       ) {}
     }
 
     expect(
       new JSONDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
-      ).decodeText('{"test":[2001,2,3]}', [Test])
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      ).decodeText('{"test":[2001,2,3]}', [Test]),
     ).toEqual(new Test(LocalDate.of(2001, 2, 3)));
   });
 
@@ -419,15 +437,15 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalDate] })
-        public test: LocalDate
+        public test: LocalDate,
       ) {}
     }
 
     expect(
       new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
         '{"test":[2001,2,3]}',
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(new Test(LocalDate.of(2001, 2, 3)));
   });
 
@@ -437,12 +455,12 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalTime] })
-        public test: LocalTime
+        public test: LocalTime,
       ) {}
     }
 
     expect(
-      JSONDecoder.default.decodeText('{"test":"01:02:03.004"}', [Test])
+      JSONDecoder.default.decodeText('{"test":"01:02:03.004"}', [Test]),
     ).toEqual(new Test(LocalTime.of(1, 2, 3, 4000000)));
   });
 
@@ -452,14 +470,14 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalTime] })
-        public test: LocalTime
+        public test: LocalTime,
       ) {}
     }
 
     expect(
       new JSONDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
-      ).decodeText('{"test":[4,5,6,789000000]}', [Test])
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      ).decodeText('{"test":[4,5,6,789000000]}', [Test]),
     ).toEqual(new Test(LocalTime.of(4, 5, 6, 789000000)));
   });
 
@@ -469,15 +487,15 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [LocalTime] })
-        public test: LocalTime
+        public test: LocalTime,
       ) {}
     }
 
     expect(
       new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
         '{"test":[4,5,6,789]}',
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(new Test(LocalTime.of(4, 5, 6, 789000000)));
   });
 
@@ -487,16 +505,16 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Date] })
-        public test: Date
+        public test: Date,
       ) {}
     }
 
     expect(
       JSONDecoder.default.decodeText('{"test":"2001-02-03T04:05:06.789Z"}', [
         Test,
-      ])
+      ]),
     ).toEqual(
-      new Test(new Date(Instant.ofEpochMilli(981173106789).toString()))
+      new Test(new Date(Instant.ofEpochMilli(981173106789).toString())),
     );
   });
 
@@ -506,16 +524,16 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Date] })
-        public test: Date
+        public test: Date,
       ) {}
     }
 
     expect(
       new JSONDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH
-      ).decodeText('{"test":981173106.789}', [Test])
+        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      ).decodeText('{"test":981173106.789}', [Test]),
     ).toEqual(
-      new Test(new Date(Instant.ofEpochMilli(981173106789).toString()))
+      new Test(new Date(Instant.ofEpochMilli(981173106789).toString())),
     );
   });
 
@@ -525,17 +543,17 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [Date] })
-        public test: Date
+        public test: Date,
       ) {}
     }
 
     expect(
       new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
         '{"test":981173106789}',
-        [Test]
-      )
+        [Test],
+      ),
     ).toEqual(
-      new Test(new Date(Instant.ofEpochMilli(981173106789).toString()))
+      new Test(new Date(Instant.ofEpochMilli(981173106789).toString())),
     );
   });
 
@@ -545,14 +563,14 @@ describe('JSONDecoder', () => {
       constructor(
         @JsonProperty()
         @JsonClassType({ type: () => [ArrayBuffer] })
-        public test: ArrayBuffer
+        public test: ArrayBuffer,
       ) {}
     }
 
     const bin = Base64.encode(new Uint8Array([10, 9, 8, 7, 6, 5, 4, 3, 2, 1]));
 
     expect(JSONDecoder.default.decodeText(`{"test":"${bin}"}`, [Test])).toEqual(
-      new Test(Base64.decode(bin))
+      new Test(Base64.decode(bin)),
     );
   });
 });

@@ -14,7 +14,7 @@
 
 export namespace HeaderParameters {
   export function encode(
-    parameters?: Record<string, unknown>
+    parameters?: Record<string, unknown>,
   ): [string, string][] {
     if (parameters == null) {
       return [];
@@ -58,7 +58,7 @@ export namespace HeaderParameters {
   function validate(name: string, value: string): string {
     if (!asciiRegex.test(value)) {
       throw new Error(
-        `The encoded header value contains one or more invalid characters: header=${name}, value=${value}`
+        `The encoded header value contains one or more invalid characters: header=${name}, value=${value}`,
       );
     }
     return value;

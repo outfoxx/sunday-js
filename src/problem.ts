@@ -132,7 +132,7 @@ export class Problem extends Error implements Problem {
   static async fromResponse(response: Response): Promise<Problem> {
     const [bodyExcerpt, body] = await ResponseExample.bodyExcerpt(
       response,
-      256
+      256,
     );
 
     return new Problem({

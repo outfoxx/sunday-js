@@ -25,7 +25,7 @@ export class BinaryEncoder implements MediaTypeEncoder {
       !(value instanceof ReadableStream)
     ) {
       throw Error(
-        'Invalid value, expected BufferSource, Blob or ReadableStream'
+        'Invalid value, expected BufferSource, Blob or ReadableStream',
       );
     }
     return value;

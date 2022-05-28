@@ -31,7 +31,7 @@ export namespace Base64 {
   export function encodeSlice(
     buffer: ArrayBufferLike,
     offset: number,
-    length: number
+    length: number,
   ): string {
     const bytes = new Uint8Array(buffer, offset, length);
     const len = bytes.length;

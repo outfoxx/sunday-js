@@ -15,7 +15,7 @@
 import { Observable } from 'rxjs';
 
 export function fromStream(
-  stream: ReadableStream<Uint8Array>
+  stream: ReadableStream<Uint8Array>,
 ): Observable<ArrayBuffer> {
   return new Observable((subscriber) => {
     let reader: ReadableStreamDefaultReader | undefined;

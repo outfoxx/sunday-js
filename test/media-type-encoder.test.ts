@@ -35,7 +35,7 @@ describe('MediaTypeEncoder', () => {
 
     it('correctly identifies non-StructuredMediaTypeEncoder(s)', () => {
       expect(isStructuredMediaTypeEncoder(WWWFormUrlEncoder.default)).toBe(
-        false
+        false,
       );
     });
   });

@@ -66,8 +66,8 @@ describe('RxJS Utils', () => {
       firstValueFrom(
         fetchRequestFactory
           .result({ method: 'GET', pathTemplate: '' })
-          .pipe(nullifyNotFound(), first())
-      )
+          .pipe(nullifyNotFound(), first()),
+      ),
     ).toBeResolvedTo(null);
   });
 
@@ -84,8 +84,8 @@ describe('RxJS Utils', () => {
       firstValueFrom(
         fetchRequestFactory
           .result({ method: 'GET', pathTemplate: '' })
-          .pipe(nullifyResponse([], [TestProblem]), first())
-      )
+          .pipe(nullifyResponse([], [TestProblem]), first()),
+      ),
     ).toBeResolvedTo(null);
   });
 
@@ -100,8 +100,8 @@ describe('RxJS Utils', () => {
       firstValueFrom(
         fetchRequestFactory
           .result({ method: 'GET', pathTemplate: '' })
-          .pipe(nullifyResponse([404], []), first())
-      )
+          .pipe(nullifyResponse([404], []), first()),
+      ),
     ).toBeRejectedWithError(Problem);
   });
 
@@ -116,8 +116,8 @@ describe('RxJS Utils', () => {
       firstValueFrom(
         fetchRequestFactory
           .result({ method: 'GET', pathTemplate: '' })
-          .pipe(nullifyResponse([], [TestProblem]), first())
-      )
+          .pipe(nullifyResponse([], [TestProblem]), first()),
+      ),
     ).toBeRejectedWithError(AnotherProblem, /Another Problem/i);
   });
 
@@ -132,8 +132,8 @@ describe('RxJS Utils', () => {
       firstValueFrom(
         fetchRequestFactory
           .result({ method: 'GET', pathTemplate: '' })
-          .pipe(nullifyResponse([405], [TestProblem]), first())
-      )
+          .pipe(nullifyResponse([405], [TestProblem]), first()),
+      ),
     ).toBeRejectedWithError(Error, /Failed to send request/i);
   });
 });

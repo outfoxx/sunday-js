@@ -72,10 +72,10 @@ describe('FetchRequestFactory', () => {
             pathTemplate: '/api/{id}/contents',
             pathParameters: { id: '12345' },
           })
-          .pipe(first())
-      )
+          .pipe(first()),
+      ),
     ).toBeResolvedTo(
-      objectContaining({ url: 'http://example.com/api/12345/contents' })
+      objectContaining({ url: 'http://example.com/api/12345/contents' }),
     );
   });
 
@@ -92,12 +92,12 @@ describe('FetchRequestFactory', () => {
               search: '1 & 2',
             },
           })
-          .pipe(first())
-      )
+          .pipe(first()),
+      ),
     ).toBeResolvedTo(
       objectContaining({
         url: 'http://example.com/api/12345/contents?limit=5&search=1%20%26%202',
-      })
+      }),
     );
   });
 
@@ -120,8 +120,8 @@ describe('FetchRequestFactory', () => {
               search: '1 & 2',
             },
           })
-          .pipe(first())
-      )
+          .pipe(first()),
+      ),
     ).toBeRejectedWithError(Error, /Unsupported Media Type/i);
   });
 
@@ -147,8 +147,8 @@ describe('FetchRequestFactory', () => {
               search: '1 & 2',
             },
           })
-          .pipe(first())
-      )
+          .pipe(first()),
+      ),
     ).toBeRejectedWithError(Error, /URLQueryParamsEncoder/i);
   });
 
@@ -164,8 +164,8 @@ describe('FetchRequestFactory', () => {
             contentTypes: [MediaType.JSON],
             acceptTypes: [MediaType.JSON, MediaType.CBOR],
           })
-          .pipe(first())
-      ).then((req) => Array.from(req.headers.keys()))
+          .pipe(first()),
+      ).then((req) => Array.from(req.headers.keys())),
     ).toBeResolvedTo(Array.from(['accept', 'content-type']));
   });
 
@@ -180,8 +180,8 @@ describe('FetchRequestFactory', () => {
               Authorization: 'Bearer 12345',
             },
           })
-          .pipe(first())
-      ).then((req) => Array.from(req.headers.keys()))
+          .pipe(first()),
+      ).then((req) => Array.from(req.headers.keys())),
     ).toBeResolvedTo(Array.from(['authorization']));
   });
 
@@ -194,8 +194,8 @@ describe('FetchRequestFactory', () => {
             pathTemplate: '/api',
             acceptTypes: [MediaType.from('application/x-unknown') as MediaType],
           })
-          .pipe(first())
-      )
+          .pipe(first()),
+      ),
     ).toBeRejectedWithError(Error, /accept types/i);
   });
 
@@ -211,8 +211,8 @@ describe('FetchRequestFactory', () => {
               MediaType.from('application/x-unknown') as MediaType,
             ],
           })
-          .pipe(first())
-      )
+          .pipe(first()),
+      ),
     ).toBeRejectedWithError(Error, /content types/i);
   });
 
@@ -226,7 +226,7 @@ describe('FetchRequestFactory', () => {
           bodyType: [Object],
           contentTypes: [MediaType.JSON],
         })
-        .pipe(first())
+        .pipe(first()),
     );
     expect(request.url).toBe('http://example.com/api/contents');
     await expectAsync(request.text()).toBeResolvedTo('{"a":5}');
@@ -241,7 +241,7 @@ describe('FetchRequestFactory', () => {
           pathTemplate: '/api/contents',
           contentTypes: [MediaType.JSON],
         })
-        .pipe(first())
+        .pipe(first()),
     );
     expect(request.headers.get('Content-Type')).toBe(MediaType.JSON.value);
   });
@@ -251,7 +251,7 @@ describe('FetchRequestFactory', () => {
     class Sub {
       constructor(
         @JsonProperty()
-        public value: number
+        public value: number,
       ) {}
     }
 
@@ -261,7 +261,7 @@ describe('FetchRequestFactory', () => {
         public test: string,
         @JsonProperty()
         @JsonClassType({ type: () => [Sub] })
-        public sub: Sub
+        public sub: Sub,
       ) {}
     }
 
@@ -274,14 +274,14 @@ describe('FetchRequestFactory', () => {
       firstValueFrom(
         fetchRequestFactory
           .result({ method: 'GET', pathTemplate: '' }, [Test])
-          .pipe(first())
-      )
+          .pipe(first()),
+      ),
     ).toBeResolvedTo(new Test('a', new Sub(5)));
   });
 
   it('builds event sources via eventSource', (done) => {
     const encodedEvent = new TextEncoder().encode(
-      'event: hello\nid: 12345\ndata: Hello World!\n\n'
+      'event: hello\nid: 12345\ndata: Hello World!\n\n',
     ).buffer;
 
     fetchMock.getOnce(
@@ -289,12 +289,12 @@ describe('FetchRequestFactory', () => {
       () =>
         new Response(new Blob([encodedEvent]), {
           headers: { 'content-type': MediaType.EventStream.toString() },
-        })
+        }),
     );
     fetchMock.getOnce(
       'http://example.com',
       () => new Promise((resolve) => setTimeout(resolve, 5000)),
-      { overwriteRoutes: false }
+      { overwriteRoutes: false },
     );
 
     const fetchRequestFactory = new FetchRequestFactory('http://example.com', {
@@ -314,7 +314,7 @@ describe('FetchRequestFactory', () => {
 
   it('builds observable events via eventStream', async () => {
     const encodedEvent = new TextEncoder().encode(
-      'event: hello\nid: 12345\ndata: {"target":"world"}\n\n'
+      'event: hello\nid: 12345\ndata: {"target":"world"}\n\n',
     ).buffer;
 
     fetchMock.getOnce(
@@ -322,12 +322,12 @@ describe('FetchRequestFactory', () => {
       () =>
         new Response(new Blob([encodedEvent]), {
           headers: { 'content-type': MediaType.EventStream.toString() },
-        })
+        }),
     );
     fetchMock.getOnce(
       'http://example.com',
       () => new Promise((resolve) => setTimeout(resolve, 5000)),
-      { overwriteRoutes: false }
+      { overwriteRoutes: false },
     );
 
     const fetchRequestFactory = new FetchRequestFactory('http://example.com', {
@@ -336,13 +336,13 @@ describe('FetchRequestFactory', () => {
 
     const event$ = fetchRequestFactory.eventStream(
       { method: 'GET', pathTemplate: '' },
-      (decoder, event, id, data) => decoder.decodeText(data, [Object])
+      (decoder, event, id, data) => decoder.decodeText(data, [Object]),
     );
 
     await expectAsync(firstValueFrom(event$.pipe(first()))).toBeResolvedTo(
       objectContaining({
         target: 'world',
-      })
+      }),
     );
   });
 
@@ -368,8 +368,8 @@ describe('FetchRequestFactory', () => {
       firstValueFrom(
         fetchRequestFactory
           .result({ method: 'GET', pathTemplate: '' })
-          .pipe(first())
-      )
+          .pipe(first()),
+      ),
     ).toBeRejectedWith(new TestProblem());
   });
 
@@ -395,8 +395,8 @@ describe('FetchRequestFactory', () => {
       firstValueFrom(
         fetchRequestFactory
           .result({ method: 'GET', pathTemplate: '' })
-          .pipe(first())
-      )
+          .pipe(first()),
+      ),
     ).toBeRejectedWith(new Problem(testProblem));
   });
 
@@ -412,8 +412,8 @@ describe('FetchRequestFactory', () => {
       firstValueFrom(
         fetchRequestFactory
           .result({ method: 'GET', pathTemplate: '' })
-          .pipe(first())
-      )
+          .pipe(first()),
+      ),
     ).toBeRejectedWith(Problem.fromStatus(400, 'Bad Request'));
   });
 
@@ -425,15 +425,15 @@ describe('FetchRequestFactory', () => {
         status: 200,
         statusText: 'OK',
         headers: { 'content-type': 'application/x-unknown-type' },
-      })
+      }),
     );
 
     await expectAsync(
       firstValueFrom(
         fetchRequestFactory
           .result({ method: 'GET', pathTemplate: '' }, [String])
-          .pipe(first())
-      )
+          .pipe(first()),
+      ),
     ).toBeRejectedWith(any(SundayError));
   });
 });

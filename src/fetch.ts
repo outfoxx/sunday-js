@@ -22,12 +22,12 @@ import { errorToMessage } from './util/error';
 export async function validate(
   response: Response,
   dataExpected: boolean,
-  problemTypes?: Map<string, ConstructableClassType<Problem>>
+  problemTypes?: Map<string, ConstructableClassType<Problem>>,
 ): Promise<Response> {
   if (response.status < 200 || response.status >= 300) {
     const mediaType = MediaType.from(
       response.headers.get('content-type'),
-      MediaType.OctetStream
+      MediaType.OctetStream,
     );
     const isProblemJSON = mediaType?.compatible(MediaType.ProblemJSON) ?? false;
     if (!isProblemJSON) {
@@ -60,7 +60,7 @@ export namespace ResponseExample {
 
   export async function bodyExcerpt(
     response: Response,
-    maxLength: number
+    maxLength: number,
   ): Promise<[string, unknown]> {
     let body: unknown;
     let bodyExcerpt: string;

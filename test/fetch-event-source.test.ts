@@ -31,7 +31,7 @@ describe('FetchEventSource', () => {
 
   it('ignores double connect', (done) => {
     const eventStream = new TextEncoder().encode(
-      'event: hello\nid: 12345\ndata: Hello World!\n\n'
+      'event: hello\nid: 12345\ndata: Hello World!\n\n',
     ).buffer;
 
     fetchMock.getOnce(
@@ -39,14 +39,14 @@ describe('FetchEventSource', () => {
       () =>
         new Response(new Blob([eventStream]), {
           headers: { 'content-type': MediaType.EventStream.toString() },
-        })
+        }),
     );
     fetchMock.get(
       'http://example.com',
       {
         status: 503,
       },
-      { overwriteRoutes: false }
+      { overwriteRoutes: false },
     );
 
     const eventSource = new FetchEventSource('http://example.com');
@@ -57,7 +57,7 @@ describe('FetchEventSource', () => {
 
   it('updates retry time', (done) => {
     const eventStream = new TextEncoder().encode(
-      'retry: 12345\nevent: hello\nid: 12345\ndata: Hello World!\n\n'
+      'retry: 12345\nevent: hello\nid: 12345\ndata: Hello World!\n\n',
     ).buffer;
 
     fetchMock.getOnce(
@@ -65,14 +65,14 @@ describe('FetchEventSource', () => {
       () =>
         new Response(new Blob([eventStream]), {
           headers: { 'content-type': MediaType.EventStream.toString() },
-        })
+        }),
     );
     fetchMock.get(
       'http://example.com',
       {
         status: 503,
       },
-      { overwriteRoutes: false }
+      { overwriteRoutes: false },
     );
 
     const eventSource = new FetchEventSource('http://example.com');
@@ -87,7 +87,7 @@ describe('FetchEventSource', () => {
 
   it('reconnects with last-event-id', (done) => {
     const eventStream = new TextEncoder().encode(
-      'event: hello\nid: 12345\ndata: Hello World!\n\n'
+      'event: hello\nid: 12345\ndata: Hello World!\n\n',
     ).buffer;
 
     fetchMock.getOnce(
@@ -95,20 +95,20 @@ describe('FetchEventSource', () => {
       () =>
         new Response(new Blob([eventStream]), {
           headers: { 'content-type': MediaType.EventStream.toString() },
-        })
+        }),
     );
     fetchMock.get(
       'http://example.com',
       (_, req) => {
         expect(req.headers).toEqual(
-          objectContaining({ 'last-event-id': '12345' })
+          objectContaining({ 'last-event-id': '12345' }),
         );
 
         return {
           status: 503,
         };
       },
-      { overwriteRoutes: false }
+      { overwriteRoutes: false },
     );
 
     let connectErrors = 0;
@@ -130,7 +130,7 @@ describe('FetchEventSource', () => {
   it('reconnects with last-event-id ignoring invalid ids', (done) => {
     const eventStream = new TextEncoder().encode(
       'event: hello\nid: 12345\ndata: Hello World!\n\n' +
-        'event: hello\nid: a\0c\ndata: Hello World!\n\n'
+        'event: hello\nid: a\0c\ndata: Hello World!\n\n',
     ).buffer;
 
     fetchMock.getOnce(
@@ -138,20 +138,20 @@ describe('FetchEventSource', () => {
       () =>
         new Response(new Blob([eventStream]), {
           headers: { 'content-type': MediaType.EventStream.toString() },
-        })
+        }),
     );
     fetchMock.get(
       'http://example.com',
       (_, req) => {
         expect(req.headers).toEqual(
-          objectContaining({ 'last-event-id': '12345' })
+          objectContaining({ 'last-event-id': '12345' }),
         );
 
         return {
           status: 503,
         };
       },
-      { overwriteRoutes: false }
+      { overwriteRoutes: false },
     );
 
     let connectErrors = 0;
@@ -172,7 +172,7 @@ describe('FetchEventSource', () => {
 
   it('dispatches events', (done) => {
     const eventStream = new TextEncoder().encode(
-      'event: hello\nid: 12345\ndata: Hello World!\n\n'
+      'event: hello\nid: 12345\ndata: Hello World!\n\n',
     ).buffer;
 
     fetchMock.getOnce(
@@ -180,12 +180,12 @@ describe('FetchEventSource', () => {
       () =>
         new Response(new Blob([eventStream]), {
           headers: { 'content-type': MediaType.EventStream.toString() },
-        })
+        }),
     );
     fetchMock.get(
       'http://example.com',
       { status: 503 },
-      { overwriteRoutes: false }
+      { overwriteRoutes: false },
     );
 
     const eventSource = new FetchEventSource('http://example.com');
@@ -200,7 +200,7 @@ describe('FetchEventSource', () => {
     const abortController = new AbortController();
 
     fetchMock.get('http://example.com', () =>
-      delayedResponse({ status: 200 }, 500)
+      delayedResponse({ status: 200 }, 500),
     );
 
     const eventSource = new FetchEventSource('http://example.com', {

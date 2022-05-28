@@ -22,7 +22,7 @@ describe('MediaType', () => {
     it('true when same objects', () => {
       const mediaType = MediaType.HTML.withParameter(
         MediaType.ParameterName.CharSet,
-        'utf-8'
+        'utf-8',
       );
       expect(mediaType.equals(mediaType)).toBeTrue();
     });
@@ -30,11 +30,11 @@ describe('MediaType', () => {
     it('true when equal objects', () => {
       const mediaType1 = MediaType.HTML.withParameter(
         MediaType.ParameterName.CharSet,
-        'utf-8'
+        'utf-8',
       ).withParameter('test', '123');
       const mediaType2 = MediaType.HTML.withParameter(
         MediaType.ParameterName.CharSet,
-        'utf-8'
+        'utf-8',
       ).withParameter('test', '123');
 
       expect(mediaType1.equals(mediaType2)).toBeTrue();
@@ -79,11 +79,11 @@ describe('MediaType', () => {
     it('false when any parameter is different', () => {
       const mediaType1 = MediaType.HTML.withParameter(
         MediaType.ParameterName.CharSet,
-        'utf-8'
+        'utf-8',
       ).withParameter('test', '456');
       const mediaType2 = MediaType.HTML.withParameter(
         MediaType.ParameterName.CharSet,
-        'utf-8'
+        'utf-8',
       ).withParameter('test', '123');
 
       expect(mediaType1.equals(mediaType2)).toBeFalse();
@@ -110,8 +110,8 @@ describe('MediaType', () => {
             parameters: {
               a: 'b',
             },
-          })
-        )
+          }),
+        ),
       ).toBeTrue();
     });
 
@@ -134,8 +134,8 @@ describe('MediaType', () => {
             parameters: {
               a: 'b',
             },
-          })
-        )
+          }),
+        ),
       ).toBeFalse();
     });
 
@@ -158,8 +158,8 @@ describe('MediaType', () => {
             parameters: {
               a: 'b',
             },
-          })
-        )
+          }),
+        ),
       ).toBeFalse();
     });
 
@@ -182,8 +182,8 @@ describe('MediaType', () => {
             parameters: {
               a: 'b',
             },
-          })
-        )
+          }),
+        ),
       ).toBeFalse();
     });
 
@@ -206,8 +206,8 @@ describe('MediaType', () => {
             parameters: {
               a: 'b',
             },
-          })
-        )
+          }),
+        ),
       ).toBeFalse();
     });
 
@@ -230,8 +230,8 @@ describe('MediaType', () => {
             parameters: {
               a: 'c',
             },
-          })
-        )
+          }),
+        ),
       ).toBeFalse();
     });
 
@@ -253,8 +253,8 @@ describe('MediaType', () => {
             parameters: {
               a: 'c',
             },
-          })
-        )
+          }),
+        ),
       ).toBeFalse();
     });
 
@@ -273,8 +273,8 @@ describe('MediaType', () => {
             parameters: {
               charset: 'utf-8',
             },
-          })
-        )
+          }),
+        ),
       ).toBeTrue();
     });
 
@@ -293,8 +293,8 @@ describe('MediaType', () => {
             parameters: {
               CHARSET: 'utf-8',
             },
-          })
-        )
+          }),
+        ),
       ).toBeTrue();
     });
 
@@ -313,8 +313,8 @@ describe('MediaType', () => {
             parameters: {
               charset: 'utf-16',
             },
-          })
-        )
+          }),
+        ),
       ).toBeFalse();
     });
 
@@ -327,8 +327,8 @@ describe('MediaType', () => {
           new MediaType({
             type: Type.Any,
             subtype: '*',
-          })
-        )
+          }),
+        ),
       ).toBeTrue();
     });
 
@@ -341,8 +341,8 @@ describe('MediaType', () => {
           new MediaType({
             type: Type.Any,
             subtype: 'html',
-          })
-        )
+          }),
+        ),
       ).toBeTrue();
     });
 
@@ -355,8 +355,8 @@ describe('MediaType', () => {
           new MediaType({
             type: Type.Text,
             subtype: '*',
-          })
-        )
+          }),
+        ),
       ).toBeTrue();
     });
   });
@@ -370,7 +370,7 @@ describe('MediaType', () => {
           subtype: 'problem',
           suffix: Suffix.JSON,
           parameters: { charset: 'utf-8' },
-        })
+        }),
       );
     });
 
@@ -380,7 +380,7 @@ describe('MediaType', () => {
           type: Type.Application,
           tree: Tree.Obsolete,
           subtype: 'www-form-urlencoded',
-        })
+        }),
       );
     });
 
@@ -390,54 +390,54 @@ describe('MediaType', () => {
           type: Type.Application,
           tree: Tree.Obsolete,
           subtype: 'x509-ca-cert',
-        })
+        }),
       );
     });
 
     it('parses with multiple parameters', () => {
       expect(
-        MediaType.from('application/vnd.yaml;charset=utf-8;something=else')
+        MediaType.from('application/vnd.yaml;charset=utf-8;something=else'),
       ).toEqual(
         new MediaType({
           type: Type.Application,
           tree: Tree.Vendor,
           subtype: 'yaml',
           parameters: { charset: 'utf-8', something: 'else' },
-        })
+        }),
       );
     });
 
     it('parses with different cases', () => {
       expect(
-        MediaType.from('APPLICATION/VND.YAML;CHARSET=UTF-8;SOMETHING=ELSE')
+        MediaType.from('APPLICATION/VND.YAML;CHARSET=UTF-8;SOMETHING=ELSE'),
       ).toEqual(
         new MediaType({
           type: Type.Application,
           tree: Tree.Vendor,
           subtype: 'yaml',
           parameters: { charset: 'utf-8', something: 'else' },
-        })
+        }),
       );
     });
 
     it('parses with random spacing', () => {
       expect(
         MediaType.from(
-          'APPLICATION/VND.YAML  ;  CHARSET=UTF-8 ; SOMETHING=ELSE   '
-        )
+          'APPLICATION/VND.YAML  ;  CHARSET=UTF-8 ; SOMETHING=ELSE   ',
+        ),
       ).toEqual(
         new MediaType({
           type: Type.Application,
           tree: Tree.Vendor,
           subtype: 'yaml',
           parameters: { charset: 'utf-8', something: 'else' },
-        })
+        }),
       );
     });
 
     it('parses all known types', () => {
       expect(MediaType.from('application/*')?.type).toBe(
-        MediaType.Type.Application
+        MediaType.Type.Application,
       );
       expect(MediaType.from('audio/*')?.type).toBe(MediaType.Type.Audio);
       expect(MediaType.from('example/*')?.type).toBe(MediaType.Type.Example);
@@ -446,7 +446,7 @@ describe('MediaType', () => {
       expect(MediaType.from('message/*')?.type).toBe(MediaType.Type.Message);
       expect(MediaType.from('model/*')?.type).toBe(MediaType.Type.Model);
       expect(MediaType.from('multipart/*')?.type).toBe(
-        MediaType.Type.Multipart
+        MediaType.Type.Multipart,
       );
       expect(MediaType.from('text/*')?.type).toBe(MediaType.Type.Text);
       expect(MediaType.from('video/*')?.type).toBe(MediaType.Type.Video);
@@ -457,38 +457,38 @@ describe('MediaType', () => {
       expect(MediaType.from('text/html')?.tree).toBe(MediaType.Tree.Standard);
       expect(MediaType.from('text/vnd.html')?.tree).toBe(MediaType.Tree.Vendor);
       expect(MediaType.from('text/prs.html')?.tree).toBe(
-        MediaType.Tree.Personal
+        MediaType.Tree.Personal,
       );
       expect(MediaType.from('text/x.html')?.tree).toBe(
-        MediaType.Tree.Unregistered
+        MediaType.Tree.Unregistered,
       );
       expect(MediaType.from('text/x-html')?.tree).toBe(MediaType.Tree.Obsolete);
     });
 
     it('parses all known suffixes', () => {
       expect(MediaType.from('application/test+xml')?.suffix).toBe(
-        MediaType.Suffix.XML
+        MediaType.Suffix.XML,
       );
       expect(MediaType.from('application/test+json')?.suffix).toBe(
-        MediaType.Suffix.JSON
+        MediaType.Suffix.JSON,
       );
       expect(MediaType.from('application/test+ber')?.suffix).toBe(
-        MediaType.Suffix.BER
+        MediaType.Suffix.BER,
       );
       expect(MediaType.from('application/test+der')?.suffix).toBe(
-        MediaType.Suffix.DER
+        MediaType.Suffix.DER,
       );
       expect(MediaType.from('application/test+fastinfoset')?.suffix).toBe(
-        MediaType.Suffix.FastInfoSet
+        MediaType.Suffix.FastInfoSet,
       );
       expect(MediaType.from('application/test+wbxml')?.suffix).toBe(
-        MediaType.Suffix.WBXML
+        MediaType.Suffix.WBXML,
       );
       expect(MediaType.from('application/test+zip')?.suffix).toBe(
-        MediaType.Suffix.Zip
+        MediaType.Suffix.Zip,
       );
       expect(MediaType.from('application/test+cbor')?.suffix).toBe(
-        MediaType.Suffix.CBOR
+        MediaType.Suffix.CBOR,
       );
     });
   });
@@ -501,7 +501,7 @@ describe('MediaType', () => {
           tree: Tree.Vendor,
           subtype: 'yaml',
           parameters: { charset: 'utf-8', something: 'else' },
-        }).toString()
+        }).toString(),
       ).toEqual('application/vnd.yaml;charset=utf-8;something=else');
     });
   });
@@ -510,7 +510,7 @@ describe('MediaType', () => {
     it('access', () => {
       const mediaType = MediaType.HTML.withParameter(
         'charset',
-        'utf-8'
+        'utf-8',
       ).withParameter('test', '123');
 
       expect(mediaType.parameter('charset')).toBe('utf-8');
@@ -522,13 +522,13 @@ describe('MediaType', () => {
       expect(
         MediaType.HTML.withParameter('a', '123')
           .withParameter('a', '456')
-          .parameter('a')
+          .parameter('a'),
       ).toBe('456');
 
       expect(
         MediaType.HTML.withParameter('a', '456')
           .withParameter('a', '123')
-          .parameter('a')
+          .parameter('a'),
       ).toBe('123');
     });
   });
