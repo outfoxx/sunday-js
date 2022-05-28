@@ -21,6 +21,21 @@ import { ExtEventSource } from './request-factory';
 import { unknownSet } from './util/any';
 import { fromStream } from './util/stream-rxjs';
 
+export interface FetchEventSource {
+  addEventListener<K extends keyof EventSourceEventMap>(
+    type: K,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    listener: (this: EventSource, ev: EventSourceEventMap[K]) => any,
+    options?: boolean | AddEventListenerOptions,
+  ): void;
+  removeEventListener<K extends keyof EventSourceEventMap>(
+    type: K,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    listener: (this: EventSource, ev: EventSourceEventMap[K]) => any,
+    options?: boolean | EventListenerOptions,
+  ): void;
+}
+
 export class FetchEventSource extends EventTarget implements ExtEventSource {
   private static LAST_EVENT_ID_HEADER = 'Last-Event-ID';
   private static MAX_RETRY_TIME_MULTIPLE = 30;

@@ -18,6 +18,12 @@ import { FetchEventSource, MediaType, Problem } from '../src';
 import { delayedResponse } from './fetch-mock-utils';
 import objectContaining = jasmine.objectContaining;
 
+declare global {
+  interface EventSourceEventMap {
+    ['hello']: MessageEvent<string>;
+  }
+}
+
 describe('FetchEventSource', () => {
   beforeEach(() => {
     fetchMock.reset();
