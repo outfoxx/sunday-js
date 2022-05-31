@@ -36,7 +36,11 @@ export async function validate(
 
     const problemData = await response.json();
     const problemType = problemTypes?.get(problemData.type) ?? Problem;
-    throw new problemType(problemData as Problem);
+    if (problemType.name === 'Problem') {
+      throw new Problem(problemData);
+    } else {
+      throw new problemType(problemData?.instance);
+    }
   }
 
   if (dataExpected && (response.status === 204 || response.status === 205)) {
