@@ -195,7 +195,7 @@ export namespace MediaType {
     CharSet = 'charset',
   }
 
-  export function from(value?: string | null): MediaType | undefined;
+  export function from(value?: string | null): MediaType;
   export function from(
     value: string | null | undefined,
     def: MediaType,
@@ -203,20 +203,27 @@ export namespace MediaType {
   export function from(
     value?: string | null,
     def: MediaType | undefined = undefined,
-  ): MediaType | undefined {
-    if (!value) {
+  ): MediaType {
+    const reqDef = () => {
+      if (!def) {
+        throw Error('Invalid media type');
+      }
       return def;
+    };
+
+    if (!value) {
+      return reqDef();
     }
 
     fullRegex.lastIndex = 0;
     const match = fullRegex.exec(value);
     if (match?.[0] != value) {
-      return def;
+      return reqDef();
     }
 
     const type = MediaType.Type.from(match[1]?.toLowerCase());
     if (!type) {
-      return def;
+      return reqDef();
     }
 
     const tree =
@@ -224,7 +231,7 @@ export namespace MediaType {
 
     const subtype = match[3]?.toLowerCase();
     if (!subtype) {
-      return def;
+      return reqDef();
     }
 
     const suffix = MediaType.Suffix.from(match[4]?.toLowerCase());
