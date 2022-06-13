@@ -29,8 +29,8 @@ export async function validate(
       response.headers.get('content-type'),
       MediaType.OctetStream,
     );
-    const isProblemJSON = mediaType?.compatible(MediaType.ProblemJSON) ?? false;
-    if (!isProblemJSON) {
+    const isProblem = mediaType?.compatible(MediaType.Problem) ?? false;
+    if (!isProblem) {
       throw await Problem.fromResponse(response);
     }
 

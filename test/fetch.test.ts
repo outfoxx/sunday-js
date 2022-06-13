@@ -83,7 +83,7 @@ describe('Fetch API Utilities', () => {
       new Response(problem, {
         status: 400,
         statusText: 'Bad Request',
-        headers: { 'content-type': MediaType.ProblemJSON.value },
+        headers: { 'content-type': MediaType.Problem.value },
       }),
     );
 

@@ -342,9 +342,21 @@ export namespace MediaType {
     suffix: Suffix.XML,
   });
 
-  export const ProblemJSON = new MediaType({
+  export const Problem = new MediaType({
     type: MediaType.Type.Application,
     subtype: 'problem',
+    suffix: Suffix.JSON,
+  });
+
+  export const JsonPatch = new MediaType({
+    type: MediaType.Type.Application,
+    subtype: 'json-patch',
+    suffix: Suffix.JSON,
+  });
+
+  export const MergePatch = new MediaType({
+    type: MediaType.Type.Application,
+    subtype: 'merge-patch',
     suffix: Suffix.JSON,
   });
 }

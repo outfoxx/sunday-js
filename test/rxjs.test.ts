@@ -57,7 +57,7 @@ describe('RxJS Utils', () => {
     fetchMock.getOnce('http://example.com', {
       throws: Problem.fromStatus(404, 'Not Found'),
       status: 404,
-      headers: { 'content-type': MediaType.ProblemJSON.value },
+      headers: { 'content-type': MediaType.Problem.value },
     });
 
     const fetchRequestFactory = new FetchRequestFactory('http://example.com');
@@ -75,7 +75,7 @@ describe('RxJS Utils', () => {
     fetchMock.getOnce('http://example.com', {
       throws: new TestProblem(),
       status: 404,
-      headers: { 'content-type': MediaType.ProblemJSON.value },
+      headers: { 'content-type': MediaType.Problem.value },
     });
 
     const fetchRequestFactory = new FetchRequestFactory('http://example.com');
