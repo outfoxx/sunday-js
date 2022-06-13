@@ -361,7 +361,7 @@ describe('FetchRequestFactory', () => {
     fetchMock.getOnce('http://example.com', {
       body: problemJSON,
       status: 400,
-      headers: { 'content-type': MediaType.ProblemJSON.value },
+      headers: { 'content-type': MediaType.Problem.value },
     });
 
     await expectAsync(
@@ -388,7 +388,7 @@ describe('FetchRequestFactory', () => {
     fetchMock.getOnce('http://example.com', {
       body: problemJSON,
       status: 400,
-      headers: { 'content-type': MediaType.ProblemJSON.value },
+      headers: { 'content-type': MediaType.Problem.value },
     });
 
     await expectAsync(
