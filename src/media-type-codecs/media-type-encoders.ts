@@ -52,6 +52,7 @@ export class MediaTypeEncoders {
       return this.add(MediaType.OctetStream, BinaryEncoder.default)
         .add(MediaType.WWWFormUrlEncoded, WWWFormUrlEncoder.default)
         .add(MediaType.JSON, JSONEncoder.default)
+        .add(MediaType.JSONStructured, JSONEncoder.default)
         .add(MediaType.CBOR, CBOREncoder.default)
         .add(MediaType.AnyText, AnyTextEncoder.default)
         .add(MediaType.X509CACert, BinaryEncoder.default)
