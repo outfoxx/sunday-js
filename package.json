@@ -28,20 +28,20 @@
   "author": "kdubb",
   "license": "Apache-2.0",
   "dependencies": {
-    "@js-joda/core": "^5.2.0",
-    "@outfoxx/cbor-redux": "^0.3.1",
-    "@outfoxx/jackson-js": "^1.3.4",
-    "common-tags": "^1.8.2",
-    "tslib": "^2.4.0",
-    "uri-template-lite": "^22.1.0"
+    "@js-joda/core": "5.2.x",
+    "@outfoxx/cbor-redux": "0.3.x",
+    "@outfoxx/jackson-js": "1.4.x",
+    "common-tags": "1.8.x",
+    "tslib": "2.4.x",
+    "uri-template-lite": "22.1.x"
   },
   "peerDependencies": {
-    "rxjs": "^7.5.5"
+    "rxjs": "7.x"
   },
   "devDependencies": {
-    "@types/common-tags": "^1.8.0",
-    "@types/uri-template-lite": "^19.12.0",
-    "@types/jasmine": "^4.0.3",
+    "@types/common-tags": "1.8.x",
+    "@types/uri-template-lite": "19.12.x",
+    "@types/jasmine": "4.0.x",
     "@typescript-eslint/eslint-plugin": "^5.25.0",
     "@typescript-eslint/parser": "^5.25.0",
     "eslint": "^8.15.0",
