@@ -34,7 +34,7 @@
     "@outfoxx/jackson-js": "1.4.x",
     "common-tags": "1.8.x",
     "tslib": "2.4.x",
-    "uri-template-lite": "22.1.x"
+    "uri-template-lite": "^22.9.0"
   },
   "peerDependencies": {
     "rxjs": "7.x"
