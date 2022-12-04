@@ -1,7 +1,7 @@
 // Karma configuration
 // Generated on Thu Sep 24 2020 06:46:47 GMT-0700 (Mountain Standard Time)
 
-module.exports = function (config) {
+module.exports = function(config) {
   config.set({
     frameworks: ['jasmine', 'karma-typescript', 'source-map-support'],
 
@@ -42,7 +42,22 @@ module.exports = function (config) {
       },
     },
 
-    reporters: ['progress', 'coverage'],
+    reporters: ['progress', 'coverage', 'sonarqubeUnit'],
+
+    coverageReporter: {
+      reporters: [
+        { type: 'lcov', dir: 'reports/coverage', subdir: '.' },
+      ],
+    },
+
+    sonarQubeUnitReporter: {
+      sonarQubeVersion: 'LATEST',
+      outputFile: 'reports/test-report.xml',
+      testPaths: ['./test'],
+      testFilePattern: '.test.ts',
+      overrideTestDescription: true,
+      useBrowserName: false
+    },
 
     port: 9876,
     colors: true,
