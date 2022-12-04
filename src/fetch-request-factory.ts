@@ -31,6 +31,7 @@ import {
   RequestFactory,
   RequestSpec,
 } from './request-factory';
+import { ResultResponse } from './result-response';
 import { SundayError } from './sunday-error';
 import { URLTemplate } from './url-template';
 import { errorToMessage } from './util/error';
@@ -162,6 +163,53 @@ export class FetchRequestFactory implements RequestFactory {
         validate(response, dataExpected ?? false, this.problemTypes),
       ),
     );
+  }
+
+  resultResponse<B, R>(
+    requestSpec: RequestSpec<B>,
+    resultType: AnyType,
+  ): Observable<ResultResponse<R>>;
+  resultResponse<B>(
+    requestSpec: RequestSpec<B>,
+  ): Observable<ResultResponse<void>>;
+  resultResponse(
+    request: RequestSpec<unknown>,
+    responseType?: AnyType,
+  ): Observable<ResultResponse<unknown>> {
+    const response$ = this.response(request, !!responseType);
+
+    if (!responseType) {
+      return response$.pipe(
+        map((response) => {
+          return {
+            result: undefined,
+            response,
+          };
+        }),
+      );
+    } else {
+      return response$.pipe(
+        switchMap(async (response) => {
+          try {
+            const contentType = MediaType.from(
+              response.headers.get('content-type'),
+              MediaType.OctetStream,
+            );
+            const decoder = this.mediaTypeDecoders.find(contentType);
+            const result = await decoder.decode(response, responseType);
+            return {
+              result,
+              response,
+            };
+          } catch (error) {
+            throw await SundayError.fromResponse(
+              errorToMessage(error, 'Response Decoding Failed'),
+              response,
+            );
+          }
+        }),
+      );
+    }
   }
 
   result<B, R>(requestSpec: RequestSpec<B>, resultType: AnyType): Observable<R>;
