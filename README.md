@@ -1,10 +1,9 @@
-[![CI](https://github.com/outfoxx/sunday-js/actions/workflows/ci.yml/badge.svg)](https://github.com/outfoxx/sunday-js/actions/workflows/ci.yml)
+Sunday 🙏 The framework of REST for TypeScript/JavaScript
+===
 
----
-
-# Sunday 🙏 The framework of REST for TypeScript/JavaScript
-
----
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/outfoxx/sunday-js/CI)
+![Coverage](https://sonarcloud.io/api/project_badges/measure?project=outfoxx_sunday-js&metric=coverage)
+![npm](https://img.shields.io/npm/v/@outfoxx/sunday)
 
 TypeScript/JavaScript framework for generated REST clients.
 
