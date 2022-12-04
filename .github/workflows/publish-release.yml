@@ -49,5 +49,5 @@ jobs:
         name: 🚀 ${{ github.ref_name }}
         tag_name: ${{ github.ref_name }}
         generate_release_notes: true
-        prerelease: ${{ !steps.version.outputs.is_stable }}
+        prerelease: ${{ steps.version.outputs.is_stable != 'true' }}
         draft: false
