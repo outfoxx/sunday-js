@@ -18,6 +18,7 @@ import { ClassType, ConstructableClassType } from './class-type';
 import { MediaType } from './media-type';
 import { TextMediaTypeDecoder } from './media-type-codecs/media-type-decoder';
 import { Problem } from './problem';
+import { ResultResponse } from './result-response';
 import { URLTemplate } from './url-template';
 import { Logger } from './logger';
 
@@ -37,6 +38,30 @@ export interface RequestFactory {
     requestSpec: RequestSpec<B>,
     dataExpected?: boolean,
   ): Observable<Response>;
+
+  resultResponse<B, R>(
+    requestSpec: RequestSpec<B>,
+    resultType: [ClassType<R>],
+  ): Observable<ResultResponse<R>>;
+
+  resultResponse<B, R>(
+    requestSpec: RequestSpec<B>,
+    resultType: [ClassType<Array<unknown>>, ClassType<R>],
+  ): Observable<ResultResponse<Array<R>>>;
+
+  resultResponse<B, R>(
+    requestSpec: RequestSpec<B>,
+    resultType: [ClassType<Set<unknown>>, ClassType<R>],
+  ): Observable<ResultResponse<Set<R>>>;
+
+  resultResponse<B, R>(
+    requestSpec: RequestSpec<B>,
+    resultType: AnyType,
+  ): Observable<ResultResponse<R>>;
+
+  resultResponse<B>(
+    requestSpec: RequestSpec<B>,
+  ): Observable<ResultResponse<void>>;
 
   result<B, R>(
     requestSpec: RequestSpec<B>,

@@ -25,6 +25,7 @@ import {
   SundayError,
 } from '../src';
 import any = jasmine.any;
+import anything = jasmine.anything;
 import objectContaining = jasmine.objectContaining;
 
 describe('FetchRequestFactory', () => {
@@ -277,6 +278,204 @@ describe('FetchRequestFactory', () => {
           .pipe(first()),
       ),
     ).toBeResolvedTo(new Test('a', new Sub(5)));
+  });
+
+  it('fetches typed array of results', async () => {
+    //
+    class Sub {
+      constructor(
+        @JsonProperty()
+        public value: number,
+      ) {}
+    }
+
+    class Test {
+      constructor(
+        @JsonProperty()
+        public test: string,
+        @JsonProperty()
+        @JsonClassType({ type: () => [Sub] })
+        public sub: Sub,
+      ) {}
+    }
+
+    fetchMock.getOnce('http://example.com', {
+      body: '[{"test":"a","sub":{"value":5}}]',
+      headers: { 'content-type': MediaType.JSON },
+    });
+
+    await expectAsync(
+      firstValueFrom(
+        fetchRequestFactory
+          .result({ method: 'GET', pathTemplate: '' }, [Array, [Test]])
+          .pipe(first()),
+      ),
+    ).toBeResolvedTo([new Test('a', new Sub(5))]);
+  });
+
+  it('fetches typed set of results', async () => {
+    //
+    class Sub {
+      constructor(
+        @JsonProperty()
+        public value: number,
+      ) {}
+    }
+
+    class Test {
+      constructor(
+        @JsonProperty()
+        public test: string,
+        @JsonProperty()
+        @JsonClassType({ type: () => [Sub] })
+        public sub: Sub,
+      ) {}
+    }
+
+    fetchMock.getOnce('http://example.com', {
+      body: '[{"test":"a","sub":{"value":5}}]',
+      headers: { 'content-type': MediaType.JSON },
+    });
+
+    await expectAsync(
+      firstValueFrom(
+        fetchRequestFactory
+          .result({ method: 'GET', pathTemplate: '' }, [Set, [Test]])
+          .pipe(first()),
+      ),
+    ).toBeResolvedTo(new Set([new Test('a', new Sub(5))]));
+  });
+
+  it('fetches typed result responses', async () => {
+    //
+    class Sub {
+      constructor(
+        @JsonProperty()
+        public value: number,
+      ) {}
+    }
+
+    class Test {
+      constructor(
+        @JsonProperty()
+        public test: string,
+        @JsonProperty()
+        @JsonClassType({ type: () => [Sub] })
+        public sub: Sub,
+      ) {}
+    }
+
+    fetchMock.getOnce('http://example.com', {
+      body: '{"test":"a","sub":{"value":5}}',
+      headers: { 'content-type': MediaType.JSON },
+    });
+
+    await expectAsync(
+      firstValueFrom(
+        fetchRequestFactory
+          .resultResponse({ method: 'GET', pathTemplate: '' }, [Test])
+          .pipe(first()),
+      ),
+    ).toBeResolvedTo(
+      objectContaining({
+        result: new Test('a', new Sub(5)),
+        response: anything(),
+      }),
+    );
+  });
+
+  it('fetches typed void result responses', async () => {
+    //
+    fetchMock.getOnce('http://example.com', {
+      body: '{"test":"a","sub":{"value":5}}',
+      headers: { 'content-type': MediaType.JSON },
+    });
+
+    await expectAsync(
+      firstValueFrom(
+        fetchRequestFactory
+          .resultResponse({ method: 'GET', pathTemplate: '' })
+          .pipe(first()),
+      ),
+    ).toBeResolvedTo(
+      objectContaining({ result: undefined, response: anything() }),
+    );
+  });
+
+  it('fetches typed array of result response', async () => {
+    //
+    class Sub {
+      constructor(
+        @JsonProperty()
+        public value: number,
+      ) {}
+    }
+
+    class Test {
+      constructor(
+        @JsonProperty()
+        public test: string,
+        @JsonProperty()
+        @JsonClassType({ type: () => [Sub] })
+        public sub: Sub,
+      ) {}
+    }
+
+    fetchMock.getOnce('http://example.com', {
+      body: '[{"test":"a","sub":{"value":5}}]',
+      headers: { 'content-type': MediaType.JSON },
+    });
+
+    await expectAsync(
+      firstValueFrom(
+        fetchRequestFactory
+          .resultResponse({ method: 'GET', pathTemplate: '' }, [Array, [Test]])
+          .pipe(first()),
+      ),
+    ).toBeResolvedTo(
+      objectContaining({
+        result: [new Test('a', new Sub(5))],
+        response: anything(),
+      }),
+    );
+  });
+
+  it('fetches typed set of result responses', async () => {
+    //
+    class Sub {
+      constructor(
+        @JsonProperty()
+        public value: number,
+      ) {}
+    }
+
+    class Test {
+      constructor(
+        @JsonProperty()
+        public test: string,
+        @JsonProperty()
+        @JsonClassType({ type: () => [Sub] })
+        public sub: Sub,
+      ) {}
+    }
+
+    fetchMock.getOnce('http://example.com', {
+      body: '[{"test":"a","sub":{"value":5}}]',
+      headers: { 'content-type': MediaType.JSON },
+    });
+
+    await expectAsync(
+      firstValueFrom(
+        fetchRequestFactory
+          .resultResponse({ method: 'GET', pathTemplate: '' }, [Set, [Test]])
+          .pipe(first()),
+      ),
+    ).toBeResolvedTo(
+      objectContaining({
+        result: new Set([new Test('a', new Sub(5))]),
+        response: anything(),
+      }),
+    );
   });
 
   it('builds event sources via eventSource', (done) => {
