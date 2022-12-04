@@ -16,6 +16,10 @@ jobs:
         node-version: '14'
         registry-url: 'https://registry.npmjs.org'
 
+    - name: Check Version Format in Tag
+      id: version
+      uses: nowsprinting/check-version-format-action@v3
+
     - name: Install Packages
       run: npm ci
 
@@ -45,4 +49,5 @@ jobs:
         name: 🚀 ${{ github.ref_name }}
         tag_name: ${{ github.ref_name }}
         generate_release_notes: true
+        prerelease: ${{ !steps.version.outputs.is_stable }}
         draft: false
