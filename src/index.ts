@@ -34,6 +34,7 @@ export * from './logger';
 export * from './sunday-error';
 export * from './problem';
 export * from './date-time-types';
+export * from './result-response';
 
 export * from './util/base64';
 export * from './util/hex';
