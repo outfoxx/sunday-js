@@ -1,0 +1,48 @@
+name: Publish Release
+
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+**']
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - uses: actions/setup-node@v3
+      with:
+        node-version: '14'
+        registry-url: 'https://registry.npmjs.org'
+
+    - name: Install Packages
+      run: npm ci
+
+    - name: Stamp Package Version
+      run: npm version --no-git-tag-version ${{ github.ref_name }}
+
+    - name: Build Documentation
+      run: npm run docs -- --out docs/${{ github.ref_name }}
+
+    - name: Publish Package
+      run: npm publish
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+    - name: Publish Documentation
+      uses: JamesIves/github-pages-deploy-action@v4
+      with:
+        branch: gh-pages
+        clean: false
+        folder: docs
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        name: 🚀 ${{ github.ref_name }}
+        tag_name: ${{ github.ref_name }}
+        generate_release_notes: true
+        draft: false
