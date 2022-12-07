@@ -102,7 +102,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
   connect(): void {
     if (this.readyState === this.CONNECTING || this.readyState === this.OPEN) {
-      // this.logger?.debug?.('skipping connect', { state: this.readyState });
+      this.logger?.trace?.('skipping connect', { state: this.readyState });
       return;
     }
 
@@ -195,7 +195,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
     this.lastEventReceivedTime = lastEventReceivedTime;
 
-    // this.logger?.debug?.('starting event timeout checks');
+    this.logger?.trace?.('starting event timeout checks');
 
     this.eventTimeoutCheckHandle = window.setInterval(
       () => this.checkEventTimeout(),
@@ -204,7 +204,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   }
 
   private stopEventTimeoutCheck() {
-    // this.logger?.debug?.('stopping event timeout checks');
+    this.logger?.trace?.('stopping event timeout checks');
 
     if (this.eventTimeoutCheckHandle) {
       clearInterval(this.eventTimeoutCheckHandle);
@@ -218,7 +218,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       return;
     }
 
-    // this.logger?.debug?.('checking event timeout');
+    this.logger?.trace?.('checking event timeout');
 
     // Check elapsed time since last received event
     const elapsed = Date.now() - this.lastEventReceivedTime;
