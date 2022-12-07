@@ -36,7 +36,7 @@ export function nullifyResponse<T>(
         ) {
           return from([null]);
         }
-        return throwError(error);
+        return throwError(() => error);
       }),
     );
   };

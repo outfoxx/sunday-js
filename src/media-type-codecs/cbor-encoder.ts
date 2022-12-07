@@ -191,22 +191,20 @@ export class CBOREncoder implements MediaTypeEncoder {
     if (value == null) {
       return null;
     }
-    switch (this.dateEncoding) {
-      case CBOREncoder.DateEncoding.ISO8601:
-        return this.offsetTimeFormatter.format(value);
-      default:
-        return [
-          value.hour(),
-          value.minute(),
-          ...encodeSeconds(
-            value.second(),
-            this.dateEncoding ==
-              CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
-              ? value.get(ChronoField.MILLI_OF_SECOND)
-              : value.nano(),
-          ),
-          value.offset().toString(),
-        ];
+    if (this.dateEncoding == CBOREncoder.DateEncoding.ISO8601) {
+      return this.offsetTimeFormatter.format(value);
+    } else {
+      return [
+        value.hour(),
+        value.minute(),
+        ...encodeSeconds(
+          value.second(),
+          this.dateEncoding == CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
+            ? value.get(ChronoField.MILLI_OF_SECOND)
+            : value.nano(),
+        ),
+        value.offset().toString(),
+      ];
     }
   };
 
@@ -215,24 +213,22 @@ export class CBOREncoder implements MediaTypeEncoder {
       return null;
     }
 
-    switch (this.dateEncoding) {
-      case CBOREncoder.DateEncoding.ISO8601:
-        return DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(value);
-      default:
-        return [
-          value.year(),
-          value.monthValue(),
-          value.dayOfMonth(),
-          value.hour(),
-          value.minute(),
-          ...encodeSeconds(
-            value.second(),
-            this.dateEncoding ==
-              CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
-              ? value.get(ChronoField.MILLI_OF_SECOND)
-              : value.nano(),
-          ),
-        ];
+    if (this.dateEncoding == CBOREncoder.DateEncoding.ISO8601) {
+      return DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(value);
+    } else {
+      return [
+        value.year(),
+        value.monthValue(),
+        value.dayOfMonth(),
+        value.hour(),
+        value.minute(),
+        ...encodeSeconds(
+          value.second(),
+          this.dateEncoding == CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
+            ? value.get(ChronoField.MILLI_OF_SECOND)
+            : value.nano(),
+        ),
+      ];
     }
   };
 
@@ -241,11 +237,10 @@ export class CBOREncoder implements MediaTypeEncoder {
       return null;
     }
 
-    switch (this.dateEncoding) {
-      case CBOREncoder.DateEncoding.ISO8601:
-        return DateTimeFormatter.ISO_LOCAL_DATE.format(value);
-      default:
-        return [value.year(), value.monthValue(), value.dayOfMonth()];
+    if (this.dateEncoding == CBOREncoder.DateEncoding.ISO8601) {
+      return DateTimeFormatter.ISO_LOCAL_DATE.format(value);
+    } else {
+      return [value.year(), value.monthValue(), value.dayOfMonth()];
     }
   };
 
@@ -254,21 +249,19 @@ export class CBOREncoder implements MediaTypeEncoder {
       return null;
     }
 
-    switch (this.dateEncoding) {
-      case CBOREncoder.DateEncoding.ISO8601:
-        return DateTimeFormatter.ISO_LOCAL_TIME.format(value);
-      default:
-        return [
-          value.hour(),
-          value.minute(),
-          ...encodeSeconds(
-            value.second(),
-            this.dateEncoding ==
-              CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
-              ? value.get(ChronoField.MILLI_OF_SECOND)
-              : value.nano(),
-          ),
-        ];
+    if (this.dateEncoding == CBOREncoder.DateEncoding.ISO8601) {
+      return DateTimeFormatter.ISO_LOCAL_TIME.format(value);
+    } else {
+      return [
+        value.hour(),
+        value.minute(),
+        ...encodeSeconds(
+          value.second(),
+          this.dateEncoding == CBOREncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
+            ? value.get(ChronoField.MILLI_OF_SECOND)
+            : value.nano(),
+        ),
+      ];
     }
   };
 
@@ -313,7 +306,7 @@ export namespace CBOREncoder {
     MILLISECONDS_SINCE_EPOCH,
 
     /**
-     * Encode temporal values values as an ISO-8601-formatted string (in
+     * Encode temporal values as an ISO-8601-formatted string (in
      * RFC 3339 format). This is the default behavior.
      */
     ISO8601,

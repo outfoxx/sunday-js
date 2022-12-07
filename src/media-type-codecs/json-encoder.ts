@@ -204,22 +204,20 @@ export class JSONEncoder implements StructuredMediaTypeEncoder {
       return null;
     }
 
-    switch (this.dateEncoding) {
-      case JSONEncoder.DateEncoding.ISO8601:
-        return this.offsetTimeFormatter.format(value);
-      default:
-        return [
-          value.hour(),
-          value.minute(),
-          ...encodeSeconds(
-            value.second(),
-            this.dateEncoding ==
-              JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
-              ? value.get(ChronoField.MILLI_OF_SECOND)
-              : value.nano(),
-          ),
-          value.offset().toString(),
-        ];
+    if (this.dateEncoding == JSONEncoder.DateEncoding.ISO8601) {
+      return this.offsetTimeFormatter.format(value);
+    } else {
+      return [
+        value.hour(),
+        value.minute(),
+        ...encodeSeconds(
+          value.second(),
+          this.dateEncoding == JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
+            ? value.get(ChronoField.MILLI_OF_SECOND)
+            : value.nano(),
+        ),
+        value.offset().toString(),
+      ];
     }
   };
 
@@ -228,24 +226,22 @@ export class JSONEncoder implements StructuredMediaTypeEncoder {
       return null;
     }
 
-    switch (this.dateEncoding) {
-      case JSONEncoder.DateEncoding.ISO8601:
-        return DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(value);
-      default:
-        return [
-          value.year(),
-          value.monthValue(),
-          value.dayOfMonth(),
-          value.hour(),
-          value.minute(),
-          ...encodeSeconds(
-            value.second(),
-            this.dateEncoding ==
-              JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
-              ? value.get(ChronoField.MILLI_OF_SECOND)
-              : value.nano(),
-          ),
-        ];
+    if (this.dateEncoding == JSONEncoder.DateEncoding.ISO8601) {
+      return DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(value);
+    } else {
+      return [
+        value.year(),
+        value.monthValue(),
+        value.dayOfMonth(),
+        value.hour(),
+        value.minute(),
+        ...encodeSeconds(
+          value.second(),
+          this.dateEncoding == JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
+            ? value.get(ChronoField.MILLI_OF_SECOND)
+            : value.nano(),
+        ),
+      ];
     }
   };
 
@@ -254,11 +250,10 @@ export class JSONEncoder implements StructuredMediaTypeEncoder {
       return null;
     }
 
-    switch (this.dateEncoding) {
-      case JSONEncoder.DateEncoding.ISO8601:
-        return DateTimeFormatter.ISO_LOCAL_DATE.format(value);
-      default:
-        return [value.year(), value.monthValue(), value.dayOfMonth()];
+    if (this.dateEncoding == JSONEncoder.DateEncoding.ISO8601) {
+      return DateTimeFormatter.ISO_LOCAL_DATE.format(value);
+    } else {
+      return [value.year(), value.monthValue(), value.dayOfMonth()];
     }
   };
 
@@ -267,21 +262,19 @@ export class JSONEncoder implements StructuredMediaTypeEncoder {
       return null;
     }
 
-    switch (this.dateEncoding) {
-      case JSONEncoder.DateEncoding.ISO8601:
-        return DateTimeFormatter.ISO_LOCAL_TIME.format(value);
-      default:
-        return [
-          value.hour(),
-          value.minute(),
-          ...encodeSeconds(
-            value.second(),
-            this.dateEncoding ==
-              JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
-              ? value.get(ChronoField.MILLI_OF_SECOND)
-              : value.nano(),
-          ),
-        ];
+    if (this.dateEncoding == JSONEncoder.DateEncoding.ISO8601) {
+      return DateTimeFormatter.ISO_LOCAL_TIME.format(value);
+    } else {
+      return [
+        value.hour(),
+        value.minute(),
+        ...encodeSeconds(
+          value.second(),
+          this.dateEncoding == JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH
+            ? value.get(ChronoField.MILLI_OF_SECOND)
+            : value.nano(),
+        ),
+      ];
     }
   };
 
