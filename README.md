@@ -1,7 +1,7 @@
 Sunday 🙏 The framework of REST for TypeScript/JavaScript
 ===
 
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/outfoxx/sunday-js/CI)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/outfoxx/sunday-js/ci.yml?branch=main)
 ![Coverage](https://sonarcloud.io/api/project_badges/measure?project=outfoxx_sunday-js&metric=coverage)
 ![npm](https://img.shields.io/npm/v/@outfoxx/sunday)
 
