@@ -238,7 +238,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
   private receivedHeaders(response: Response) {
     if (this.readyState !== this.CONNECTING) {
-      this.logger?.error?.('Invalid readyState for receiveHaders', {
+      this.logger?.error?.('invalid readyState for receivedHeaders', {
         readyState: this.readyState,
       });
 
@@ -265,7 +265,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
   private receivedData(buffer: ArrayBuffer) {
     if (this.readyState !== this.OPEN) {
-      this.logger?.error?.('Invalid readyState for receiveData', {
+      this.logger?.error?.('invalid readyState for receiveData', {
         readyState: this.readyState,
       });
 
@@ -275,7 +275,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       return;
     }
 
-    this.logger?.debug?.('received data', { length: validate.length });
+    this.logger?.debug?.('received data', { length: buffer.byteLength });
 
     this.eventParser.process(buffer, this.dispatchParsedEvent);
   }
