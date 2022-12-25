@@ -1,9 +1,0 @@
-.*rc
-.eslintignore
-.eslintrc.cjs
-jest.config.js
-*.json
-node_modules
-test
-.idea
-*.code-workspace

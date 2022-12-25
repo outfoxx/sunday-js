@@ -1,10 +1,7 @@
 module.exports = {
   parser: '@typescript-eslint/parser',
   plugins: ['@typescript-eslint', 'header'],
-  extends: [
-    'plugin:@typescript-eslint/recommended',
-    'prettier',
-  ],
+  extends: ['plugin:@typescript-eslint/recommended', 'prettier'],
   parserOptions: {
     project: './tsconfig.json',
     ecmaVersion: 2018,
@@ -14,6 +11,6 @@ module.exports = {
     // Special ESLint rules or overrides go here.
     '@typescript-eslint/await-thenable': 'error',
     '@typescript-eslint/no-namespace': 'off',
-    'header/header': [2, 'HEADER.txt']
+    'header/header': [2, 'HEADER.txt'],
   },
 };

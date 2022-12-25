@@ -1,11 +1,11 @@
 {
   "compilerOptions": {
-    "target": "es2017",
-    "module": "es2020",
+    "target": "ES2016",
+    "module": "CommonJS",
 
-    "outDir": "./build",
+    "outDir": "build/dev",
     "rootDir": ".",
-    "declaration": true,
+    "declaration": false,
     "sourceMap": true,
 
     "strict": true,
@@ -15,19 +15,21 @@
     "forceConsistentCasingInFileNames": true,
 
     "moduleResolution": "node",
-
+    "resolveJsonModule": true,
     "baseUrl": "./src",
 
     "esModuleInterop": true,
 
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "lib": [
-      "es6",
-      "es2020",
-      "dom",
-      "dom.iterable"
-    ]
+    "emitDecoratorMetadata": true
   },
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.js",
+    "test/**/*.ts",
+    "test/**/*.js",
+    "test-types/*.d.ts"
+  ],
+  "exclude": [
+    "./node_modules", "build"]
 }
