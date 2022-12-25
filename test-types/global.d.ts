@@ -12,13 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-declare global {
-  namespace jasmine {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    interface Matchers<T> {
-      toHaveBytes(expected: Expected<ArrayBuffer>): boolean;
-    }
+declare namespace jasmine {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface Matchers<T> {
+    toHaveBytes(expected: Expected<ArrayBuffer>): boolean;
   }
 }
-
-export {};

@@ -21,14 +21,19 @@ jobs:
 
     - uses: actions/setup-node@v3
       with:
-        node-version: 14
+        node-version: 18
 
     - name: Build/Test
       run: |
         npm ci
         npm run lint
         npm run build
-        npm test
+        npm run test:main
+        npm run test:esm
+        npm run test:esnext
+
+    - name: Prepare ESLint Report
+      run: sed -i 's+/home/runner/work/sunday-js/sunday-js+/github/workspace+g' reports/lint.json
 
     - name: SonarCloud Scan
       uses: SonarSource/sonarcloud-github-action@master

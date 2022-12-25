@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import fetchMock from 'fetch-mock';
-import { unknownGet } from 'util/any';
+import { unknownGet } from '../src/util/any';
 import { FetchEventSource, MediaType, Problem } from '../src';
 import { delayedResponse } from './fetch-mock-utils';
 import objectContaining = jasmine.objectContaining;
