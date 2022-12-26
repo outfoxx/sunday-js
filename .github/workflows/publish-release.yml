@@ -26,13 +26,13 @@ jobs:
     - name: Stamp Package Version
       run: npm version --no-git-tag-version ${{ github.ref_name }}
 
-    - name: Build Documentation
-      run: npm run docs -- --out docs/${{ github.ref_name }}
-
     - name: Publish Package
       run: npm publish
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+    - name: Build Documentation
+      run: npm run docs -- --out docs/${{ github.ref_name }}
 
     - name: Publish Documentation
       uses: JamesIves/github-pages-deploy-action@v4
