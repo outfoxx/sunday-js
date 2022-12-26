@@ -38,7 +38,11 @@
       "eslint"
     ]
   },
-  "keywords": [],
+  "keywords": [
+    "HTTP",
+    "REST",
+    "fetch"
+  ],
   "author": "kdubb",
   "license": "Apache-2.0",
   "dependencies": {
