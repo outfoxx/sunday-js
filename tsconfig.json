@@ -31,5 +31,7 @@
     "test-types/*.d.ts"
   ],
   "exclude": [
-    "./node_modules", "build"]
+    "node_modules",
+    "build"
+  ]
 }
