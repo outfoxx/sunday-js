@@ -26,7 +26,7 @@ describe('Problem', () => {
     });
 
     const problemJSON = JSONEncoder.default.encodeObject(problem);
-
+    console.log('problemJSON', problemJSON);
     expect(problemJSON.extra).toBe(problem.parameters?.extra);
 
     const decodedProblem = JSONDecoder.default.decodeObject<Problem>(

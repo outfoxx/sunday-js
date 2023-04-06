@@ -60,6 +60,39 @@ describe('WWWFormUrlEncoder', () => {
     ).toBe('c=3&test%5Ba%5D=1&test%5Bb%5D=2');
   });
 
+  it('encodes Map values', () => {
+    const encoder = WWWFormUrlEncoder.default;
+
+    const value = {
+      test: new Map<string, unknown>([
+        ['a', 1],
+        ['b', 2],
+      ]),
+      c: '3',
+    };
+
+    expect(encoder.encodeQueryString(value)).toBe(
+      'c=3&test%5Ba%5D=1&test%5Bb%5D=2',
+    );
+  });
+
+  it('filters undefined values from Maps values', () => {
+    const encoder = WWWFormUrlEncoder.default;
+
+    const value = {
+      test: new Map<string, unknown>([
+        ['a', 1],
+        ['b', 2],
+        ['nope', undefined],
+      ]),
+      c: '3',
+    };
+
+    expect(encoder.encodeQueryString(value)).toBe(
+      'c=3&test%5Ba%5D=1&test%5Bb%5D=2',
+    );
+  });
+
   it('encodes array values in bracketed form', () => {
     const encoder = new WWWFormUrlEncoder(
       WWWFormUrlEncoder.ArrayEncoding.BRACKETED,
@@ -80,6 +113,30 @@ describe('WWWFormUrlEncoder', () => {
     );
 
     expect(encoder.encodeQueryString({ test: [1, 2, 3] })).toBe(
+      'test=1&test=2&test=3',
+    );
+  });
+
+  it('encodes Set values in bracketed form', () => {
+    const encoder = new WWWFormUrlEncoder(
+      WWWFormUrlEncoder.ArrayEncoding.BRACKETED,
+      WWWFormUrlEncoder.BoolEncoding.NUMERIC,
+      WWWFormUrlEncoder.DateEncoding.ISO8601,
+    );
+
+    expect(encoder.encodeQueryString({ test: new Set([1, 2, 3]) })).toBe(
+      'test%5B%5D=1&test%5B%5D=2&test%5B%5D=3',
+    );
+  });
+
+  it('encodes Set values in unbracketed form', () => {
+    const encoder = new WWWFormUrlEncoder(
+      WWWFormUrlEncoder.ArrayEncoding.UNBRACKETED,
+      WWWFormUrlEncoder.BoolEncoding.NUMERIC,
+      WWWFormUrlEncoder.DateEncoding.ISO8601,
+    );
+
+    expect(encoder.encodeQueryString({ test: new Set([1, 2, 3]) })).toBe(
       'test=1&test=2&test=3',
     );
   });

@@ -52,8 +52,8 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
   encodeQueryString(parameters: Record<string, unknown>): string {
     const components: string[] = [];
 
-    for (const key of Object.keys(parameters).sort()) {
-      components.push(...this.encodeQueryComponent(key, parameters[key]));
+    for (const [key, value] of Object.entries(parameters).sort()) {
+      components.push(...this.encodeQueryComponent(key, value));
     }
     return components.join('&');
   }
@@ -68,7 +68,7 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
     if (value == null) {
       //
       components.push(encodeURIComponent(key));
-    } else if (value instanceof Array) {
+    } else if (value instanceof Array || value instanceof Set) {
       // encode key according to `arrayEncoding`
       for (const item of value) {
         components.push(
@@ -76,6 +76,15 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
             encodeArrayKey(key, this.arrayEncoding),
             item,
           ),
+        );
+      }
+    } else if (value instanceof Map) {
+      //
+      for (const [nestedKey, nestedValue] of Array.from(
+        value.entries(),
+      ).sort()) {
+        components.push(
+          ...this.encodeQueryComponent(`${key}[${nestedKey}]`, nestedValue),
         );
       }
     } else if (value instanceof Date) {
@@ -108,9 +117,9 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
       //
       const rec = (value ?? {}) as Record<string, unknown>;
 
-      for (const nestedKey of Object.keys(rec).sort()) {
+      for (const [nestedKey, nestedValue] of Object.entries(rec).sort()) {
         components.push(
-          ...this.encodeQueryComponent(`${key}[${nestedKey}]`, rec[nestedKey]),
+          ...this.encodeQueryComponent(`${key}[${nestedKey}]`, nestedValue),
         );
       }
     } else {
