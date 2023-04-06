@@ -82,6 +82,7 @@ export class Problem extends Error implements Problem {
     super(`${spec.status.toString()} ${spec.type} - ${spec.title}`);
 
     const src = spec as unknown as Record<string, unknown>;
+    delete src.stack; // Fix for browsers that add stack to Error objects
 
     const json = Object.assign({}, src);
 
