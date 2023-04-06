@@ -5,7 +5,7 @@
   "main": "build/main/index.js",
   "module": "build/esm/index.js",
   "esnext": "build/esnext/index.js",
-  "types": "build/main/index.js",
+  "types": "build/main/index.d.ts",
   "files": [
     "build",
     "LICENSE.txt",
