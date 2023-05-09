@@ -50,14 +50,13 @@
     "@outfoxx/cbor-redux": "0.3.x",
     "@outfoxx/jackson-js": "1.4.x",
     "tslib": "2.4.x",
-    "uri-template-lite": "^22.9.0"
+    "uri-template": "^2.0.0"
   },
   "peerDependencies": {
     "rxjs": "7.x"
   },
   "devDependencies": {
     "@types/jasmine": "^4.3.1",
-    "@types/uri-template-lite": "19.12.x",
     "@typescript-eslint/eslint-plugin": "^5.25.0",
     "@typescript-eslint/parser": "^5.25.0",
     "coverage-istanbul-loader": "^3.0.5",
