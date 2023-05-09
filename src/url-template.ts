@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { URI } from 'uri-template-lite';
+import { parse } from 'uri-template';
 
 export class URLTemplate {
   constructor(
@@ -29,7 +29,6 @@ export class URLTemplate {
       relativeTemplate.startsWith('/') || !relativeTemplate.length
         ? relativeTemplate
         : `/${relativeTemplate}`;
-
-    return new URL(URI.expand(baseTempl + relTempl, allParameters));
+    return new URL(parse(baseTempl + relTempl).expand(allParameters));
   }
 }
