@@ -15,8 +15,8 @@
 import { RequestAdapter, RequestFactory } from './request-factory';
 
 export abstract class HeaderTokenAuthorizingAdapter implements RequestAdapter {
-  header: string = 'Authorization';
-  tokenHeaderType: string = 'Bearer';
+  header = 'Authorization';
+  tokenHeaderType = 'Bearer';
 
   applyToken(request: Request, accessToken: string): Request {
     const requestClone = request.clone();
