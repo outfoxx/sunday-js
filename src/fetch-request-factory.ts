@@ -145,10 +145,12 @@ export class FetchRequestFactory implements RequestFactory {
         method: requestSpec.method,
       });
 
-      const request = new Request(url.toString(), init);
-
-      return this.adapter?.(request) ?? of(request);
-    });
+      return of(new Request(url.toString(), init));
+    }).pipe(
+      switchMap(
+        async (request) => this.adapter?.adapt(this, request) ?? request,
+      ),
+    );
   }
 
   response(

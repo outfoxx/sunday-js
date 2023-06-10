@@ -22,9 +22,11 @@
     "test:esm:allbrowsers": "karma start karma-esm.config.js --singleRun --browsers ChromeHeadless,SafariNative,Firefox",
     "test:esnext:allbrowsers": "karma start karma-esnext.config.js --singleRun --browsers ChromeHeadless,SafariNative,Firefox",
     "build": "tsc --build tsconfig-main.json tsconfig-esm.json tsconfig-esnext.json",
+    "build:watch": "tsc --build tsconfig-main.json tsconfig-esm.json tsconfig-esnext.json --watch",
     "clean": "rimraf build docs reports",
     "pretty": "prettier src test",
     "lint": "eslint -f json -o reports/lint.json src test",
+    "lint:html": "eslint -f html -o reports/lint.html src test",
     "docs": "typedoc --excludeInternal --excludePrivate src/index.ts",
     "prepublishOnly": "npm run clean && npm run lint && npm run build"
   },
