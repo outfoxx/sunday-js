@@ -121,4 +121,6 @@ export interface RequestSpec<B> {
   headers?: Record<string, unknown>;
 }
 
-export type RequestAdapter = (request: Request) => Observable<Request>;
+export interface RequestAdapter {
+  adapt(requestFactory: RequestFactory, request: Request): Promise<Request>;
+}
