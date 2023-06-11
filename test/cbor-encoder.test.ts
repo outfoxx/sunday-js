@@ -53,6 +53,42 @@ describe('CBOREncoder', () => {
     );
   });
 
+  it('encodes ArrayBuffer values as octet string', () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [ArrayBuffer] })
+        public test: ArrayBuffer,
+      ) {}
+    }
+
+    const uibuffer = new TextEncoder().encode('test');
+    const buffer = uibuffer.buffer.slice(
+      uibuffer.byteOffset,
+      uibuffer.byteLength,
+    );
+
+    expect(CBOREncoder.default.encode(new Test(buffer), [Test])).toEqual(
+      Hex.decode('A1 64 74657374 44 74657374'),
+    );
+  });
+
+  it('encodes null/undefined ArrayBuffer values', () => {
+    //
+    class Test {
+      constructor(
+        @JsonProperty()
+        @JsonClassType({ type: () => [ArrayBuffer] })
+        public test: ArrayBuffer | null,
+      ) {}
+    }
+
+    expect(CBOREncoder.default.encode(new Test(null), [Test])).toEqual(
+      Hex.decode('A1 64 74657374 F6'),
+    );
+  });
+
   it('encodes URL values as URL (tagged string)', () => {
     //
     class Test {

@@ -83,6 +83,10 @@ export class CBOREncoder implements MediaTypeEncoder {
         type: () => URL,
         mapper: this.urlSerializer,
       },
+      {
+        type: () => ArrayBuffer,
+        mapper: this.arrayBufferSerializer,
+      },
     ];
   }
 
@@ -107,6 +111,10 @@ export class CBOREncoder implements MediaTypeEncoder {
       mainCreator: () => type ?? [Object],
     });
   }
+
+  private arrayBufferSerializer: Serializer = (_, value: ArrayBuffer) => {
+    return value == null ? null : new Uint8Array(value);
+  };
 
   private instantSerializer: Serializer = (_, value: Instant) => {
     if (value == null) {
