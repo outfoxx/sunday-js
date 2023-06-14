@@ -49,7 +49,7 @@ describe('CBOREncoder', () => {
     expect(
       CBOREncoder.default.encode(new Test('a', new Sub(5)), [Test]),
     ).toHaveBytes(
-      Hex.decode('A2 64 74657374 61 61 63 737562 A1 65 76616C7565 05'),
+      Hex.decode('A2 63 737562 A1 65 76616C7565 05 64 74657374 61 61'),
     );
   });
 
@@ -69,8 +69,8 @@ describe('CBOREncoder', () => {
       uibuffer.byteLength,
     );
 
-    expect(CBOREncoder.default.encode(new Test(buffer), [Test])).toEqual(
-      Hex.decode('A1 64 74657374 44 74657374'),
+    expect(CBOREncoder.default.encode(new Test(buffer), [Test])).toHaveBytes(
+      Hex.decode('A1 64 74657374 D8 40 44 74657374'),
     );
   });
 
