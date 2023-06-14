@@ -26,7 +26,7 @@ import {
   ZonedDateTime,
   ZoneId,
 } from '@js-joda/core';
-import { CBOR, TaggedValue } from '@outfoxx/cbor-redux';
+import { CBOR, TaggedValue } from 'cbor-redux';
 import { JsonStringifier } from '@outfoxx/jackson-js';
 import { CustomMapper, Serializer } from '@outfoxx/jackson-js/dist/@types';
 import 'reflect-metadata';

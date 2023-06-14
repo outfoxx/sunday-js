@@ -49,8 +49,8 @@
   "license": "Apache-2.0",
   "dependencies": {
     "@js-joda/core": "5.2.x",
-    "@outfoxx/cbor-redux": "0.3.x",
     "@outfoxx/jackson-js": "1.4.x",
+    "cbor-redux": "^1.0.0-3",
     "tslib": "2.4.x",
     "uri-template": "^2.0.0"
   },

@@ -28,7 +28,7 @@ import {
   ZoneId,
   ZoneOffset,
 } from '@js-joda/core';
-import { CBOR } from '@outfoxx/cbor-redux';
+import { CBOR, TaggedValue } from 'cbor-redux';
 import { JsonParser } from '@outfoxx/jackson-js';
 import { CustomMapper, Deserializer } from '@outfoxx/jackson-js/dist/@types';
 import { AnyType } from '../any-type';
@@ -96,14 +96,23 @@ export class CBORDecoder implements MediaTypeDecoder {
   }
 
   decodeData<T>(buffer: ArrayBuffer, type: AnyType): T {
-    return this.parser.transform(CBOR.decode(buffer, this.untag), {
-      deserializers: this.customDeserializers,
-      mainCreator: () => type,
-    });
+    return this.parser.transform(
+      CBOR.decode(buffer, this.untag, { mode: 'loose' }),
+      {
+        deserializers: this.customDeserializers,
+        mainCreator: () => type,
+      },
+    );
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private untag = (value: any, tag: number) => {
+  private untag = (key: unknown, value: unknown) => {
+    if (!(value instanceof TaggedValue)) {
+      return value;
+    }
+
+    const tag = value.tag;
+    value = value.value;
+
     switch (tag) {
       case isoDateTimeTag:
         if (typeof value !== 'string') {
