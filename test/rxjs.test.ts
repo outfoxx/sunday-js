@@ -20,7 +20,11 @@ import {
   nullifyNotFound,
   nullifyResponse,
   Problem,
+  promiseFrom,
 } from '../src';
+import { delayedResponse } from './fetch-mock-utils';
+import { delay } from './promises';
+import objectContaining = jasmine.objectContaining;
 
 describe('RxJS Utils', () => {
   beforeEach(() => {
@@ -135,5 +139,66 @@ describe('RxJS Utils', () => {
           .pipe(nullifyResponse([405], [TestProblem]), first()),
       ),
     ).toBeRejectedWithError(Error, /Failed to send request/i);
+  });
+
+  it('promiseFrom resolves to first value with signal', async () => {
+    fetchMock.getOnce('http://example.com', {
+      status: 200,
+      headers: { 'content-type': MediaType.JSON.value },
+      body: '{ "message": "Hello World" }',
+    });
+
+    const fetchRequestFactory = new FetchRequestFactory('http://example.com');
+
+    const abort = new AbortController();
+
+    await expectAsync(
+      promiseFrom(
+        fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }, [
+          Object,
+        ]),
+        abort.signal,
+      ),
+    ).toBeResolvedTo(objectContaining({ message: 'Hello World' }));
+  });
+
+  it('promiseFrom resolves to first value without signal', async () => {
+    fetchMock.getOnce('http://example.com', {
+      status: 200,
+      headers: { 'content-type': MediaType.JSON.value },
+      body: '{ "message": "Hello World" }',
+    });
+
+    const fetchRequestFactory = new FetchRequestFactory('http://example.com');
+
+    await expectAsync(
+      promiseFrom(
+        fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }, [
+          Object,
+        ]),
+      ),
+    ).toBeResolvedTo(objectContaining({ message: 'Hello World' }));
+  });
+
+  it('promiseFrom supports abort', async () => {
+    fetchMock.get('http://example.com', () =>
+      delayedResponse({ status: 204, body: '{"a":"b"}' }, 100_000),
+    );
+
+    const fetchRequestFactory = new FetchRequestFactory('http://example.com');
+
+    const abort = new AbortController();
+
+    await expectAsync(
+      Promise.all([
+        promiseFrom(
+          fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }, [
+            Object,
+          ]),
+          abort.signal,
+        ),
+        delay(100).then(() => abort.abort()),
+      ]),
+    ).toBeRejectedWithError('sequence was aborted');
   });
 });
