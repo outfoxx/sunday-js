@@ -53,6 +53,23 @@ export function nullifyResponse<T>(
   };
 }
 
+export function nullifyPromiseResponse<T>(
+  statuses: number[],
+  problemTypes: ClassType<Problem>[],
+): (error: unknown) => Promise<T | null> {
+  return function <T>(error: unknown): Promise<T | null> {
+    const errorType = (error as Record<string, unknown>)
+      .constructor as ClassType<Problem>;
+    if (
+      error instanceof Problem &&
+      (statuses.includes(error.status) || problemTypes.includes(errorType))
+    ) {
+      return Promise.resolve(null);
+    }
+    return Promise.reject(error);
+  };
+}
+
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface AbortError extends Error {}
 
