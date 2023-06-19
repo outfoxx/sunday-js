@@ -13,11 +13,12 @@
 // limitations under the License.
 
 import fetchMock from 'fetch-mock';
-import { first, firstValueFrom } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
 import {
   FetchRequestFactory,
   MediaType,
   nullifyNotFound,
+  nullifyPromiseResponse,
   nullifyResponse,
   Problem,
   promiseFrom,
@@ -70,7 +71,7 @@ describe('RxJS Utils', () => {
       firstValueFrom(
         fetchRequestFactory
           .result({ method: 'GET', pathTemplate: '' })
-          .pipe(nullifyNotFound(), first()),
+          .pipe(nullifyNotFound()),
       ),
     ).toBeResolvedTo(null);
   });
@@ -88,8 +89,24 @@ describe('RxJS Utils', () => {
       firstValueFrom(
         fetchRequestFactory
           .result({ method: 'GET', pathTemplate: '' })
-          .pipe(nullifyResponse([], [TestProblem]), first()),
+          .pipe(nullifyResponse([], [TestProblem])),
       ),
+    ).toBeResolvedTo(null);
+  });
+
+  it('nullifyPromiseResponse translates selected problems to null', async () => {
+    fetchMock.getOnce('http://example.com', {
+      throws: new TestProblem(),
+      status: 404,
+      headers: { 'content-type': MediaType.Problem.value },
+    });
+
+    const fetchRequestFactory = new FetchRequestFactory('http://example.com');
+
+    await expectAsync(
+      firstValueFrom(
+        fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }),
+      ).catch(nullifyPromiseResponse([], [TestProblem])),
     ).toBeResolvedTo(null);
   });
 
@@ -104,8 +121,22 @@ describe('RxJS Utils', () => {
       firstValueFrom(
         fetchRequestFactory
           .result({ method: 'GET', pathTemplate: '' })
-          .pipe(nullifyResponse([404], []), first()),
+          .pipe(nullifyResponse([404], [])),
       ),
+    ).toBeRejectedWithError(Problem);
+  });
+
+  it('nullifyPromiseResponse passes other statuses', async () => {
+    fetchMock.getOnce('http://example.com', {
+      throws: Problem.fromStatus(400, 'Bad Request'),
+    });
+
+    const fetchRequestFactory = new FetchRequestFactory('http://example.com');
+
+    await expectAsync(
+      firstValueFrom(
+        fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }),
+      ).catch(nullifyPromiseResponse([404], [])),
     ).toBeRejectedWithError(Problem);
   });
 
@@ -120,8 +151,22 @@ describe('RxJS Utils', () => {
       firstValueFrom(
         fetchRequestFactory
           .result({ method: 'GET', pathTemplate: '' })
-          .pipe(nullifyResponse([], [TestProblem]), first()),
+          .pipe(nullifyResponse([], [TestProblem])),
       ),
+    ).toBeRejectedWithError(AnotherProblem, /Another Problem/i);
+  });
+
+  it('nullifyPromiseResponse passes other problems', async () => {
+    fetchMock.getOnce('http://example.com', {
+      throws: new AnotherProblem(),
+    });
+
+    const fetchRequestFactory = new FetchRequestFactory('http://example.com');
+
+    await expectAsync(
+      firstValueFrom(
+        fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }),
+      ).catch(nullifyPromiseResponse([], [TestProblem])),
     ).toBeRejectedWithError(AnotherProblem, /Another Problem/i);
   });
 
@@ -136,8 +181,22 @@ describe('RxJS Utils', () => {
       firstValueFrom(
         fetchRequestFactory
           .result({ method: 'GET', pathTemplate: '' })
-          .pipe(nullifyResponse([405], [TestProblem]), first()),
+          .pipe(nullifyResponse([405], [TestProblem])),
       ),
+    ).toBeRejectedWithError(Error, /Failed to send request/i);
+  });
+
+  it('nullifyPromiseResponse passes other errors', async () => {
+    fetchMock.getOnce('http://example.com', {
+      throws: Error('Failed to send request'),
+    });
+
+    const fetchRequestFactory = new FetchRequestFactory('http://example.com');
+
+    await expectAsync(
+      firstValueFrom(
+        fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }),
+      ).catch(nullifyPromiseResponse([405], [TestProblem])),
     ).toBeRejectedWithError(Error, /Failed to send request/i);
   });
 
