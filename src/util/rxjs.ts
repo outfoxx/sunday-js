@@ -12,7 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { catchError, from, Observable, throwError } from 'rxjs';
+import {
+  catchError,
+  firstValueFrom,
+  from,
+  fromEvent,
+  Observable,
+  switchMap,
+  take,
+  takeUntil,
+  throwError,
+} from 'rxjs';
+import { createErrorClass } from 'rxjs/internal/util/createErrorClass';
 import { ClassType } from '../class-type';
 import { Problem } from '../problem';
 
@@ -40,4 +51,58 @@ export function nullifyResponse<T>(
       }),
     );
   };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+export interface AbortError extends Error {}
+
+export type AbortErrorCtor = new () => AbortError;
+
+/**
+ * An error thrown when an Observable converted to a promise is aborted with
+ * via a provided `AbortSignal`.
+ *
+ * @see {@link promiseFrom}
+ *
+ * @class AbortError
+ */
+export const AbortError: AbortErrorCtor = createErrorClass(
+  (_super: (instance: Error) => void) =>
+    function AbortErrorImpl(this: Error) {
+      _super(this);
+      this.name = 'AbortError';
+      this.message = 'sequence was aborted';
+    },
+);
+
+/**
+ * Converts an Observable to a Promise, optionally aborting the Observable via
+ * a provided `AbortSignal`.
+ *
+ * @param obs Observable to convert to a Promise
+ * @param signal Optional AbortSignal to abort the Observable
+ * @returns Promise that resolves to the first value from the Observable
+ */
+export function promiseFrom<T>(
+  obs: Observable<T>,
+  signal?: AbortSignal,
+): Promise<T> {
+  if (!signal) {
+    return firstValueFrom(obs);
+  }
+  // Reject immediately if the signal has already fired. Use `AbortError`
+  // because that's what `first` will fail with per the note below
+  if (signal.aborted) {
+    return Promise.reject(new AbortError());
+  }
+
+  const stop = fromEvent(signal, 'abort').pipe(
+    take(1),
+    switchMap(() => throwError(() => new AbortError())),
+  );
+
+  // Note that `takeUntil` will cause the observable to complete when the
+  // Signal fires, but `firstValueFrom` will fail with EmptyError if there
+  // wasn't a value, which will reject out of the returned Promise.
+  return firstValueFrom(obs.pipe(takeUntil(stop)));
 }
