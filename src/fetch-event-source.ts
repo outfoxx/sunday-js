@@ -166,6 +166,10 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   //
 
   close(): void {
+    if (this.readyState === this.CLOSED) {
+      return;
+    }
+
     this.logger?.debug?.('close requested');
 
     this.readyState = this.CLOSED;
@@ -204,11 +208,12 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   }
 
   private stopEventTimeoutCheck() {
-    this.logger?.trace?.('stopping event timeout checks');
-
     if (this.eventTimeoutCheckHandle) {
+      this.logger?.trace?.('stopping event timeout checks');
+
       clearInterval(this.eventTimeoutCheckHandle);
     }
+
     this.eventTimeoutCheckHandle = undefined;
   }
 
