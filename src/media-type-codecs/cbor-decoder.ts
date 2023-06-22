@@ -212,7 +212,7 @@ export class CBORDecoder implements MediaTypeDecoder {
         );
         return ZonedDateTime.ofInstant(instant, ZoneId.UTC);
       } else {
-        console.error('Unsupported date decoding format');
+        throw Error('Unsupported date decoding format');
       }
     }
     if (typeof value === 'string') {
@@ -261,7 +261,7 @@ export class CBORDecoder implements MediaTypeDecoder {
         );
         return OffsetDateTime.ofInstant(instant, ZoneId.UTC);
       } else {
-        console.error('Unsupported date decoding format');
+        throw new Error('Unsupported date decoding format');
       }
     }
     if (typeof value === 'string') {
@@ -474,7 +474,7 @@ export class CBORDecoder implements MediaTypeDecoder {
       ) {
         return new Date(value * 1000);
       } else {
-        console.error('Unsupported date decoding format');
+        throw new Error('Unsupported date decoding format');
       }
     }
     if (typeof value === 'string') {
