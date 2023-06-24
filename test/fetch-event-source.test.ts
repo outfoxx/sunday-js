@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import fetchMock from 'fetch-mock';
-import { unknownGet } from '../src/util/any';
+import { unknownGet, unknownSet } from '../src/util/any';
 import { FetchEventSource, MediaType, Problem } from '../src';
 import { delayedResponse } from './fetch-mock-utils';
 import objectContaining = jasmine.objectContaining;
@@ -200,12 +200,11 @@ describe('FetchEventSource', () => {
     const abortController = new AbortController();
 
     fetchMock.get('http://example.com', () =>
-      delayedResponse({ status: 200 }, 500),
+      delayedResponse({ status: 200 }, 5000),
     );
 
-    const eventSource = new FetchEventSource('http://example.com', {
-      abortController,
-    });
+    const eventSource = new FetchEventSource('http://example.com');
+    unknownSet(eventSource, 'signal', abortController.signal);
 
     eventSource.onerror = (ev) => {
       const error = unknownGet(ev, 'error');
