@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { defer, map, Observable, of, switchMap } from 'rxjs';
+import { fromFetch } from 'rxjs/internal/observable/dom/fetch';
 import { AnyType } from './any-type';
 import { ConstructableClassType } from './class-type';
 import { validate } from './fetch';
@@ -160,7 +161,7 @@ export class FetchRequestFactory implements RequestFactory {
     const request$ =
       request instanceof Request ? of(request) : this.request(request);
     return request$.pipe(
-      switchMap((req) => fetch(req)),
+      switchMap((req) => fromFetch(req)),
       switchMap((response) =>
         validate(response, dataExpected ?? false, this.problemTypes),
       ),

@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { EMPTY, map, Observable, of, Subscription, switchMap, tap } from 'rxjs';
+import { EMPTY, map, Observable, of, Subscription, switchMap } from 'rxjs';
+import { fromReadableStreamLike } from 'rxjs/internal/observable/innerFrom';
 import { EventInfo, EventParser } from './event-parser';
 import { validate } from './fetch';
 import { Logger } from './logger';
 import { MediaType } from './media-type';
 import { ExtEventSource } from './request-factory';
-import { unknownSet } from './util/any';
-import { fromStream } from './util/stream-rxjs';
+import { unknownGet, unknownSet } from './util/any';
 
 export interface FetchEventSource {
   addEventListener<K extends keyof EventSourceEventMap>(
@@ -73,7 +73,6 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   private eventTimeoutCheckHandle?: number;
   private lastEventReceivedTime = 0;
   private eventParser = new EventParser();
-  private readonly externalAbortController?: AbortController;
 
   constructor(
     url: string,
@@ -81,7 +80,6 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       adapter?: (url: string, requestInit: RequestInit) => Observable<Request>;
       eventTimeout?: number;
       logger?: Logger;
-      abortController?: AbortController;
     },
   ) {
     super();
@@ -93,7 +91,6 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       eventSourceInit?.eventTimeout ??
       FetchEventSource.EVENT_TIMEOUT_DEFAULT * 1000;
     this.logger = eventSourceInit?.logger;
-    this.externalAbortController = eventSourceInit?.abortController;
   }
 
   //
@@ -121,44 +118,68 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       headers.append(FetchEventSource.LAST_EVENT_ID_HEADER, this.lastEventId);
     }
 
-    const abortController =
-      this.externalAbortController ?? new AbortController();
+    this.connectionSubscription?.unsubscribe();
+    this.connectionSubscription = new Subscription();
+
+    // Abort when connection is unsubscribed
+    const unsubscribeAbortController = new AbortController();
+    this.connectionSubscription.add(() => unsubscribeAbortController.abort());
+
+    // Purely for testing purposes, allow an external signal to abort the fetch
+    const externalSignal = unknownGet(this, 'signal');
+    if (externalSignal instanceof AbortSignal) {
+      const externalSignalLink = () => unsubscribeAbortController.abort();
+
+      externalSignal.addEventListener('abort', externalSignalLink);
+      this.connectionSubscription.add(() =>
+        externalSignal?.removeEventListener('abort', externalSignalLink),
+      );
+    }
 
     const requestInit: RequestInit = {
       headers,
       cache: 'no-store',
       redirect: 'follow',
-      signal: abortController.signal,
     };
 
     this.connectionAttemptTime = Date.now();
 
-    this.connectionSubscription = this.adapter(this.url, requestInit)
-      .pipe(
-        switchMap((request) => fetch(request)),
-        switchMap((response) => validate(response, true)),
-        tap((response) => this.receivedHeaders(response)),
-        switchMap((response) => {
-          const body = response.body;
-          if (!body) {
-            return EMPTY;
-          }
+    this.connectionSubscription.add(
+      this.adapter(this.url, requestInit)
+        .pipe(
+          switchMap(async (request) => {
+            // Fetch explicitly using the unsubscribe
+            // abort controller signal
+            const response = await fetch(request, {
+              signal: unsubscribeAbortController.signal,
+            });
 
-          return fromStream(body);
+            const validatedResponse = await validate(response, true);
+
+            this.receivedHeaders(validatedResponse);
+
+            return validatedResponse;
+          }),
+          switchMap((response) => {
+            // If response has no body, return empty to complete immediately
+            const body = response.body;
+            if (!body) {
+              return EMPTY;
+            }
+
+            return fromReadableStreamLike(body);
+          }),
+          map((value) => this.receivedData(value)),
+        )
+        .subscribe({
+          error: (error: unknown) => {
+            this.receivedError(error);
+          },
+          complete: () => {
+            this.receivedComplete();
+          },
         }),
-        map((value) => this.receivedData(value)),
-      )
-      .subscribe({
-        error: (error: unknown) => {
-          this.receivedError(error);
-        },
-        complete: () => {
-          this.receivedComplete();
-        },
-      });
-    this.connectionSubscription.add(() => {
-      abortController.abort();
-    });
+    );
   }
 
   //
