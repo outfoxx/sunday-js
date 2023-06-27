@@ -70,7 +70,7 @@ describe('CBOREncoder', () => {
     );
 
     expect(CBOREncoder.default.encode(new Test(buffer), [Test])).toHaveBytes(
-      Hex.decode('A1 64 74657374 D8 40 44 74657374'),
+      Hex.decode('A1 64 74657374 44 74657374'),
     );
   });
 

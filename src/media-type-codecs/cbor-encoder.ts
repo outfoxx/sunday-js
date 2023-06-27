@@ -113,7 +113,7 @@ export class CBOREncoder implements MediaTypeEncoder {
   }
 
   private arrayBufferSerializer: Serializer = (_, value: ArrayBuffer) => {
-    return value == null ? null : new Uint8Array(value);
+    return value;
   };
 
   private instantSerializer: Serializer = (_, value: Instant) => {
