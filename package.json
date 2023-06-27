@@ -51,7 +51,7 @@
   "dependencies": {
     "@js-joda/core": "5.2.x",
     "@outfoxx/jackson-js": "1.4.x",
-    "cbor-redux": "^1.0.0-3",
+    "cbor-redux": "1.0.x",
     "tslib": "2.4.x",
     "uri-template": "^2.0.0"
   },
