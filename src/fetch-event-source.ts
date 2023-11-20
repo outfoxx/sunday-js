@@ -16,7 +16,7 @@ import { EMPTY, map, Observable, of, Subscription, switchMap } from 'rxjs';
 import { fromReadableStreamLike } from 'rxjs/internal/observable/innerFrom';
 import { EventInfo, EventParser } from './event-parser';
 import { validate } from './fetch';
-import { Logger } from './logger';
+import { levelLogger, Logger, LogLevel } from './logger';
 import { MediaType } from './media-type';
 import { ExtEventSource } from './request-factory';
 import { unknownGet, unknownSet } from './util/any';
@@ -28,6 +28,7 @@ export interface FetchEventSource {
     listener: (this: EventSource, ev: EventSourceEventMap[K]) => any,
     options?: boolean | AddEventListenerOptions,
   ): void;
+
   removeEventListener<K extends keyof EventSourceEventMap>(
     type: K,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -38,7 +39,8 @@ export interface FetchEventSource {
 
 export class FetchEventSource extends EventTarget implements ExtEventSource {
   private static LAST_EVENT_ID_HEADER = 'Last-Event-ID';
-  private static MAX_RETRY_TIME_MULTIPLE = 30;
+  private static MAX_RETRY_TIME_MULTIPLIER = 12;
+  private static RETRY_EXPONENT = 2.6;
   private static EVENT_TIMEOUT_DEFAULT = 75;
   private static EVENT_TIMEOUT_CHECK_INTERVAL = 2;
 
@@ -64,7 +66,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   private connectionSubscription?: Subscription;
   private internalRetryTime = 100;
   private retryAttempt = 0;
-  private connectionAttemptTime = 0;
+  private connectionAttemptTime: number | undefined;
   private connectionOrigin?: string;
   private reconnectTimeoutHandle?: number;
   private lastEventId?: string;
@@ -90,7 +92,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     this.eventTimeout =
       eventSourceInit?.eventTimeout ??
       FetchEventSource.EVENT_TIMEOUT_DEFAULT * 1000;
-    this.logger = eventSourceInit?.logger;
+    this.logger = levelLogger(LogLevel.Info, eventSourceInit?.logger);
   }
 
   //
@@ -191,7 +193,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       return;
     }
 
-    this.logger?.debug?.('close requested');
+    this.logger?.debug?.('closing');
 
     this.readyState = this.CLOSED;
 
@@ -211,6 +213,10 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   // Event Timeout
   //
 
+  private updateLastEventReceived(time: number = Date.now()) {
+    this.lastEventReceivedTime = time;
+  }
+
   private startEventTimeoutCheck(lastEventReceivedTime: number) {
     this.stopEventTimeoutCheck();
 
@@ -218,7 +224,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       return;
     }
 
-    this.lastEventReceivedTime = lastEventReceivedTime;
+    this.updateLastEventReceived(lastEventReceivedTime);
 
     this.logger?.trace?.('starting event timeout checks');
 
@@ -274,7 +280,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       return;
     }
 
-    this.logger?.debug?.('opened');
+    this.logger?.info?.('opened');
 
     this.connectionOrigin = response.url;
     this.retryAttempt = 0;
@@ -336,21 +342,15 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   private scheduleReconnect() {
     this.internalClose();
 
-    // calculate total delay
-    const backOffDelay = Math.pow(this.retryAttempt, 2) * this.retryTime;
-    let retryDelay = Math.min(
-      this.retryTime + backOffDelay,
-      this.retryTime * FetchEventSource.MAX_RETRY_TIME_MULTIPLE,
-    );
+    const lastConnectionTime = this.connectionAttemptTime
+      ? Date.now() - this.connectionAttemptTime
+      : 0;
 
-    // Adjust delay by amount of time last connect
-    // cycle took, except on the first attempt
-    if (this.retryAttempt > 0) {
-      const connectionTime = Date.now() - this.connectionAttemptTime;
-      // Ensure delay is at least as large as
-      // minimum retry time interval
-      retryDelay = Math.max(retryDelay - connectionTime, this.retryTime);
-    }
+    const retryDelay = FetchEventSource.calculateRetryTime(
+      this.retryAttempt,
+      this.retryTime,
+      lastConnectionTime,
+    );
 
     this.retryAttempt++;
     this.readyState = this.CONNECTING;
@@ -361,6 +361,32 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       () => this.internalConnect(),
       retryDelay,
     );
+  }
+
+  private static calculateRetryTime(
+    retryAttempt: number,
+    retryTime: number,
+    lastConnectTime: number,
+  ): number {
+    const retryMultiplier = Math.min(
+      retryAttempt,
+      this.MAX_RETRY_TIME_MULTIPLIER,
+    );
+
+    // calculate total delay
+    let retryDelay = Math.pow(retryMultiplier, this.RETRY_EXPONENT) * retryTime;
+
+    // Adjust delay by amount of time last connect
+    // cycle took, except on the first attempt
+    if (retryAttempt > 0) {
+      retryDelay -= lastConnectTime;
+
+      // Ensure delay is at least as large as
+      // minimum retry time interval
+      retryDelay = Math.max(retryDelay, retryTime);
+    }
+
+    return retryDelay;
   }
 
   private clearReconnect() {
@@ -375,7 +401,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   //
 
   private dispatchParsedEvent = (eventInfo: EventInfo) => {
-    this.lastEventReceivedTime = Date.now();
+    this.updateLastEventReceived();
 
     if (eventInfo.retry) {
       const retryTime = Number.parseInt(eventInfo.retry, 10);
@@ -385,7 +411,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
         this.internalRetryTime = retryTime;
       } else {
-        this.logger?.debug?.('ignoring invalid retry timeout event', {
+        this.logger?.warn?.('ignoring invalid retry timeout event', {
           eventInfo,
         });
       }
@@ -398,6 +424,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       eventInfo.data == null
     ) {
       // skip empty event
+      this.logger?.trace?.('skipping empty event');
       return;
     }
 
@@ -407,8 +434,8 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       if (eventInfo.id.indexOf('\0') == -1) {
         this.lastEventId = eventInfo.id;
       } else {
-        this.logger?.debug?.(
-          'event id contains null, unable to use for last-event-id',
+        this.logger?.warn?.(
+          'event id contains NULL byte, unable to use for last-event-id',
         );
       }
     }
