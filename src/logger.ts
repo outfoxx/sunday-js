@@ -20,3 +20,29 @@ export interface Logger {
   warn?(...data: unknown[]): void;
   error?(...data: unknown[]): void;
 }
+
+export enum LogLevel {
+  Trace = 4,
+  Debug = 3,
+  Info = 2,
+  Warn = 1,
+  Error = 0,
+  None = -1,
+}
+
+export function levelLogger(
+  level: LogLevel,
+  logger?: Logger,
+): Logger | undefined {
+  if (!logger) {
+    return undefined;
+  }
+  return {
+    log: logger?.log?.bind(logger),
+    trace: level >= LogLevel.Trace ? logger?.trace?.bind(logger) : undefined,
+    debug: level >= LogLevel.Debug ? logger?.debug?.bind(logger) : undefined,
+    info: level >= LogLevel.Info ? logger?.info?.bind(logger) : undefined,
+    warn: level >= LogLevel.Warn ? logger?.warn?.bind(logger) : undefined,
+    error: level >= LogLevel.Error ? logger?.error?.bind(logger) : undefined,
+  };
+}

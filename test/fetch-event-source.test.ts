@@ -220,6 +220,50 @@ describe('FetchEventSource', () => {
     }, 250);
   });
 
+  it('counts comment only pings as events but does not dispatch', (done) => {
+    const eventStream = new TextEncoder().encode(
+      ': ping\n\n: ping\n\nevent: hello\nid: 12345\ndata: Hello World!\n\n',
+    ).buffer;
+
+    fetchMock.getOnce(
+      'http://example.com',
+      () =>
+        new Response(new Blob([eventStream]), {
+          headers: { 'content-type': MediaType.EventStream.toString() },
+        }),
+    );
+    fetchMock.get(
+      'http://example.com',
+      { status: 503 },
+      { overwriteRoutes: false },
+    );
+
+    const eventSource = new FetchEventSource('http://example.com');
+
+    const lastEventReceivedTimeSet = spyOn(
+      eventSource,
+      'updateLastEventReceived' as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+    ).and.callThrough();
+
+    const dispatchEventSpy = spyOn(
+      eventSource,
+      'dispatchEvent',
+    ).and.callThrough();
+
+    eventSource.onmessage = (ev) => {
+      expect(ev.type).toEqual('hello');
+      expect(ev.data).toEqual('Hello World!');
+
+      if (ev.type === 'hello') {
+        expect(dispatchEventSpy).toHaveBeenCalledTimes(1);
+        expect(lastEventReceivedTimeSet).toHaveBeenCalledTimes(4);
+        done();
+      }
+    };
+
+    eventSource.connect();
+  });
+
   xit('survives disconnections & close/connect cycles', (done) => {
     let messagesReceived = 0;
     const eventSource = new FetchEventSource('http://localhost:5555/stream', {
