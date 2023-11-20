@@ -41,8 +41,8 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   private static LAST_EVENT_ID_HEADER = 'Last-Event-ID';
   private static MAX_RETRY_TIME_MULTIPLIER = 12;
   private static RETRY_EXPONENT = 2.6;
-  private static EVENT_TIMEOUT_DEFAULT = 75;
-  private static EVENT_TIMEOUT_CHECK_INTERVAL = 2;
+  private static EVENT_TIMEOUT_DEFAULT = 120 * 1000;
+  private static EVENT_TIMEOUT_CHECK_INTERVAL_DEFAULT = 2 * 1000;
 
   CONNECTING = 0;
   OPEN = 1;
@@ -72,6 +72,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   private lastEventId?: string;
   private logger?: Logger;
   private readonly eventTimeout?: number;
+  private readonly eventTimeoutCheckInterval: number;
   private eventTimeoutCheckHandle?: number;
   private lastEventReceivedTime = 0;
   private eventParser = new EventParser();
@@ -81,6 +82,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     eventSourceInit?: EventSourceInit & {
       adapter?: (url: string, requestInit: RequestInit) => Observable<Request>;
       eventTimeout?: number;
+      eventTimeoutCheckInterval?: number;
       logger?: Logger;
     },
   ) {
@@ -90,8 +92,10 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       eventSourceInit?.adapter ??
       ((_url, requestInit) => of(new Request(_url, requestInit)));
     this.eventTimeout =
-      eventSourceInit?.eventTimeout ??
-      FetchEventSource.EVENT_TIMEOUT_DEFAULT * 1000;
+      eventSourceInit?.eventTimeout ?? FetchEventSource.EVENT_TIMEOUT_DEFAULT;
+    this.eventTimeoutCheckInterval =
+      eventSourceInit?.eventTimeoutCheckInterval ??
+      FetchEventSource.EVENT_TIMEOUT_CHECK_INTERVAL_DEFAULT;
     this.logger = levelLogger(LogLevel.Info, eventSourceInit?.logger);
   }
 
@@ -230,7 +234,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
     this.eventTimeoutCheckHandle = window.setInterval(
       () => this.checkEventTimeout(),
-      FetchEventSource.EVENT_TIMEOUT_CHECK_INTERVAL * 1000,
+      this.eventTimeoutCheckInterval,
     );
   }
 
