@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import {beforeEach, describe, it, expect} from 'bun:test';
 import fetchMock from 'fetch-mock';
 import { catchError, firstValueFrom } from 'rxjs';
 import { FetchRequestFactory, MediaType, Problem, SundayError } from '../src';
-import any = jasmine.any;
 
 describe('Fetch API Utilities', () => {
   beforeEach(() => {
-    fetchMock.reset();
+    fetchMock.hardReset().mockGlobal();
   });
 
   it('validate throws SundayError for 204 when data expected', async () => {
@@ -33,7 +33,7 @@ describe('Fetch API Utilities', () => {
     );
 
     const requestFactory = new FetchRequestFactory('http://example.com');
-    await expectAsync(
+    expect(
       firstValueFrom(
         requestFactory
           .response({ method: 'GET', pathTemplate: '/test' }, true)
@@ -43,7 +43,7 @@ describe('Fetch API Utilities', () => {
             }),
           ),
       ),
-    ).toBeRejectedWith(any(SundayError));
+    ).rejects.toThrow(SundayError);
   });
 
   it('validate throws Problem for HTTP error responses', async () => {
@@ -57,7 +57,7 @@ describe('Fetch API Utilities', () => {
     );
 
     const requestFactory = new FetchRequestFactory('http://example.com');
-    await expectAsync(
+    expect(
       firstValueFrom(
         requestFactory
           .response({ method: 'GET', pathTemplate: '/test' }, true)
@@ -67,7 +67,7 @@ describe('Fetch API Utilities', () => {
             }),
           ),
       ),
-    ).toBeRejectedWith(any(Problem));
+    ).rejects.toThrow(Problem);
   });
 
   it('validate throws Problem for unregistered problem types', async () => {
@@ -88,7 +88,7 @@ describe('Fetch API Utilities', () => {
     );
 
     const requestFactory = new FetchRequestFactory('http://example.com');
-    await expectAsync(
+    expect(
       firstValueFrom(
         requestFactory
           .response({ method: 'GET', pathTemplate: '/test' }, true)
@@ -98,6 +98,6 @@ describe('Fetch API Utilities', () => {
             }),
           ),
       ),
-    ).toBeRejectedWith(any(Problem));
+    ).rejects.toThrow(Problem);
   });
 });

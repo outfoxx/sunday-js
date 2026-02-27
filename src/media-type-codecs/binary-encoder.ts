@@ -12,22 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { DateEncoding, Serde, SerializationContext } from '../serde';
 import { MediaTypeEncoder } from './media-type-encoder';
 
 export class BinaryEncoder implements MediaTypeEncoder {
   static default = new BinaryEncoder();
 
-  encode(value: unknown): BodyInit {
-    if (
-      !ArrayBuffer.isView(value) &&
-      !(value instanceof ArrayBuffer) &&
-      !(value instanceof Blob) &&
-      !(value instanceof ReadableStream)
-    ) {
-      throw Error(
-        'Invalid value, expected BufferSource, Blob or ReadableStream',
-      );
+  encode<T>(value: T, type?: Serde<T>): BodyInit {
+    if (!type) {
+      return value as BodyInit;
     }
-    return value;
+    const ctx: SerializationContext = {
+      format: 'cbor',
+      dateEncoding: DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      includeNulls: false,
+    };
+    return type.serialize(value, ctx) as BodyInit;
   }
 }
+

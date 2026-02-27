@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { MockResponse } from 'fetch-mock';
+import type { RouteResponse } from 'fetch-mock';
+import { delay } from './promises';
 
-export function delayedResponse(
-  response: MockResponse,
+export async function delayedResponse(
+  response: RouteResponse,
   after: number,
-): Promise<MockResponse> {
-  return new Promise((resolve) => setTimeout(resolve, after)).then(
-    () => response,
-  );
+): Promise<RouteResponse> {
+  await delay(after)
+  return response;
 }

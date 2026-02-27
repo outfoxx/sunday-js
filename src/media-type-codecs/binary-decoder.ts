@@ -12,27 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { DeserializationContext, NumericDateDecoding, Serde } from '../serde';
 import { MediaTypeDecoder } from './media-type-decoder';
-import { AnyConstructableType } from '../any-type';
 
 export class BinaryDecoder implements MediaTypeDecoder {
   static default = new BinaryDecoder();
 
-  async decode<T>(response: Response, type: AnyConstructableType): Promise<T> {
+  async decode<T>(response: Response, type: Serde<T>): Promise<T> {
     const arrayBuffer = await response.arrayBuffer();
-
-    if (type[0] === ArrayBuffer) {
-      return arrayBuffer as unknown as T;
-    } else if (
-      type[0] === Uint8Array ||
-      type[0] === Int8Array ||
-      type[0] === DataView
-    ) {
-      return new type[0](arrayBuffer) as T;
-    }
-
-    throw Error(
-      'Invalid value, expected ArrayBuffer, (Int|Uint)Array or DataView',
-    );
+    const ctx: DeserializationContext = {
+      format: 'cbor',
+      numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+    };
+    return type.deserialize(arrayBuffer, ctx);
   }
 }
+

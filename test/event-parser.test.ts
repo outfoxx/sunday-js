@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import {describe, it, expect} from 'bun:test';
 import { EventInfo, EventParser } from '../src/event-parser';
 
 describe('EventParser', () => {
@@ -94,7 +95,7 @@ describe('EventParser', () => {
       text.encode('event: hello\nid: 123').buffer,
       text.encode('45\rdata: Hello World!\r\n\r\n').buffer,
       text.encode('45\rdata: Hello World!\r\n\r\n').buffer,
-      text.encode('\r\n\r\n\r\n\r\n'),
+      text.encode('\r\n\r\n\r\n\r\n').buffer,
     ];
 
     const parser = new EventParser();

@@ -14,14 +14,16 @@
 
 import { ResponseExample } from './fetch';
 import {
-  JsonAnyGetter,
-  JsonAnySetter,
-  JsonClassType,
-  JsonCreator,
-  JsonCreatorMode,
-  JsonIgnore,
-  JsonProperty,
-} from '@outfoxx/jackson-js';
+  DeserializationContext,
+  expectObject,
+  SerializationContext,
+  Serde,
+  numberSerde,
+  serializeOptional,
+  serializeRequired,
+  stringSerde,
+  urlSerde,
+} from './serde';
 
 export interface ProblemSpec {
   type: URL | string;
@@ -41,38 +43,23 @@ export interface Problem {
   [key: string]: unknown;
 }
 
-@JsonCreator({ mode: JsonCreatorMode.DELEGATING })
 export class Problem extends Error implements Problem {
-  @JsonProperty()
-  @JsonClassType({ type: () => [URL] })
   public type: URL;
 
-  @JsonProperty()
-  @JsonClassType({ type: () => [String] })
   public title: string;
 
-  @JsonProperty()
-  @JsonClassType({ type: () => [Number] })
   public status: number;
 
-  @JsonProperty()
-  @JsonClassType({ type: () => [String] })
   public detail?: string;
 
-  @JsonProperty()
-  @JsonClassType({ type: () => [URL] })
   public instance?: URL;
 
-  @JsonIgnore()
   private _parameters?: Record<string, unknown>;
 
-  @JsonClassType({ type: () => [Object] })
-  @JsonAnyGetter()
   public get parameters(): Record<string, unknown> | undefined {
     return this._parameters;
   }
 
-  @JsonAnySetter()
   private setParameter(key: string, value: unknown) {
     this._parameters = this._parameters ?? {};
     this._parameters[key] = value;
@@ -122,6 +109,26 @@ export class Problem extends Error implements Problem {
     });
   }
 
+  static serialize(value: Problem, ctx: SerializationContext): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
+    serializeRequired(result, 'type', value.type, urlSerde, ctx);
+    serializeRequired(result, 'title', value.title, stringSerde, ctx);
+    serializeRequired(result, 'status', value.status, numberSerde, ctx);
+    serializeOptional(result, 'detail', value.detail, stringSerde, ctx, true);
+    serializeOptional(result, 'instance', value.instance, urlSerde, ctx, true);
+    if (value.parameters) {
+      Object.entries(value.parameters).forEach(([key, entry]) => {
+        result[key] = entry;
+      });
+    }
+    return result;
+  }
+
+  static deserialize(value: unknown, _ctx: DeserializationContext): Problem {
+    const obj = expectObject(value, 'Problem');
+    return new Problem(obj as ProblemSpec);
+  }
+
   static fromStatus(status: number, title: string): Problem {
     return new Problem({
       type: 'about:blank',
@@ -164,9 +171,19 @@ export class Problem extends Error implements Problem {
     if (value instanceof URL) {
       return value;
     }
-    if (typeof value == 'string') {
-      return new URL(value);
+    if (typeof value === 'string') {
+      try {
+        return new URL(value);
+      } catch {
+        return undefined;
+      }
     }
-    return new URL(`${value}`);
+    return undefined;
   }
 }
+
+export const ProblemSerde: Serde<Problem> = {
+  serialize: Problem.serialize,
+  deserialize: Problem.deserialize,
+};
+

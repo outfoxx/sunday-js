@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import {beforeEach, describe, it, expect} from 'bun:test';
 import {
   LocalDate,
   LocalDateTime,
@@ -22,555 +23,393 @@ import {
   ZoneOffset,
 } from '@js-joda/core';
 import fetchMock from 'fetch-mock';
-import { JsonClassType, JsonProperty } from '@outfoxx/jackson-js';
-import { Base64, Instant, JSONDecoder, ZonedDateTime } from '../src';
+import {
+  arrayBufferSerde,
+  Base64,
+  dateSerde,
+  instantSerde,
+  JSONDecoder,
+  localDateSerde,
+  localDateTimeSerde,
+  localTimeSerde,
+  numberSerde,
+  offsetDateTimeSerde,
+  offsetTimeSerde,
+  Serde,
+  stringSerde,
+  urlSerde,
+  ZonedDateTime,
+  Instant,
+  zonedDateTimeSerde,
+} from '../src';
+import { expectEqual } from './expect-utils';
+import { objectSerde } from './serde-test-helpers';
 import NumericDateDecoding = JSONDecoder.NumericDateDecoding;
+
+const testSerde = <T>(serde: Serde<T>) =>
+  objectSerde<{ test: T }>('Test', { test: { serde } });
 
 describe('JSONDecoder', () => {
   beforeEach(() => {
-    fetchMock.reset();
+    fetchMock.hardReset().mockGlobal();
   });
 
-  it('decodes jackson-js types from fetch response', async () => {
-    //
-    class Sub {
-      constructor(
-        @JsonProperty()
-        public value: number,
-      ) {}
-    }
+  it('decodes object types from fetch response', async () => {
+    type Sub = { value: number };
+    type Test = { test: string; sub: Sub };
 
-    class Test {
-      constructor(
-        @JsonProperty()
-        public test: string,
-        @JsonProperty()
-        @JsonClassType({ type: () => [Sub] })
-        public sub: Sub,
-      ) {}
-    }
+    const subSerde = objectSerde<Sub>('Sub', {
+      value: { serde: numberSerde },
+    });
+    const testSerdeObj = objectSerde<Test>('Test', {
+      test: { serde: stringSerde },
+      sub: { serde: subSerde },
+    });
 
     fetchMock.getOnce('http://example.com', '{"test":"a","sub":{"value":5}}');
-    await expectAsync(
-      JSONDecoder.default.decode(await fetch('http://example.com'), [Test]),
-    ).toBeResolvedTo(new Test('a', new Sub(5)));
+    expect(
+      JSONDecoder.default.decode(await fetch('http://example.com'), testSerdeObj),
+    ).resolves.toEqual({ test: 'a', sub: { value: 5 } });
   });
 
-  it('decodes jackson-js types from string', async () => {
-    //
-    class Sub {
-      constructor(
-        @JsonProperty()
-        public value: number,
-      ) {}
-    }
+  it('decodes object types from string', async () => {
+    type Sub = { value: number };
+    type Test = { test: string; sub: Sub };
 
-    class Test {
-      constructor(
-        @JsonProperty()
-        public test: string,
-        @JsonProperty()
-        @JsonClassType({ type: () => [Sub] })
-        public sub: Sub,
-      ) {}
-    }
+    const subSerde = objectSerde<Sub>('Sub', {
+      value: { serde: numberSerde },
+    });
+    const testSerdeObj = objectSerde<Test>('Test', {
+      test: { serde: stringSerde },
+      sub: { serde: subSerde },
+    });
 
     expect(
-      JSONDecoder.default.decodeText('{"test":"a","sub":{"value":5}}', [Test]),
-    ).toEqual(new Test('a', new Sub(5)));
+      JSONDecoder.default.decodeText(
+        '{"test":"a","sub":{"value":5}}',
+        testSerdeObj,
+      ),
+    ).toEqual({ test: 'a', sub: { value: 5 } });
   });
 
   it('decodes URL values from string', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [URL] })
-        public test: URL,
-      ) {}
-    }
-
-    expect(
-      JSONDecoder.default.decodeText('{"test":"http://example.com"}', [Test]),
-    ).toEqual(new Test(new URL('http://example.com')));
+    expectEqual(
+      JSONDecoder.default.decodeText(
+        '{"test":"http://example.com"}',
+        testSerde(urlSerde),
+      ),
+      { test: new URL('http://example.com') },
+    );
   });
 
   it('decodes Instant values from string', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [Instant] })
-        public test: Instant,
-      ) {}
-    }
-
     expect(
-      JSONDecoder.default.decodeText('{"test":"2002-01-01T01:02:03.004Z"}', [
-        Test,
-      ]),
-    ).toEqual(
-      new Test(
-        ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC).toInstant(),
+      JSONDecoder.default.decodeText(
+        '{"test":"2002-01-01T01:02:03.004Z"}',
+        testSerde(instantSerde),
       ),
-    );
+    ).toEqual({
+      test: ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC).toInstant(),
+    });
   });
 
   it('decodes Instant values from number (decimal seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [Instant] })
-        public test: Instant,
-      ) {}
-    }
-
     expect(
       new JSONDecoder(
         NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeText('{"test":981173106.789}', [Test]),
-    ).toEqual(
-      new Test(
-        ZonedDateTime.of(
-          2001,
-          2,
-          3,
-          4,
-          5,
-          6,
-          789000000,
-          ZoneId.UTC,
-        ).toInstant(),
-      ),
-    );
+      ).decodeText('{"test":981173106.007}', testSerde(instantSerde)),
+    ).toEqual({
+      test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 7000000, ZoneId.UTC).toInstant(),
+    });
   });
 
   it('decodes Instant values from number (milliseconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [Instant] })
-        public test: Instant,
-      ) {}
-    }
-
     expect(
-      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
-        '{"test":981173106789}',
-        [Test],
-      ),
-    ).toEqual(
-      new Test(
-        ZonedDateTime.of(
-          2001,
-          2,
-          3,
-          4,
-          5,
-          6,
-          789000000,
-          ZoneId.UTC,
-        ).toInstant(),
-      ),
-    );
+      new JSONDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      ).decodeText('{"test":981173106007}', testSerde(instantSerde)),
+    ).toEqual({
+      test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 7000000, ZoneId.UTC).toInstant(),
+    });
   });
 
   it('decodes ZonedDateTime values from string', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [ZonedDateTime] })
-        public test: ZonedDateTime,
-      ) {}
-    }
-
     expect(
-      JSONDecoder.default.decodeText('{"test":"2002-01-01T01:02:03.004Z"}', [
-        Test,
-      ]),
-    ).toEqual(
-      new Test(ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC)),
-    );
+      JSONDecoder.default.decodeText(
+        '{"test":"2002-01-01T01:02:03.004Z"}',
+        testSerde(zonedDateTimeSerde),
+      ),
+    ).toEqual({
+      test: ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC),
+    });
   });
 
   it('decodes ZonedDateTime values from number (decimal seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [ZonedDateTime] })
-        public test: ZonedDateTime,
-      ) {}
-    }
-
     expect(
       new JSONDecoder(
         NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeText('{"test":981173106.789}', [Test]),
-    ).toEqual(
-      new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC)),
-    );
+      ).decodeText('{"test":[981173106.007,"Z","Z"]}', testSerde(zonedDateTimeSerde)),
+    ).toEqual({
+      test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 7000000, ZoneId.UTC),
+    });
   });
 
   it('decodes ZonedDateTime values from number (milliseconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [ZonedDateTime] })
-        public test: ZonedDateTime,
-      ) {}
-    }
-
     expect(
-      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
-        '{"test":981173106789}',
-        [Test],
-      ),
-    ).toEqual(
-      new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC)),
-    );
+      new JSONDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      ).decodeText('{"test":[981173106007,"Z","Z"]}', testSerde(zonedDateTimeSerde)),
+    ).toEqual({
+      test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 7000000, ZoneId.UTC),
+    });
+  });
+
+  it('decodes ZonedDateTime values from legacy number (milliseconds)', async () => {
+    expect(
+      new JSONDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      ).decodeText('{"test":981173106007}', testSerde(zonedDateTimeSerde)),
+    ).toEqual({
+      test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 7000000, ZoneId.UTC),
+    });
   });
 
   it('decodes OffsetDateTime values from string', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [OffsetDateTime] })
-        public test: OffsetDateTime,
-      ) {}
-    }
-
     expect(
-      JSONDecoder.default.decodeText('{"test":"2002-01-01T01:02:03.004Z"}', [
-        Test,
-      ]),
-    ).toEqual(
-      new Test(OffsetDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneOffset.UTC)),
-    );
+      JSONDecoder.default.decodeText(
+        '{"test":"2002-01-01T01:02:03.004Z"}',
+        testSerde(offsetDateTimeSerde),
+      ),
+    ).toEqual({
+      test: OffsetDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneOffset.UTC),
+    });
   });
 
   it('decodes OffsetDateTime values from number (decimal seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [OffsetDateTime] })
-        public test: OffsetDateTime,
-      ) {}
-    }
-
     expect(
       new JSONDecoder(
         NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeText('{"test":981173106.789}', [Test]),
-    ).toEqual(
-      new Test(
-        OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC),
-      ),
-    );
+      ).decodeText('{"test":[981173106.007,"Z"]}', testSerde(offsetDateTimeSerde)),
+    ).toEqual({
+      test: OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 7000000, ZoneOffset.UTC),
+    });
   });
 
   it('decodes OffsetDateTime values from number (milliseconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [OffsetDateTime] })
-        public test: OffsetDateTime,
-      ) {}
-    }
-
     expect(
-      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
-        '{"test":981173106789}',
-        [Test],
-      ),
-    ).toEqual(
-      new Test(
-        OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC),
-      ),
-    );
+      new JSONDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      ).decodeText('{"test":[981173106007,"Z"]}', testSerde(offsetDateTimeSerde)),
+    ).toEqual({
+      test: OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 7000000, ZoneOffset.UTC),
+    });
+  });
+
+  it('decodes OffsetDateTime values from legacy number (milliseconds)', async () => {
+    expect(
+      new JSONDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      ).decodeText('{"test":981173106007}', testSerde(offsetDateTimeSerde)),
+    ).toEqual({
+      test: OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 7000000, ZoneOffset.UTC),
+    });
   });
 
   it('decodes OffsetTime values from string', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [OffsetTime] })
-        public test: OffsetTime,
-      ) {}
-    }
-
     expect(
-      JSONDecoder.default.decodeText('{"test":"01:02:03.004Z"}', [Test]),
-    ).toEqual(new Test(OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC)));
+      JSONDecoder.default.decodeText(
+        '{"test":"01:02:03.004Z"}',
+        testSerde(offsetTimeSerde),
+      ),
+    ).toEqual({
+      test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC),
+    });
   });
 
   it('decodes OffsetTime values from number (decimal seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [OffsetTime] })
-        public test: OffsetTime,
-      ) {}
-    }
-
     expect(
       new JSONDecoder(
         NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeText('{"test":[4,5,6,789000000,"Z"]}', [Test]),
-    ).toEqual(new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)));
+      ).decodeText('{"test":[3723.004,"Z"]}', testSerde(offsetTimeSerde)),
+    ).toEqual({
+      test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC),
+    });
   });
 
   it('decodes OffsetTime values from number (milliseconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [OffsetTime] })
-        public test: OffsetTime,
-      ) {}
-    }
-
     expect(
-      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
-        '{"test":[4,5,6,789,"Z"]}',
-        [Test],
+      new JSONDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      ).decodeText('{"test":[3723004,"Z"]}', testSerde(offsetTimeSerde)),
+    ).toEqual({
+      test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC),
+    });
+  });
+
+  it('decodes OffsetTime values from legacy number (milliseconds)', async () => {
+    expect(
+      new JSONDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      ).decodeText('{"test":3723004}', testSerde(offsetTimeSerde)),
+    ).toEqual({
+      test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC),
+    });
+  });
+
+  it('decodes OffsetTime values from legacy array', async () => {
+    expect(
+      JSONDecoder.default.decodeText(
+        '{"test":[1,2,3,4000000,"Z"]}',
+        testSerde(offsetTimeSerde),
       ),
-    ).toEqual(new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)));
+    ).toEqual({
+      test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC),
+    });
   });
 
   it('decodes LocalDateTime values from string', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalDateTime] })
-        public test: LocalDateTime,
-      ) {}
-    }
-
     expect(
-      JSONDecoder.default.decodeText('{"test":"2002-01-01T01:02:03.004"}', [
-        Test,
-      ]),
-    ).toEqual(new Test(LocalDateTime.of(2002, 1, 1, 1, 2, 3, 4000000)));
+      JSONDecoder.default.decodeText(
+        '{"test":"2002-01-01T01:02:03.004"}',
+        testSerde(localDateTimeSerde),
+      ),
+    ).toEqual({
+      test: LocalDateTime.of(2002, 1, 1, 1, 2, 3, 4000000),
+    });
   });
 
   it('decodes LocalDateTime values from number (decimal seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalDateTime] })
-        public test: LocalDateTime,
-      ) {}
-    }
-
     expect(
       new JSONDecoder(
         NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeText('{"test":[2001,2,3,4,5,6,789000000]}', [Test]),
-    ).toEqual(new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)));
+      ).decodeText('{"test":981173106.007}', testSerde(localDateTimeSerde)),
+    ).toEqual({
+      test: LocalDateTime.of(2001, 2, 3, 4, 5, 6, 7000000),
+    });
   });
 
   it('decodes LocalDateTime values from number (milliseconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalDateTime] })
-        public test: LocalDateTime,
-      ) {}
-    }
-
     expect(
-      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
-        '{"test":[2001,2,3,4,5,6,789]}',
-        [Test],
+      new JSONDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      ).decodeText('{"test":981173106007}', testSerde(localDateTimeSerde)),
+    ).toEqual({
+      test: LocalDateTime.of(2001, 2, 3, 4, 5, 6, 7000000),
+    });
+  });
+
+  it('decodes LocalDateTime values from legacy array', async () => {
+    expect(
+      JSONDecoder.default.decodeText(
+        '{"test":[2001,2,3,4,5,6,7000000]}',
+        testSerde(localDateTimeSerde),
       ),
-    ).toEqual(new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)));
+    ).toEqual({
+      test: LocalDateTime.of(2001, 2, 3, 4, 5, 6, 7000000),
+    });
   });
 
   it('decodes LocalDate values from string', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalDate] })
-        public test: LocalDate,
-      ) {}
-    }
-
     expect(
-      JSONDecoder.default.decodeText('{"test":"2002-01-01"}', [Test]),
-    ).toEqual(new Test(LocalDate.of(2002, 1, 1)));
+      JSONDecoder.default.decodeText(
+        '{"test":"2002-01-01"}',
+        testSerde(localDateSerde),
+      ),
+    ).toEqual({ test: LocalDate.of(2002, 1, 1) });
   });
 
   it('decodes LocalDate values from number (decimal seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalDate] })
-        public test: LocalDate,
-      ) {}
-    }
-
     expect(
       new JSONDecoder(
         NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeText('{"test":[2001,2,3]}', [Test]),
-    ).toEqual(new Test(LocalDate.of(2001, 2, 3)));
+      ).decodeText('{"test":981158400}', testSerde(localDateSerde)),
+    ).toEqual({ test: LocalDate.of(2001, 2, 3) });
   });
 
   it('decodes LocalDate values from number (milliseconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalDate] })
-        public test: LocalDate,
-      ) {}
-    }
-
     expect(
-      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
-        '{"test":[2001,2,3]}',
-        [Test],
-      ),
-    ).toEqual(new Test(LocalDate.of(2001, 2, 3)));
+      new JSONDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      ).decodeText('{"test":981158400000}', testSerde(localDateSerde)),
+    ).toEqual({ test: LocalDate.of(2001, 2, 3) });
   });
 
   it('decodes LocalTime values from string', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalTime] })
-        public test: LocalTime,
-      ) {}
-    }
-
     expect(
-      JSONDecoder.default.decodeText('{"test":"01:02:03.004"}', [Test]),
-    ).toEqual(new Test(LocalTime.of(1, 2, 3, 4000000)));
+      JSONDecoder.default.decodeText(
+        '{"test":"01:02:03.004"}',
+        testSerde(localTimeSerde),
+      ),
+    ).toEqual({ test: LocalTime.of(1, 2, 3, 4000000) });
   });
 
   it('decodes LocalTime values from number (decimal seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalTime] })
-        public test: LocalTime,
-      ) {}
-    }
-
     expect(
       new JSONDecoder(
         NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeText('{"test":[4,5,6,789000000]}', [Test]),
-    ).toEqual(new Test(LocalTime.of(4, 5, 6, 789000000)));
+      ).decodeText('{"test":3723.004}', testSerde(localTimeSerde)),
+    ).toEqual({ test: LocalTime.of(1, 2, 3, 4000000) });
   });
 
   it('decodes LocalTime values from number (milliseconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalTime] })
-        public test: LocalTime,
-      ) {}
-    }
-
     expect(
-      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
-        '{"test":[4,5,6,789]}',
-        [Test],
+      new JSONDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      ).decodeText('{"test":3723004}', testSerde(localTimeSerde)),
+    ).toEqual({ test: LocalTime.of(1, 2, 3, 4000000) });
+  });
+
+  it('decodes LocalTime values from legacy array', async () => {
+    expect(
+      JSONDecoder.default.decodeText(
+        '{"test":[1,2,3,4000000]}',
+        testSerde(localTimeSerde),
       ),
-    ).toEqual(new Test(LocalTime.of(4, 5, 6, 789000000)));
+    ).toEqual({ test: LocalTime.of(1, 2, 3, 4000000) });
   });
 
   it('decodes Date values from string', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [Date] })
-        public test: Date,
-      ) {}
-    }
-
     expect(
-      JSONDecoder.default.decodeText('{"test":"2001-02-03T04:05:06.789Z"}', [
-        Test,
-      ]),
-    ).toEqual(
-      new Test(new Date(Instant.ofEpochMilli(981173106789).toString())),
-    );
+      JSONDecoder.default.decodeText(
+        '{"test":"2001-02-03T04:05:06.789Z"}',
+        testSerde(dateSerde),
+      ),
+    ).toEqual({
+      test: new Date(Instant.ofEpochMilli(981173106789).toString()),
+    });
   });
 
   it('decodes Date values from number (seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [Date] })
-        public test: Date,
-      ) {}
-    }
-
     expect(
       new JSONDecoder(
         NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeText('{"test":981173106.789}', [Test]),
-    ).toEqual(
-      new Test(new Date(Instant.ofEpochMilli(981173106789).toString())),
-    );
+      ).decodeText('{"test":981173106.789}', testSerde(dateSerde)),
+    ).toEqual({
+      test: new Date(Instant.ofEpochMilli(981173106789).toString()),
+    });
   });
 
   it('decodes Date values from number (milliseconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [Date] })
-        public test: Date,
-      ) {}
-    }
-
     expect(
-      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
-        '{"test":981173106789}',
-        [Test],
-      ),
-    ).toEqual(
-      new Test(new Date(Instant.ofEpochMilli(981173106789).toString())),
-    );
+      new JSONDecoder(
+        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      ).decodeText('{"test":981173106789}', testSerde(dateSerde)),
+    ).toEqual({
+      test: new Date(Instant.ofEpochMilli(981173106789).toString()),
+    });
   });
 
   it('decodes ArrayBuffer values from Base64 encoded text', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [ArrayBuffer] })
-        public test: ArrayBuffer,
-      ) {}
-    }
+    const bin = Base64.encode(
+      new Uint8Array([10, 9, 8, 7, 6, 5, 4, 3, 2, 1]).buffer,
+    );
 
-    const bin = Base64.encode(new Uint8Array([10, 9, 8, 7, 6, 5, 4, 3, 2, 1]));
-
-    expect(JSONDecoder.default.decodeText(`{"test":"${bin}"}`, [Test])).toEqual(
-      new Test(Base64.decode(bin)),
+    expectEqual(
+      JSONDecoder.default.decodeText(
+        `{"test":"${bin}"}`,
+        testSerde(arrayBufferSerde),
+      ),
+      { test: Base64.decode(bin) },
     );
   });
 });

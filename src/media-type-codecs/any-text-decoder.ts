@@ -12,23 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { AnyType } from '../any-type';
+import { DeserializationContext, NumericDateDecoding, Serde } from '../serde';
 import { TextMediaTypeDecoder } from './media-type-decoder';
 
 export class AnyTextDecoder implements TextMediaTypeDecoder {
   static default = new AnyTextDecoder();
 
-  async decode<T>(response: Response, type: AnyType): Promise<T> {
-    if (type[0] != String) {
-      throw Error('Invalid type, expected String');
-    }
-    return (await response.text()) as unknown as T;
+  async decode<T>(response: Response, type: Serde<T>): Promise<T> {
+    const text = await response.text();
+    return this.decodeText(text, type);
   }
 
-  decodeText<T>(text: string, type: AnyType): T {
-    if (type[0] != String) {
-      throw Error('Invalid type, expected String');
-    }
-    return text as unknown as T;
+  decodeText<T>(text: string, type: Serde<T>): T {
+    const ctx: DeserializationContext = {
+      format: 'json',
+      numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+    };
+    return type.deserialize(text, ctx);
   }
 }
+

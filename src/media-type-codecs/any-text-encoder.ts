@@ -12,15 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { DateEncoding, Serde, SerializationContext } from '../serde';
 import { MediaTypeEncoder } from './media-type-encoder';
 
 export class AnyTextEncoder implements MediaTypeEncoder {
   static default = new AnyTextEncoder();
 
-  encode(value: unknown): BodyInit {
-    if (typeof value != 'string') {
-      throw Error('Invalid value, expected string');
+  encode<T>(value: T, type?: Serde<T>): BodyInit {
+    if (!type) {
+      return value as BodyInit;
     }
-    return value;
+    const ctx: SerializationContext = {
+      format: 'json',
+      dateEncoding: DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      includeNulls: false,
+    };
+    const serialized = type.serialize(value, ctx);
+    return typeof serialized === 'string' ? serialized : String(serialized);
   }
 }
+

@@ -44,9 +44,9 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   private static EVENT_TIMEOUT_DEFAULT = 120 * 1000;
   private static EVENT_TIMEOUT_CHECK_INTERVAL_DEFAULT = 2 * 1000;
 
-  CONNECTING = 0;
-  OPEN = 1;
-  CLOSED = 2;
+  readonly CONNECTING = 0;
+  readonly OPEN = 1;
+  readonly CLOSED = 2;
 
   readyState: number = this.CLOSED;
   url: string;
@@ -68,12 +68,12 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   private retryAttempt = 0;
   private connectionAttemptTime: number | undefined;
   private connectionOrigin?: string;
-  private reconnectTimeoutHandle?: number;
+  private reconnectTimeoutHandle?: ReturnType<typeof setTimeout>;
   private lastEventId?: string;
   private logger?: Logger;
   private readonly eventTimeout?: number;
   private readonly eventTimeoutCheckInterval: number;
-  private eventTimeoutCheckHandle?: number;
+  private eventTimeoutCheckHandle?: ReturnType<typeof setInterval>;
   private lastEventReceivedTime = 0;
   private eventParser = new EventParser();
 
@@ -232,7 +232,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
     this.logger?.trace?.('starting event timeout checks');
 
-    this.eventTimeoutCheckHandle = window.setInterval(
+    this.eventTimeoutCheckHandle = setInterval(
       () => this.checkEventTimeout(),
       this.eventTimeoutCheckInterval,
     );
@@ -299,7 +299,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     this.dispatchEvent(event);
   }
 
-  private receivedData(buffer: ArrayBuffer) {
+  private receivedData(buffer: ArrayBuffer | ArrayBufferView | undefined) {
     if (this.readyState !== this.OPEN) {
       this.logger?.error?.('invalid readyState for receiveData', {
         readyState: this.readyState,
@@ -311,9 +311,23 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       return;
     }
 
-    this.logger?.debug?.('received data', { length: buffer.byteLength });
+    if (!buffer) {
+      return;
+    }
 
-    this.eventParser.process(buffer, this.dispatchParsedEvent);
+    const slicedBuffer =
+      buffer instanceof ArrayBuffer
+        ? buffer
+        : buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+
+    const arrayBuffer =
+      slicedBuffer instanceof ArrayBuffer
+        ? slicedBuffer
+        : Uint8Array.from(new Uint8Array(slicedBuffer)).buffer;
+
+    this.logger?.debug?.('received data', { length: arrayBuffer.byteLength });
+
+    this.eventParser.process(arrayBuffer, this.dispatchParsedEvent);
   }
 
   private receivedError(error: unknown) {
@@ -361,7 +375,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
     this.logger?.debug?.('scheduling reconnect', { retryDelay });
 
-    this.reconnectTimeoutHandle = window.setTimeout(
+    this.reconnectTimeoutHandle = setTimeout(
       () => this.internalConnect(),
       retryDelay,
     );

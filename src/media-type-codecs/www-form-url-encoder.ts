@@ -23,7 +23,8 @@ import {
   Temporal,
   ZonedDateTime,
 } from '@js-joda/core';
-import { JsonStringifier } from '@outfoxx/jackson-js';
+import { DateEncoding, expectObject, SerializationContext, Serde } from '../serde';
+import { encodeSeconds } from '../util/temporal';
 import { URLQueryParamsEncoder } from './media-type-encoder';
 
 export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
@@ -39,14 +40,18 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
     private arrayEncoding: WWWFormUrlEncoder.ArrayEncoding,
     private boolEncoding: WWWFormUrlEncoder.BoolEncoding,
     private dateEncoding: WWWFormUrlEncoder.DateEncoding,
-    private json = new JsonStringifier(),
     private encoder = new TextEncoder(),
   ) {}
 
-  encode<T = unknown>(value: T): ArrayBuffer | SharedArrayBuffer {
-    const parameters = this.json.transform(value);
+  encode<T = unknown>(value: T, type?: Serde<T>): BodyInit {
+    const ctx: SerializationContext = {
+      format: 'json',
+      dateEncoding: this.dateEncoding as unknown as DateEncoding,
+      includeNulls: false,
+    };
+    const parameters = type ? type.serialize(value, ctx) : value;
 
-    return this.encoder.encode(this.encodeQueryString(parameters));
+    return this.encoder.encode(this.encodeQueryString(expectObject(parameters, 'form')));
   }
 
   encodeQueryString(parameters: Record<string, unknown>): string {
@@ -102,8 +107,7 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
     } else if (value instanceof Temporal) {
       //
       components.push(
-        encodeURIComponent(key) +
-          '=' +
+        encodeURIComponent(key) + '=' +
           encodeURIComponent(encodeTemporal(value, this.dateEncoding)),
       );
     } else if (typeof value === 'boolean') {
@@ -111,142 +115,112 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
       components.push(
         encodeURIComponent(key) +
           '=' +
-          encodeURIComponent(encodeBoolean(value, this.boolEncoding)),
+          encodeURIComponent(encodeBool(value, this.boolEncoding)),
       );
+    } else if (value instanceof URL) {
+      //
+      components.push(encodeURIComponent(key) + '=' + encodeURIComponent(value.toString()));
+    } else if (value instanceof ArrayBuffer) {
+      throw Error('Encoding ArrayBuffer to form data is not supported');
     } else if (typeof value === 'object') {
       //
-      const rec = (value ?? {}) as Record<string, unknown>;
-
-      for (const [nestedKey, nestedValue] of Object.entries(rec).sort()) {
+      for (const [nestedKey, nestedValue] of Object.entries(value).sort()) {
         components.push(
           ...this.encodeQueryComponent(`${key}[${nestedKey}]`, nestedValue),
         );
       }
     } else {
       //
-      components.push(
-        encodeURIComponent(key) + '=' + encodeURIComponent(`${value}`),
-      );
+      components.push(encodeURIComponent(key) + '=' + encodeURIComponent(`${value}`));
     }
 
     return components;
   }
 }
 
-function encodeArrayKey(
-  key: string,
-  encoding: WWWFormUrlEncoder.ArrayEncoding,
+function encodeInstant(
+  instant: Instant,
+  dateEncoding: WWWFormUrlEncoder.DateEncoding,
 ): string {
-  return encoding === WWWFormUrlEncoder.ArrayEncoding.BRACKETED
-    ? `${key}[]`
-    : key;
-}
-
-function encodeBoolean(
-  value: boolean,
-  encoding: WWWFormUrlEncoder.BoolEncoding,
-): string {
-  switch (encoding) {
-    case WWWFormUrlEncoder.BoolEncoding.NUMERIC:
-      return value ? '1' : '0';
-    case WWWFormUrlEncoder.BoolEncoding.LITERAL:
-      return value ? 'true' : 'false';
-    default:
-      throw new Error('unknown boolean encoding');
+  switch (dateEncoding) {
+    case WWWFormUrlEncoder.DateEncoding.ISO8601:
+      return DateTimeFormatter.ISO_INSTANT.format(instant);
+    case WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH:
+      return `${instant.toEpochMilli()}`;
+    case WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH:
+      return `${instant.epochSecond() + instant.nano() / 1000000000.0}`;
   }
 }
 
 function encodeTemporal(
-  value: Temporal,
-  encoding: WWWFormUrlEncoder.DateEncoding,
+  temporal: Temporal,
+  dateEncoding: WWWFormUrlEncoder.DateEncoding,
 ): string {
-  if (value instanceof Instant) {
-    return encodeInstant(value, encoding);
-  } else if (value instanceof OffsetDateTime) {
-    if (encoding == WWWFormUrlEncoder.DateEncoding.ISO8601) {
-      return value.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+  if (temporal instanceof Instant) {
+    return encodeInstant(temporal, dateEncoding);
+  } else if (temporal instanceof ZonedDateTime) {
+    return encodeInstant(temporal.toInstant(), dateEncoding);
+  } else if (temporal instanceof OffsetDateTime) {
+    return encodeInstant(temporal.toInstant(), dateEncoding);
+  } else if (temporal instanceof OffsetTime) {
+    if (dateEncoding == WWWFormUrlEncoder.DateEncoding.ISO8601) {
+      return temporal.toString();
     }
-    return encodeInstant(value.toInstant(), encoding);
-  } else if (value instanceof ZonedDateTime) {
-    if (encoding == WWWFormUrlEncoder.DateEncoding.ISO8601) {
-      return value.format(DateTimeFormatter.ISO_ZONED_DATE_TIME);
+    return encodeSeconds(temporal.second(), temporal.nano()).join(',');
+  } else if (temporal instanceof LocalDateTime) {
+    if (dateEncoding == WWWFormUrlEncoder.DateEncoding.ISO8601) {
+      return temporal.toString();
     }
-    return encodeInstant(value.toInstant(), encoding);
-  } else if (value instanceof LocalDateTime) {
-    return value.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-  } else if (value instanceof LocalDate) {
-    return value.format(DateTimeFormatter.ISO_LOCAL_DATE);
-  } else if (value instanceof LocalTime) {
-    return value.format(DateTimeFormatter.ISO_LOCAL_TIME);
-  } else if (value instanceof OffsetTime) {
-    return value.format(DateTimeFormatter.ISO_OFFSET_TIME);
-  } else {
-    throw Error('unsupported temporal value for ');
+    return encodeSeconds(temporal.second(), temporal.nano()).join(',');
+  } else if (temporal instanceof LocalDate) {
+    return temporal.toString();
+  } else if (temporal instanceof LocalTime) {
+    if (dateEncoding == WWWFormUrlEncoder.DateEncoding.ISO8601) {
+      return temporal.toString();
+    }
+    return encodeSeconds(temporal.second(), temporal.nano()).join(',');
+  }
+  return temporal.toString();
+}
+
+function encodeBool(
+  value: boolean,
+  boolEncoding: WWWFormUrlEncoder.BoolEncoding,
+): string {
+  switch (boolEncoding) {
+    case WWWFormUrlEncoder.BoolEncoding.LITERAL:
+      return value ? 'true' : 'false';
+    case WWWFormUrlEncoder.BoolEncoding.NUMERIC:
+      return value ? '1' : '0';
   }
 }
 
-function encodeInstant(
-  value: Instant,
-  encoding: WWWFormUrlEncoder.DateEncoding,
+function encodeArrayKey(
+  key: string,
+  arrayEncoding: WWWFormUrlEncoder.ArrayEncoding,
 ): string {
-  switch (encoding) {
-    case WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH:
-      return (value.epochSecond() + value.nano() / 1_000_000_000.0).toFixed(7);
-    case WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH:
-      return `${value.toEpochMilli()}`;
-    case WWWFormUrlEncoder.DateEncoding.ISO8601:
-      return DateTimeFormatter.ISO_INSTANT.format(value);
-    default:
-      throw new Error('unknown date encoding');
+  switch (arrayEncoding) {
+    case WWWFormUrlEncoder.ArrayEncoding.UNBRACKETED:
+      return key;
+    case WWWFormUrlEncoder.ArrayEncoding.BRACKETED:
+      return `${key}[]`;
   }
 }
 
 export namespace WWWFormUrlEncoder {
-  /**
-   * Configures how `Array` parameters are encoded.
-   */
   export enum ArrayEncoding {
-    /**
-     * An empty set of square brackets is appended to the key for every value. This is the default behavior.
-     */
-    BRACKETED,
-    /**
-     * No brackets are appended. The key is encoded as is.
-     */
     UNBRACKETED,
+    BRACKETED,
   }
 
-  /**
-   * Configures how `Bool` parameters are encoded.
-   */
   export enum BoolEncoding {
-    /**
-     * Encode `true` as `1` and `false` as `0`. This is the default behavior.
-     */
-    NUMERIC,
-    /**
-     * Encode `true` and `false` as string literals.
-     */
     LITERAL,
+    NUMERIC,
   }
 
-  /**
-   * Configures how `Date` parameters are encoded.
-   */
   export enum DateEncoding {
-    /**
-     * Encode the `Date` as a UNIX timestamp (decimal seconds since epoch).
-     */
     DECIMAL_SECONDS_SINCE_EPOCH,
-
-    /**
-     * Encode the `Date` as UNIX millisecond timestamp (integer milliseconds since epoch).
-     */
     MILLISECONDS_SINCE_EPOCH,
-
-    /**
-     * Encode the `Date` as an ISO-8601-formatted string (in RFC 3339 format). This is the default behavior.
-     */
     ISO8601,
   }
 }

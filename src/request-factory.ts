@@ -13,14 +13,14 @@
 // limitations under the License.
 
 import { Observable } from 'rxjs';
-import { AnyType } from './any-type';
-import { ClassType, ConstructableClassType } from './class-type';
+import { ConstructableClassType } from './class-type';
 import { MediaType } from './media-type';
 import { TextMediaTypeDecoder } from './media-type-codecs/media-type-decoder';
 import { Problem } from './problem';
 import { ResultResponse } from './result-response';
 import { URLTemplate } from './url-template';
 import { Logger } from './logger';
+import { Serde } from './serde';
 
 export interface RequestFactory {
   readonly baseUrl: URLTemplate;
@@ -41,44 +41,14 @@ export interface RequestFactory {
 
   resultResponse<B, R>(
     requestSpec: RequestSpec<B>,
-    resultType: [ClassType<R>],
-  ): Observable<ResultResponse<R>>;
-
-  resultResponse<B, R>(
-    requestSpec: RequestSpec<B>,
-    resultType: [ClassType<Array<unknown>>, ClassType<R>],
-  ): Observable<ResultResponse<Array<R>>>;
-
-  resultResponse<B, R>(
-    requestSpec: RequestSpec<B>,
-    resultType: [ClassType<Set<unknown>>, ClassType<R>],
-  ): Observable<ResultResponse<Set<R>>>;
-
-  resultResponse<B, R>(
-    requestSpec: RequestSpec<B>,
-    resultType: AnyType,
+    resultType: Serde<R>,
   ): Observable<ResultResponse<R>>;
 
   resultResponse<B>(
     requestSpec: RequestSpec<B>,
   ): Observable<ResultResponse<void>>;
 
-  result<B, R>(
-    requestSpec: RequestSpec<B>,
-    resultType: [ClassType<R>],
-  ): Observable<R>;
-
-  result<B, R>(
-    requestSpec: RequestSpec<B>,
-    resultType: [ClassType<Array<unknown>>, ClassType<R>],
-  ): Observable<Array<R>>;
-
-  result<B, R>(
-    requestSpec: RequestSpec<B>,
-    resultType: [ClassType<Set<unknown>>, ClassType<R>],
-  ): Observable<Set<R>>;
-
-  result<B, R>(requestSpec: RequestSpec<B>, resultType: AnyType): Observable<R>;
+  result<B, R>(requestSpec: RequestSpec<B>, resultType: Serde<R>): Observable<R>;
 
   result<B>(requestSpec: RequestSpec<B>): Observable<void>;
 
@@ -115,7 +85,7 @@ export interface RequestSpec<B> {
   pathParameters?: Record<string, unknown>;
   queryParameters?: Record<string, unknown>;
   body?: B;
-  bodyType?: AnyType;
+  bodyType?: Serde<B>;
   contentTypes?: MediaType[];
   acceptTypes?: MediaType[];
   headers?: Record<string, unknown>;
@@ -124,3 +94,4 @@ export interface RequestSpec<B> {
 export interface RequestAdapter {
   adapt(requestFactory: RequestFactory, request: Request): Promise<Request>;
 }
+

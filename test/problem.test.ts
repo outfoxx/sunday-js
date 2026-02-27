@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { JSONDecoder, JSONEncoder, Problem } from '../src';
+import {describe, it, expect} from 'bun:test';
+import { JSONDecoder, JSONEncoder, Problem, ProblemSerde } from '../src';
+import { expectEqual } from './expect-utils';
 
 describe('Problem', () => {
   it('serializes parameters on root object', () => {
@@ -25,16 +27,15 @@ describe('Problem', () => {
       extra: 'An Extra Value',
     });
 
-    const problemJSON = JSONEncoder.default.encodeObject(problem);
-    console.log('problemJSON', problemJSON);
+    const problemJSON = JSONEncoder.default.encodeObject(problem, ProblemSerde);
     expect(problemJSON.extra).toBe(problem.parameters?.extra);
 
     const decodedProblem = JSONDecoder.default.decodeObject<Problem>(
       problemJSON,
-      [Problem],
+      ProblemSerde,
     );
 
-    expect(decodedProblem).toEqual(problem);
+    expectEqual(decodedProblem, problem);
     expect(decodedProblem.parameters).toEqual(problem.parameters);
   });
 });

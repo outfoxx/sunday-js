@@ -14,7 +14,7 @@
 
 import { defer, map, Observable, of, switchMap } from 'rxjs';
 import { fromFetch } from 'rxjs/internal/observable/dom/fetch';
-import { AnyType } from './any-type';
+import { Serde } from './serde';
 import { ConstructableClassType } from './class-type';
 import { validate } from './fetch';
 import { FetchEventSource } from './fetch-event-source';
@@ -170,14 +170,14 @@ export class FetchRequestFactory implements RequestFactory {
 
   resultResponse<B, R>(
     requestSpec: RequestSpec<B>,
-    resultType: AnyType,
+    resultType: Serde<R>,
   ): Observable<ResultResponse<R>>;
   resultResponse<B>(
     requestSpec: RequestSpec<B>,
   ): Observable<ResultResponse<void>>;
   resultResponse(
     request: RequestSpec<unknown>,
-    responseType?: AnyType,
+    responseType?: Serde<unknown>,
   ): Observable<ResultResponse<unknown>> {
     const response$ = this.response(request, !!responseType);
 
@@ -215,11 +215,11 @@ export class FetchRequestFactory implements RequestFactory {
     }
   }
 
-  result<B, R>(requestSpec: RequestSpec<B>, resultType: AnyType): Observable<R>;
+  result<B, R>(requestSpec: RequestSpec<B>, resultType: Serde<R>): Observable<R>;
   result<B>(requestSpec: RequestSpec<B>): Observable<void>;
   result(
     request: RequestSpec<unknown>,
-    responseType?: AnyType,
+    responseType?: Serde<unknown>,
   ): Observable<unknown> {
     const response$ = this.response(request, !!responseType);
 

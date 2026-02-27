@@ -28,7 +28,7 @@
     "src/**/*.js",
     "test/**/*.ts",
     "test/**/*.js",
-    "test-types/*.d.ts"
+    "test/**/*.d.ts"
   ],
   "exclude": [
     "node_modules",

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export * from './any-type';
 export * from './class-type';
+export * from './serde';
 export * from './request-factory';
 export * from './fetch-request-factory';
 export * from './fetch-event-source';

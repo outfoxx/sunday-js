@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-declare namespace jasmine {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+import 'bun:test';
+
+declare module 'bun:test' {
   interface Matchers<T> {
-    toHaveBytes(expected: Expected<ArrayBuffer>): boolean;
+    toHaveBytes(expected: ArrayBuffer): T;
   }
 }

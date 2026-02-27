@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import {describe, it, expect} from 'bun:test';
 import {
   Instant,
   LocalDate,
@@ -23,66 +24,60 @@ import {
   ZoneId,
   ZoneOffset,
 } from '@js-joda/core';
-import { JsonClassType, JsonProperty } from '@outfoxx/jackson-js';
-import { JSONEncoder } from '../src';
+import {
+  arrayBufferSerde,
+  dateSerde,
+  instantSerde,
+  JSONEncoder,
+  localDateSerde,
+  localDateTimeSerde,
+  localTimeSerde,
+  numberSerde,
+  offsetDateTimeSerde,
+  offsetTimeSerde,
+  Serde,
+  stringSerde,
+  urlSerde,
+  zonedDateTimeSerde,
+} from '../src';
+import { objectSerde } from './serde-test-helpers';
 import DateEncoding = JSONEncoder.DateEncoding;
 
+const testSerde = <T>(serde: Serde<T>) =>
+  objectSerde<{ test: T }>('Test', { test: { serde } });
+
 describe('JSONEncoder', () => {
-  it('encodes jackson-js object trees', () => {
-    //
-    class Sub {
-      constructor(
-        @JsonProperty()
-        public value: number,
-      ) {}
-    }
+  it('encodes object trees', () => {
+    type Sub = { value: number };
+    type Test = { test: string; sub: Sub };
 
-    class Test {
-      constructor(
-        @JsonProperty()
-        public test: string,
-        @JsonProperty()
-        @JsonClassType({ type: () => [Sub] })
-        public sub: Sub,
-      ) {}
-    }
+    const subSerde = objectSerde<Sub>('Sub', {
+      value: { serde: numberSerde },
+    });
+    const testSerdeObj = objectSerde<Test>('Test', {
+      test: { serde: stringSerde },
+      sub: { serde: subSerde },
+    });
 
-    expect(JSONEncoder.default.encode(new Test('a', new Sub(5)), [Test])).toBe(
-      '{"test":"a","sub":{"value":5}}',
-    );
+    expect(
+      JSONEncoder.default.encode({ test: 'a', sub: { value: 5 } }, testSerdeObj),
+    ).toBe('{"test":"a","sub":{"value":5}}');
   });
 
   it('encodes RUL values as strings', () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [URL] })
-        public test: URL,
-      ) {}
-    }
-
     expect(
-      JSONEncoder.default.encode(new Test(new URL('http://example.com')), [
-        Test,
-      ]),
+      JSONEncoder.default.encode(
+        { test: new URL('http://example.com') },
+        testSerde(urlSerde),
+      ),
     ).toEqual('{"test":"http://example.com/"}');
   });
 
   it('encodes Instant values as strings', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [Instant] })
-        public test: Instant,
-      ) {}
-    }
-
     expect(
       new JSONEncoder(DateEncoding.ISO8601).encode(
-        new Test(
-          ZonedDateTime.of(
+        {
+          test: ZonedDateTime.of(
             2002,
             1,
             1,
@@ -92,511 +87,351 @@ describe('JSONEncoder', () => {
             4000000,
             ZoneId.UTC,
           ).toInstant(),
-        ),
-        [Test],
+        },
+        testSerde(instantSerde),
       ),
     ).toEqual('{"test":"2002-01-01T01:02:03.004Z"}');
   });
 
   it('encodes Instant values as number (decimal seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [Instant] })
-        public test: Instant,
-      ) {}
-    }
-
     expect(
-      new JSONEncoder(
-        JSONEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).encode(
-        new Test(
-          ZonedDateTime.of(
+      new JSONEncoder(DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH).encode(
+        {
+          test: ZonedDateTime.of(
             2001,
             2,
             3,
             4,
             5,
             6,
-            789000000,
+            7000000,
             ZoneId.UTC,
           ).toInstant(),
-        ),
-        [Test],
+        },
+        testSerde(instantSerde),
       ),
-    ).toEqual('{"test":981173106.789}');
+    ).toEqual('{"test":981173106.007}');
   });
 
   it('encodes Instant values as number (milliseconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [Instant] })
-        public test: Instant,
-      ) {}
-    }
-
     expect(
-      new JSONEncoder(JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
-        new Test(
-          ZonedDateTime.of(
+      new JSONEncoder(DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
+        {
+          test: ZonedDateTime.of(
             2001,
             2,
             3,
             4,
             5,
             6,
-            789000000,
+            7000000,
             ZoneId.UTC,
           ).toInstant(),
-        ),
-        [Test],
+        },
+        testSerde(instantSerde),
       ),
-    ).toEqual('{"test":981173106789}');
+    ).toEqual('{"test":981173106007}');
   });
 
   it('encodes ZonedDateTime values as strings', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [ZonedDateTime] })
-        public test: ZonedDateTime,
-      ) {}
-    }
-
     expect(
       new JSONEncoder(DateEncoding.ISO8601).encode(
-        new Test(ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC)),
-        [Test],
+        {
+          test: ZonedDateTime.of(
+            2002,
+            1,
+            1,
+            1,
+            2,
+            3,
+            4000000,
+            ZoneId.UTC,
+          ),
+        },
+        testSerde(zonedDateTimeSerde),
       ),
     ).toEqual('{"test":"2002-01-01T01:02:03.004Z[Z]"}');
   });
 
   it('encodes ZonedDateTime values as number (decimal seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [ZonedDateTime] })
-        public test: ZonedDateTime,
-      ) {}
-    }
-
     expect(
-      new JSONEncoder(
-        JSONEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).encode(
-        new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC)),
-        [Test],
+      new JSONEncoder(DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH).encode(
+        {
+          test: ZonedDateTime.of(
+            2001,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7000000,
+            ZoneId.UTC,
+          ),
+        },
+        testSerde(zonedDateTimeSerde),
       ),
-    ).toEqual('{"test":981173106.789}');
+    ).toEqual('{"test":[981173106.007,"Z","Z"]}');
   });
 
   it('encodes ZonedDateTime values as number (milliseconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [ZonedDateTime] })
-        public test: ZonedDateTime,
-      ) {}
-    }
-
     expect(
-      new JSONEncoder(JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
-        new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC)),
-        [Test],
+      new JSONEncoder(DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
+        {
+          test: ZonedDateTime.of(
+            2001,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7000000,
+            ZoneId.UTC,
+          ),
+        },
+        testSerde(zonedDateTimeSerde),
       ),
-    ).toEqual('{"test":981173106789}');
+    ).toEqual('{"test":[981173106007,"Z","Z"]}');
   });
 
   it('encodes OffsetDateTime values as strings', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [OffsetDateTime] })
-        public test: OffsetDateTime,
-      ) {}
-    }
-
     expect(
       new JSONEncoder(DateEncoding.ISO8601).encode(
-        new Test(
-          OffsetDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneOffset.UTC),
-        ),
-        [Test],
+        {
+          test: OffsetDateTime.of(
+            2002,
+            1,
+            1,
+            1,
+            2,
+            3,
+            4000000,
+            ZoneOffset.UTC,
+          ),
+        },
+        testSerde(offsetDateTimeSerde),
       ),
     ).toEqual('{"test":"2002-01-01T01:02:03.004Z"}');
   });
 
   it('encodes OffsetDateTime values as number (decimal seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [OffsetDateTime] })
-        public test: OffsetDateTime,
-      ) {}
-    }
-
     expect(
-      new JSONEncoder(
-        JSONEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).encode(
-        new Test(
-          OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC),
-        ),
-        [Test],
+      new JSONEncoder(DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH).encode(
+        {
+          test: OffsetDateTime.of(
+            2001,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7000000,
+            ZoneOffset.UTC,
+          ),
+        },
+        testSerde(offsetDateTimeSerde),
       ),
-    ).toEqual('{"test":981173106.789}');
+    ).toEqual('{"test":[981173106.007,"Z"]}');
   });
 
   it('encodes OffsetDateTime values as number (milliseconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [OffsetDateTime] })
-        public test: OffsetDateTime,
-      ) {}
-    }
-
     expect(
-      new JSONEncoder(JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
-        new Test(
-          OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC),
-        ),
-        [Test],
+      new JSONEncoder(DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
+        {
+          test: OffsetDateTime.of(
+            2001,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7000000,
+            ZoneOffset.UTC,
+          ),
+        },
+        testSerde(offsetDateTimeSerde),
       ),
-    ).toEqual('{"test":981173106789}');
+    ).toEqual('{"test":[981173106007,"Z"]}');
   });
 
   it('encodes OffsetTime values as strings', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [OffsetTime] })
-        public test: OffsetTime,
-      ) {}
-    }
-
     expect(
       new JSONEncoder(DateEncoding.ISO8601).encode(
-        new Test(OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC)),
-        [Test],
+        {
+          test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC),
+        },
+        testSerde(offsetTimeSerde),
       ),
     ).toEqual('{"test":"01:02:03.004Z"}');
   });
 
   it('encodes OffsetTime values as number (decimal seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [OffsetTime] })
-        public test: OffsetTime,
-      ) {}
-    }
-
     expect(
-      new JSONEncoder(
-        JSONEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).encode(new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)), [
-        Test,
-      ]),
-    ).toEqual('{"test":[4,5,6,789000000,"Z"]}');
+      new JSONEncoder(DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH).encode(
+        {
+          test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC),
+        },
+        testSerde(offsetTimeSerde),
+      ),
+    ).toEqual('{"test":[3723.004,"Z"]}');
   });
 
   it('encodes OffsetTime values as number (milliseconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [OffsetTime] })
-        public test: OffsetTime,
-      ) {}
-    }
-
     expect(
-      new JSONEncoder(JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
-        new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)),
-        [Test],
+      new JSONEncoder(DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
+        {
+          test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC),
+        },
+        testSerde(offsetTimeSerde),
       ),
-    ).toEqual('{"test":[4,5,6,789,"Z"]}');
+    ).toEqual('{"test":[3723004,"Z"]}');
   });
 
   it('encodes LocalDateTime values as strings', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalDateTime] })
-        public test: LocalDateTime,
-      ) {}
-    }
-
     expect(
       new JSONEncoder(DateEncoding.ISO8601).encode(
-        new Test(LocalDateTime.of(2001, 1, 1, 1, 2, 3, 4000000)),
-        [Test],
+        {
+          test: LocalDateTime.of(2002, 1, 1, 1, 2, 3, 4000000),
+        },
+        testSerde(localDateTimeSerde),
       ),
-    ).toEqual('{"test":"2001-01-01T01:02:03.004"}');
+    ).toEqual('{"test":"2002-01-01T01:02:03.004"}');
   });
 
   it('encodes LocalDateTime values as number (decimal seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalDateTime] })
-        public test: LocalDateTime,
-      ) {}
-    }
-
     expect(
-      new JSONEncoder(
-        JSONEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).encode(new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)), [
-        Test,
-      ]),
-    ).toEqual('{"test":[2001,2,3,4,5,6,789000000]}');
+      new JSONEncoder(DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH).encode(
+        {
+          test: LocalDateTime.of(2001, 2, 3, 4, 5, 6, 7000000),
+        },
+        testSerde(localDateTimeSerde),
+      ),
+    ).toEqual('{"test":981173106.007}');
   });
 
   it('encodes LocalDateTime values as number (milliseconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalDateTime] })
-        public test: LocalDateTime,
-      ) {}
-    }
-
     expect(
-      new JSONEncoder(JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
-        new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)),
-        [Test],
+      new JSONEncoder(DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
+        {
+          test: LocalDateTime.of(2001, 2, 3, 4, 5, 6, 7000000),
+        },
+        testSerde(localDateTimeSerde),
       ),
-    ).toEqual('{"test":[2001,2,3,4,5,6,789]}');
+    ).toEqual('{"test":981173106007}');
   });
 
   it('encodes LocalDate values as strings', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalDate] })
-        public test: LocalDate,
-      ) {}
-    }
-
     expect(
       new JSONEncoder(DateEncoding.ISO8601).encode(
-        new Test(LocalDate.of(2001, 1, 1)),
-        [Test],
+        { test: LocalDate.of(2002, 1, 1) },
+        testSerde(localDateSerde),
       ),
-    ).toEqual('{"test":"2001-01-01"}');
+    ).toEqual('{"test":"2002-01-01"}');
   });
 
   it('encodes LocalDate values as number (decimal seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalDate] })
-        public test: LocalDate,
-      ) {}
-    }
-
     expect(
-      new JSONEncoder(
-        JSONEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).encode(new Test(LocalDate.of(2001, 2, 3)), [Test]),
-    ).toEqual('{"test":[2001,2,3]}');
+      new JSONEncoder(DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH).encode(
+        { test: LocalDate.of(2001, 2, 3) },
+        testSerde(localDateSerde),
+      ),
+    ).toEqual('{"test":981158400}');
   });
 
   it('encodes LocalDate values as number (milliseconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalDate] })
-        public test: LocalDate,
-      ) {}
-    }
-
     expect(
-      new JSONEncoder(JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
-        new Test(LocalDate.of(2001, 2, 3)),
-        [Test],
+      new JSONEncoder(DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
+        { test: LocalDate.of(2001, 2, 3) },
+        testSerde(localDateSerde),
       ),
-    ).toEqual('{"test":[2001,2,3]}');
+    ).toEqual('{"test":981158400000}');
   });
 
   it('encodes LocalTime values as strings', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalTime] })
-        public test: LocalTime,
-      ) {}
-    }
-
     expect(
       new JSONEncoder(DateEncoding.ISO8601).encode(
-        new Test(LocalTime.of(1, 2, 3, 4000000)),
-        [Test],
+        { test: LocalTime.of(1, 2, 3, 4000000) },
+        testSerde(localTimeSerde),
       ),
     ).toEqual('{"test":"01:02:03.004"}');
   });
 
   it('encodes LocalTime values as number (decimal seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalTime] })
-        public test: LocalTime,
-      ) {}
-    }
-
     expect(
-      new JSONEncoder(
-        JSONEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).encode(new Test(LocalTime.of(4, 5, 6, 789000000)), [Test]),
-    ).toEqual('{"test":[4,5,6,789000000]}');
+      new JSONEncoder(DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH).encode(
+        { test: LocalTime.of(1, 2, 3, 4000000) },
+        testSerde(localTimeSerde),
+      ),
+    ).toEqual('{"test":3723.004}');
   });
 
   it('encodes LocalTime values as number (milliseconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalTime] })
-        public test: LocalTime,
-      ) {}
-    }
-
     expect(
-      new JSONEncoder(JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
-        new Test(LocalTime.of(4, 5, 6, 789000000)),
-        [Test],
+      new JSONEncoder(DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
+        { test: LocalTime.of(1, 2, 3, 4000000) },
+        testSerde(localTimeSerde),
       ),
-    ).toEqual('{"test":[4,5,6,789]}');
+    ).toEqual('{"test":3723004}');
   });
 
   it('encodes Date values as strings', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [Date] })
-        public test: Date,
-      ) {}
-    }
-
     expect(
-      new JSONEncoder(JSONEncoder.DateEncoding.ISO8601).encode(
-        new Test(
-          new Date(Instant.parse('2002-01-01T00:00:00.000Z').toString()),
-        ),
-        [Test],
+      new JSONEncoder(DateEncoding.ISO8601).encode(
+        { test: new Date(Instant.ofEpochMilli(981173106789).toString()) },
+        testSerde(dateSerde),
       ),
-    ).toEqual('{"test":"2002-01-01T00:00:00.000Z"}');
+    ).toEqual('{"test":"2001-02-03T04:05:06.789Z"}');
   });
 
   it('encodes Date values as numbers (seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [Date] })
-        public test: Date,
-      ) {}
-    }
-
     expect(
-      new JSONEncoder(
-        JSONEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).encode(
-        new Test(new Date(Instant.ofEpochMilli(981173106789).toString())),
-        [Test],
+      new JSONEncoder(DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH).encode(
+        { test: new Date(Instant.ofEpochMilli(981173106789).toString()) },
+        testSerde(dateSerde),
       ),
     ).toEqual('{"test":981173106.789}');
   });
 
   it('encodes Date values as numbers (seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [Date] })
-        public test: Date,
-      ) {}
-    }
-
     expect(
-      new JSONEncoder(JSONEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
-        new Test(new Date(Instant.ofEpochMilli(981173106789).toString())),
-        [Test],
+      new JSONEncoder(DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
+        { test: new Date(Instant.ofEpochMilli(981173106789).toString()) },
+        testSerde(dateSerde),
       ),
     ).toEqual('{"test":981173106789}');
   });
 
   it('encodes ArrayBuffer values as Base64', () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [ArrayBuffer] })
-        public test: ArrayBuffer,
-      ) {}
-    }
-
     expect(
-      JSONEncoder.default.encode(new Test(new ArrayBuffer(5)), [Test]),
+      JSONEncoder.default.encode({ test: new ArrayBuffer(5) }, testSerde(arrayBufferSerde)),
     ).toEqual('{"test":"AAAAAAA="}');
   });
 
   it('excludes null & undefined values by default when encoding', () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [ArrayBuffer] })
-        public test: ArrayBuffer | undefined | null,
-      ) {}
-    }
+    type Test = { test?: ArrayBuffer | null };
+    const testSerdeObj = objectSerde<Test>('Test', {
+      test: { serde: arrayBufferSerde, optional: true, nullable: true },
+    });
 
-    expect(JSONEncoder.default.encode(new Test(undefined), [Test])).toEqual(
+    expect(JSONEncoder.default.encode({ test: undefined }, testSerdeObj)).toEqual(
       '{}',
     );
 
-    expect(JSONEncoder.default.encode(new Test(null), [Test])).toEqual('{}');
+    expect(JSONEncoder.default.encode({ test: null }, testSerdeObj)).toEqual(
+      '{}',
+    );
   });
 
   it('includes null values when encoding configured', () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [ArrayBuffer] })
-        public test: ArrayBuffer | undefined | null,
-      ) {}
-    }
+    type Test = { test?: ArrayBuffer | null };
+    const testSerdeObj = objectSerde<Test>('Test', {
+      test: { serde: arrayBufferSerde, optional: true, nullable: true },
+    });
 
     expect(
-      JSONEncoder.default.encode(new Test(undefined), [Test], true),
+      JSONEncoder.default.encode({ test: undefined }, testSerdeObj, true),
     ).toEqual('{}');
 
-    expect(JSONEncoder.default.encode(new Test(null), [Test], true)).toEqual(
+    expect(JSONEncoder.default.encode({ test: null }, testSerdeObj, true)).toEqual(
       '{"test":null}',
     );
   });

@@ -70,7 +70,6 @@ export function nullifyPromiseResponse<T>(
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface AbortError extends Error {}
 
 export type AbortErrorCtor = new () => AbortError;

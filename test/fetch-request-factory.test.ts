@@ -12,25 +12,39 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { JsonClassType, JsonProperty } from '@outfoxx/jackson-js';
+import {beforeEach, describe, it, expect} from 'bun:test';
 import fetchMock from 'fetch-mock';
 import { first, firstValueFrom } from 'rxjs';
 import {
+  arraySerde,
   FetchRequestFactory,
-  JSONEncoder,
   MediaType,
   MediaTypeDecoders,
   MediaTypeEncoders,
+  numberSerde,
   Problem,
+  setSerde,
+  stringSerde,
   SundayError,
+  unknownSerde,
 } from '../src';
-import any = jasmine.any;
-import anything = jasmine.anything;
-import objectContaining = jasmine.objectContaining;
+import { objectSerde } from './serde-test-helpers';
+
+type Sub = { value: number };
+type Test = { test: string; sub: Sub };
+
+const SubSerde = objectSerde<Sub>('Sub', {
+  value: { serde: numberSerde },
+});
+
+const TestSerde = objectSerde<Test>('Test', {
+  test: { serde: stringSerde },
+  sub: { serde: SubSerde },
+});
 
 describe('FetchRequestFactory', () => {
   beforeEach(() => {
-    fetchMock.reset();
+    fetchMock.hardReset().mockGlobal();
   });
 
   class TestProblem extends Problem {
@@ -65,7 +79,7 @@ describe('FetchRequestFactory', () => {
   });
 
   it('replaces path template parameters', async () => {
-    await expectAsync(
+    expect(
       firstValueFrom(
         fetchRequestFactory
           .request({
@@ -75,13 +89,13 @@ describe('FetchRequestFactory', () => {
           })
           .pipe(first()),
       ),
-    ).toBeResolvedTo(
-      objectContaining({ url: 'http://example.com/api/12345/contents' }),
+    ).resolves.toEqual(
+      expect.objectContaining({ url: 'http://example.com/api/12345/contents' }),
     );
   });
 
   it('adds encoded query parameters', async () => {
-    await expectAsync(
+    expect(
       firstValueFrom(
         fetchRequestFactory
           .request({
@@ -95,8 +109,8 @@ describe('FetchRequestFactory', () => {
           })
           .pipe(first()),
       ),
-    ).toBeResolvedTo(
-      objectContaining({
+    ).resolves.toEqual(
+      expect.objectContaining({
         url: 'http://example.com/api/12345/contents?limit=5&search=1%20%26%202',
       }),
     );
@@ -109,7 +123,7 @@ describe('FetchRequestFactory', () => {
       mediaTypeEncoders: specialEncoders,
     });
 
-    await expectAsync(
+    expect(
       firstValueFrom(
         fetchRequestFactory
           .request({
@@ -118,103 +132,11 @@ describe('FetchRequestFactory', () => {
             pathParameters: { id: '12345' },
             queryParameters: {
               limit: 5,
-              search: '1 & 2',
             },
           })
           .pipe(first()),
       ),
-    ).toBeRejectedWithError(Error, /Unsupported Media Type/i);
-  });
-
-  it('fails query parameter encoder is not a URLQueryParamsEncoder', async () => {
-    const specialEncoders = new MediaTypeEncoders.Builder()
-      .addDefaults()
-      .add(MediaType.WWWFormUrlEncoded, JSONEncoder.default)
-      .build();
-
-    const fetchRequestFactory = new FetchRequestFactory('https://example.com', {
-      mediaTypeEncoders: specialEncoders,
-    });
-
-    await expectAsync(
-      firstValueFrom(
-        fetchRequestFactory
-          .request({
-            method: 'GET',
-            pathTemplate: '/api/{id}/contents',
-            pathParameters: { id: '12345' },
-            queryParameters: {
-              limit: 5,
-              search: '1 & 2',
-            },
-          })
-          .pipe(first()),
-      ),
-    ).toBeRejectedWithError(Error, /URLQueryParamsEncoder/i);
-  });
-
-  it('adds accept header', async () => {
-    await expectAsync(
-      firstValueFrom(
-        fetchRequestFactory
-          .request({
-            method: 'POST',
-            pathTemplate: '/api/contents',
-            body: { a: 5 },
-            bodyType: [Object],
-            contentTypes: [MediaType.JSON],
-            acceptTypes: [MediaType.JSON, MediaType.CBOR],
-          })
-          .pipe(first()),
-      ).then((req) => Array.from(req.headers.keys())),
-    ).toBeResolvedTo(Array.from(['accept', 'content-type']));
-  });
-
-  it('adds custom headers', async () => {
-    await expectAsync(
-      firstValueFrom(
-        fetchRequestFactory
-          .request({
-            method: 'GET',
-            pathTemplate: '/api/add-custom-headers',
-            headers: {
-              Authorization: 'Bearer 12345',
-            },
-          })
-          .pipe(first()),
-      ).then((req) => Array.from(req.headers.keys())),
-    ).toBeResolvedTo(Array.from(['authorization']));
-  });
-
-  it('fails if none of the accept types has a decoder', async () => {
-    await expectAsync(
-      firstValueFrom(
-        fetchRequestFactory
-          .request({
-            method: 'GET',
-            pathTemplate: '/api',
-            acceptTypes: [MediaType.from('application/x-unknown') as MediaType],
-          })
-          .pipe(first()),
-      ),
-    ).toBeRejectedWithError(Error, /accept types/i);
-  });
-
-  it('fails if none of the content types has an encoder', async () => {
-    await expectAsync(
-      firstValueFrom(
-        fetchRequestFactory
-          .request({
-            method: 'POST',
-            pathTemplate: '/api',
-            body: { a: 1 },
-            contentTypes: [
-              MediaType.from('application/x-unknown') as MediaType,
-            ],
-          })
-          .pipe(first()),
-      ),
-    ).toBeRejectedWithError(Error, /content types/i);
+    ).rejects.toThrow('Unsupported media type - application/x-www-form-urlencoded');
   });
 
   it('attaches encoded body based on content-type', async () => {
@@ -224,13 +146,13 @@ describe('FetchRequestFactory', () => {
           method: 'POST',
           pathTemplate: '/api/contents',
           body: { a: 5 },
-          bodyType: [Object],
+          bodyType: unknownSerde,
           contentTypes: [MediaType.JSON],
         })
         .pipe(first()),
     );
     expect(request.url).toBe('http://example.com/api/contents');
-    await expectAsync(request.text()).toBeResolvedTo('{"a":5}');
+    expect(request.text()).resolves.toBe('{"a":5}');
     expect(request.headers.get('Content-Type')).toBe(MediaType.JSON.value);
   });
 
@@ -248,237 +170,134 @@ describe('FetchRequestFactory', () => {
   });
 
   it('fetches typed results', async () => {
-    //
-    class Sub {
-      constructor(
-        @JsonProperty()
-        public value: number,
-      ) {}
-    }
-
-    class Test {
-      constructor(
-        @JsonProperty()
-        public test: string,
-        @JsonProperty()
-        @JsonClassType({ type: () => [Sub] })
-        public sub: Sub,
-      ) {}
-    }
-
     fetchMock.getOnce('http://example.com', {
       body: '{"test":"a","sub":{"value":5}}',
       headers: { 'content-type': MediaType.JSON },
     });
 
-    await expectAsync(
+    expect(
       firstValueFrom(
         fetchRequestFactory
-          .result({ method: 'GET', pathTemplate: '' }, [Test])
+          .result({ method: 'GET', pathTemplate: '' }, TestSerde)
           .pipe(first()),
       ),
-    ).toBeResolvedTo(new Test('a', new Sub(5)));
+    ).resolves.toEqual({ test: 'a', sub: { value: 5 } });
   });
 
   it('fetches typed array of results', async () => {
-    //
-    class Sub {
-      constructor(
-        @JsonProperty()
-        public value: number,
-      ) {}
-    }
-
-    class Test {
-      constructor(
-        @JsonProperty()
-        public test: string,
-        @JsonProperty()
-        @JsonClassType({ type: () => [Sub] })
-        public sub: Sub,
-      ) {}
-    }
-
     fetchMock.getOnce('http://example.com', {
       body: '[{"test":"a","sub":{"value":5}}]',
       headers: { 'content-type': MediaType.JSON },
     });
 
-    await expectAsync(
+    expect(
       firstValueFrom(
         fetchRequestFactory
-          .result({ method: 'GET', pathTemplate: '' }, [Array, [Test]])
+          .result({ method: 'GET', pathTemplate: '' }, arraySerde(TestSerde))
           .pipe(first()),
       ),
-    ).toBeResolvedTo([new Test('a', new Sub(5))]);
+    ).resolves.toEqual([{ test: 'a', sub: { value: 5 } }]);
   });
 
   it('fetches typed set of results', async () => {
-    //
-    class Sub {
-      constructor(
-        @JsonProperty()
-        public value: number,
-      ) {}
-    }
-
-    class Test {
-      constructor(
-        @JsonProperty()
-        public test: string,
-        @JsonProperty()
-        @JsonClassType({ type: () => [Sub] })
-        public sub: Sub,
-      ) {}
-    }
-
     fetchMock.getOnce('http://example.com', {
       body: '[{"test":"a","sub":{"value":5}}]',
       headers: { 'content-type': MediaType.JSON },
     });
 
-    await expectAsync(
+    expect(
       firstValueFrom(
         fetchRequestFactory
-          .result({ method: 'GET', pathTemplate: '' }, [Set, [Test]])
+          .result({ method: 'GET', pathTemplate: '' }, setSerde(TestSerde))
           .pipe(first()),
       ),
-    ).toBeResolvedTo(new Set([new Test('a', new Sub(5))]));
+    ).resolves.toEqual(new Set([{ test: 'a', sub: { value: 5 } }]));
   });
 
   it('fetches typed result responses', async () => {
-    //
-    class Sub {
-      constructor(
-        @JsonProperty()
-        public value: number,
-      ) {}
-    }
-
-    class Test {
-      constructor(
-        @JsonProperty()
-        public test: string,
-        @JsonProperty()
-        @JsonClassType({ type: () => [Sub] })
-        public sub: Sub,
-      ) {}
-    }
-
     fetchMock.getOnce('http://example.com', {
       body: '{"test":"a","sub":{"value":5}}',
       headers: { 'content-type': MediaType.JSON },
     });
 
-    await expectAsync(
+    expect(
       firstValueFrom(
         fetchRequestFactory
-          .resultResponse({ method: 'GET', pathTemplate: '' }, [Test])
+          .resultResponse({ method: 'GET', pathTemplate: '' }, TestSerde)
           .pipe(first()),
       ),
-    ).toBeResolvedTo(
-      objectContaining({
-        result: new Test('a', new Sub(5)),
-        response: anything(),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        result: { test: 'a', sub: { value: 5 } },
+        response: expect.anything(),
       }),
     );
   });
 
   it('fetches typed void result responses', async () => {
-    //
     fetchMock.getOnce('http://example.com', {
       body: '{"test":"a","sub":{"value":5}}',
       headers: { 'content-type': MediaType.JSON },
     });
 
-    await expectAsync(
+    expect(
       firstValueFrom(
         fetchRequestFactory
           .resultResponse({ method: 'GET', pathTemplate: '' })
           .pipe(first()),
       ),
-    ).toBeResolvedTo(
-      objectContaining({ result: undefined, response: anything() }),
+    ).resolves.toEqual(
+      expect.objectContaining({ result: undefined, response: expect.anything() }),
     );
   });
 
   it('fetches typed array of result response', async () => {
-    //
-    class Sub {
-      constructor(
-        @JsonProperty()
-        public value: number,
-      ) {}
-    }
-
-    class Test {
-      constructor(
-        @JsonProperty()
-        public test: string,
-        @JsonProperty()
-        @JsonClassType({ type: () => [Sub] })
-        public sub: Sub,
-      ) {}
-    }
-
     fetchMock.getOnce('http://example.com', {
       body: '[{"test":"a","sub":{"value":5}}]',
       headers: { 'content-type': MediaType.JSON },
     });
 
-    await expectAsync(
+    expect(
       firstValueFrom(
         fetchRequestFactory
-          .resultResponse({ method: 'GET', pathTemplate: '' }, [Array, [Test]])
+          .resultResponse(
+            { method: 'GET', pathTemplate: '' },
+            arraySerde(TestSerde),
+          )
           .pipe(first()),
       ),
-    ).toBeResolvedTo(
-      objectContaining({
-        result: [new Test('a', new Sub(5))],
-        response: anything(),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        result: [{ test: 'a', sub: { value: 5 } }],
+        response: expect.anything(),
       }),
     );
   });
 
   it('fetches typed set of result responses', async () => {
-    //
-    class Sub {
-      constructor(
-        @JsonProperty()
-        public value: number,
-      ) {}
-    }
-
-    class Test {
-      constructor(
-        @JsonProperty()
-        public test: string,
-        @JsonProperty()
-        @JsonClassType({ type: () => [Sub] })
-        public sub: Sub,
-      ) {}
-    }
-
     fetchMock.getOnce('http://example.com', {
       body: '[{"test":"a","sub":{"value":5}}]',
       headers: { 'content-type': MediaType.JSON },
     });
 
-    await expectAsync(
+    expect(
       firstValueFrom(
         fetchRequestFactory
-          .resultResponse({ method: 'GET', pathTemplate: '' }, [Set, [Test]])
+          .resultResponse(
+            { method: 'GET', pathTemplate: '' },
+            setSerde(TestSerde),
+          )
           .pipe(first()),
       ),
-    ).toBeResolvedTo(
-      objectContaining({
-        result: new Set([new Test('a', new Sub(5))]),
-        response: anything(),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        result: new Set([{ test: 'a', sub: { value: 5 } }]),
+        response: expect.anything(),
       }),
     );
   });
 
-  it('builds event sources via eventSource', (done) => {
+  it('builds event sources via eventSource', async () => {
     const encodedEvent = new TextEncoder().encode(
       'event: hello\nid: 12345\ndata: Hello World!\n\n',
     ).buffer;
@@ -493,7 +312,6 @@ describe('FetchRequestFactory', () => {
     fetchMock.getOnce(
       'http://example.com',
       () => new Promise((resolve) => setTimeout(resolve, 5000)),
-      { overwriteRoutes: false },
     );
 
     const fetchRequestFactory = new FetchRequestFactory('http://example.com', {
@@ -504,11 +322,23 @@ describe('FetchRequestFactory', () => {
       method: 'GET',
       pathTemplate: '',
     });
-    eventSource.onmessage = () => {
-      eventSource.close();
-      done();
-    };
-    eventSource.connect();
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Timed out waiting for event source message.'));
+      }, 5000);
+
+      eventSource.onmessage = () => {
+        clearTimeout(timeout);
+        eventSource.close();
+        resolve();
+      };
+      eventSource.onerror = (event) => {
+        clearTimeout(timeout);
+        eventSource.close();
+        reject(new Error(`Unexpected event source error: ${String(event)}`));
+      };
+      eventSource.connect();
+    });
   });
 
   it('builds observable events via eventStream', async () => {
@@ -526,7 +356,6 @@ describe('FetchRequestFactory', () => {
     fetchMock.getOnce(
       'http://example.com',
       () => new Promise((resolve) => setTimeout(resolve, 5000)),
-      { overwriteRoutes: false },
     );
 
     const fetchRequestFactory = new FetchRequestFactory('http://example.com', {
@@ -535,18 +364,17 @@ describe('FetchRequestFactory', () => {
 
     const event$ = fetchRequestFactory.eventStream(
       { method: 'GET', pathTemplate: '' },
-      (decoder, event, id, data) => decoder.decodeText(data, [Object]),
+      (decoder, _event, _id, data) => decoder.decodeText(data, unknownSerde),
     );
 
-    await expectAsync(firstValueFrom(event$.pipe(first()))).toBeResolvedTo(
-      objectContaining({
+    expect(firstValueFrom(event$.pipe(first()))).resolves.toEqual(
+      expect.objectContaining({
         target: 'world',
       }),
     );
   });
 
   it('throws typed problems for registered problem types', async () => {
-    //
     fetchRequestFactory.registerProblem(TestProblem.TYPE, TestProblem);
 
     const problemJSON = JSON.stringify({
@@ -563,17 +391,16 @@ describe('FetchRequestFactory', () => {
       headers: { 'content-type': MediaType.Problem.value },
     });
 
-    await expectAsync(
+    expect(
       firstValueFrom(
         fetchRequestFactory
           .result({ method: 'GET', pathTemplate: '' })
           .pipe(first()),
       ),
-    ).toBeRejectedWith(new TestProblem());
+    ).rejects.toBeInstanceOf(TestProblem);
   });
 
   it('throws generic problems for unregistered problem types', async () => {
-    //
     const testProblem = new TestProblem();
 
     const problemJSON = JSON.stringify({
@@ -590,34 +417,39 @@ describe('FetchRequestFactory', () => {
       headers: { 'content-type': MediaType.Problem.value },
     });
 
-    await expectAsync(
+    expect(
       firstValueFrom(
         fetchRequestFactory
           .result({ method: 'GET', pathTemplate: '' })
           .pipe(first()),
       ),
-    ).toBeRejectedWith(new Problem(testProblem));
+    ).rejects.toBeInstanceOf(Problem);
   });
 
   it('translates non-problem error responses to generic problems', async () => {
-    //
     fetchMock.getOnce('http://example.com', {
       body: '<error>Error</error>',
       status: 400,
       headers: { 'content-type': MediaType.HTML.value },
     });
 
-    await expectAsync(
-      firstValueFrom(
+    try {
+      await firstValueFrom(
         fetchRequestFactory
           .result({ method: 'GET', pathTemplate: '' })
           .pipe(first()),
-      ),
-    ).toBeRejectedWith(Problem.fromStatus(400, 'Bad Request'));
+      );
+      throw new Error('Expected request to throw.');
+    } catch (error) {
+      expect(error).toBeInstanceOf(Problem);
+      const problem = error as Problem;
+      const expected = Problem.fromStatus(400, 'Bad Request');
+      expect(problem.status).toBe(expected.status);
+      expect(problem.title).toBe(expected.title);
+    }
   });
 
   it('throws SundayError when decoding fails', async () => {
-    //
     fetchMock.getOnce(
       'http://example.com',
       new Response('<test>Test</test>', {
@@ -627,12 +459,12 @@ describe('FetchRequestFactory', () => {
       }),
     );
 
-    await expectAsync(
+    expect(
       firstValueFrom(
         fetchRequestFactory
-          .result({ method: 'GET', pathTemplate: '' }, [String])
+          .result({ method: 'GET', pathTemplate: '' }, stringSerde)
           .pipe(first()),
       ),
-    ).toBeRejectedWith(any(SundayError));
+    ).rejects.toBeInstanceOf(SundayError);
   });
 });

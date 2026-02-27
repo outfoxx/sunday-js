@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import {describe, it, expect} from 'bun:test';
 import { MediaType } from '../src';
 import Suffix = MediaType.Suffix;
 import Tree = MediaType.Tree;
@@ -24,7 +25,7 @@ describe('MediaType', () => {
         MediaType.ParameterName.CharSet,
         'utf-8',
       );
-      expect(mediaType.equals(mediaType)).toBeTrue();
+      expect(mediaType.equals(mediaType)).toBe(true);
     });
 
     it('true when equal objects', () => {
@@ -37,43 +38,35 @@ describe('MediaType', () => {
         'utf-8',
       ).withParameter('test', '123');
 
-      expect(mediaType1.equals(mediaType2)).toBeTrue();
+      expect(mediaType1.equals(mediaType2)).toBe(true);
     });
 
     it('false when types are different', () => {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const mediaType1 = MediaType.from('application/json')!;
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const mediaType2 = MediaType.from('text/json')!;
 
-      expect(mediaType1.equals(mediaType2)).toBeFalse();
+      expect(mediaType1.equals(mediaType2)).toBe(false);
     });
 
     it('false when trees are different', () => {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const mediaType1 = MediaType.from('application/x-html')!;
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const mediaType2 = MediaType.from('application/x.html')!;
 
-      expect(mediaType1.equals(mediaType2)).toBeFalse();
+      expect(mediaType1.equals(mediaType2)).toBe(false);
     });
 
     it('false when subtypes are different', () => {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const mediaType1 = MediaType.from('text/html')!;
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const mediaType2 = MediaType.from('text/json')!;
 
-      expect(mediaType1.equals(mediaType2)).toBeFalse();
+      expect(mediaType1.equals(mediaType2)).toBe(false);
     });
 
     it('false when suffixes are different', () => {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const mediaType1 = MediaType.from('application/problem+json')!;
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const mediaType2 = MediaType.from('application/problem+cbor')!;
 
-      expect(mediaType1.equals(mediaType2)).toBeFalse();
+      expect(mediaType1.equals(mediaType2)).toBe(false);
     });
 
     it('false when any parameter is different', () => {
@@ -86,7 +79,7 @@ describe('MediaType', () => {
         'utf-8',
       ).withParameter('test', '123');
 
-      expect(mediaType1.equals(mediaType2)).toBeFalse();
+      expect(mediaType1.equals(mediaType2)).toBe(false);
     });
   });
 
@@ -112,7 +105,7 @@ describe('MediaType', () => {
             },
           }),
         ),
-      ).toBeTrue();
+      ).toBe(true);
     });
 
     it('incompatible when different types', () => {
@@ -136,7 +129,7 @@ describe('MediaType', () => {
             },
           }),
         ),
-      ).toBeFalse();
+      ).toBe(false);
     });
 
     it('incompatible when different trees', () => {
@@ -160,7 +153,7 @@ describe('MediaType', () => {
             },
           }),
         ),
-      ).toBeFalse();
+      ).toBe(false);
     });
 
     it('incompatible when different subtypes', () => {
@@ -184,7 +177,7 @@ describe('MediaType', () => {
             },
           }),
         ),
-      ).toBeFalse();
+      ).toBe(false);
     });
 
     it('incompatible when different suffixes', () => {
@@ -208,7 +201,7 @@ describe('MediaType', () => {
             },
           }),
         ),
-      ).toBeFalse();
+      ).toBe(false);
     });
 
     it('incompatible when different parameter values', () => {
@@ -232,7 +225,7 @@ describe('MediaType', () => {
             },
           }),
         ),
-      ).toBeFalse();
+      ).toBe(false);
     });
 
     it('incompatible when different parameter values (missing suffix)', () => {
@@ -255,7 +248,7 @@ describe('MediaType', () => {
             },
           }),
         ),
-      ).toBeFalse();
+      ).toBe(false);
     });
 
     it('compatible with different parameters', () => {
@@ -275,7 +268,7 @@ describe('MediaType', () => {
             },
           }),
         ),
-      ).toBeTrue();
+      ).toBe(true);
     });
 
     it('compatible with different parameter cases', () => {
@@ -295,7 +288,7 @@ describe('MediaType', () => {
             },
           }),
         ),
-      ).toBeTrue();
+      ).toBe(true);
     });
 
     it('incompatible with different parameter values', () => {
@@ -315,7 +308,7 @@ describe('MediaType', () => {
             },
           }),
         ),
-      ).toBeFalse();
+      ).toBe(false);
     });
 
     it('compatible with wildcard type & subtype', () => {
@@ -329,7 +322,7 @@ describe('MediaType', () => {
             subtype: '*',
           }),
         ),
-      ).toBeTrue();
+      ).toBe(true);
     });
 
     it('compatible with wildcard type', () => {
@@ -343,7 +336,7 @@ describe('MediaType', () => {
             subtype: 'html',
           }),
         ),
-      ).toBeTrue();
+      ).toBe(true);
     });
 
     it('compatible with wildcard subtype', () => {
@@ -357,7 +350,7 @@ describe('MediaType', () => {
             subtype: '*',
           }),
         ),
-      ).toBeTrue();
+      ).toBe(true);
     });
   });
 

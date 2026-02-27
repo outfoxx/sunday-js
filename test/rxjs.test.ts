@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import {beforeEach, describe, it, expect} from 'bun:test';
 import fetchMock from 'fetch-mock';
 import { firstValueFrom } from 'rxjs';
 import {
@@ -22,14 +23,14 @@ import {
   nullifyResponse,
   Problem,
   promiseFrom,
+  unknownSerde,
 } from '../src';
 import { delayedResponse } from './fetch-mock-utils';
 import { delay } from './promises';
-import objectContaining = jasmine.objectContaining;
 
 describe('RxJS Utils', () => {
   beforeEach(() => {
-    fetchMock.reset();
+    fetchMock.hardReset().mockGlobal();
   });
 
   class TestProblem extends Problem {
@@ -67,13 +68,13 @@ describe('RxJS Utils', () => {
 
     const fetchRequestFactory = new FetchRequestFactory('http://example.com');
 
-    await expectAsync(
+    expect(
       firstValueFrom(
         fetchRequestFactory
           .result({ method: 'GET', pathTemplate: '' })
           .pipe(nullifyNotFound()),
       ),
-    ).toBeResolvedTo(null);
+    ).resolves.toBeNull();
   });
 
   it('nullifyResponse translates selected problems to null', async () => {
@@ -85,13 +86,13 @@ describe('RxJS Utils', () => {
 
     const fetchRequestFactory = new FetchRequestFactory('http://example.com');
 
-    await expectAsync(
+    expect(
       firstValueFrom(
         fetchRequestFactory
           .result({ method: 'GET', pathTemplate: '' })
           .pipe(nullifyResponse([], [TestProblem])),
       ),
-    ).toBeResolvedTo(null);
+    ).resolves.toBeNull();
   });
 
   it('nullifyPromiseResponse translates selected problems to null', async () => {
@@ -103,11 +104,11 @@ describe('RxJS Utils', () => {
 
     const fetchRequestFactory = new FetchRequestFactory('http://example.com');
 
-    await expectAsync(
+    expect(
       firstValueFrom(
         fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }),
       ).catch(nullifyPromiseResponse([], [TestProblem])),
-    ).toBeResolvedTo(null);
+    ).resolves.toBeNull();
   });
 
   it('nullifyResponse passes other statuses', async () => {
@@ -117,13 +118,13 @@ describe('RxJS Utils', () => {
 
     const fetchRequestFactory = new FetchRequestFactory('http://example.com');
 
-    await expectAsync(
+    expect(
       firstValueFrom(
         fetchRequestFactory
           .result({ method: 'GET', pathTemplate: '' })
           .pipe(nullifyResponse([404], [])),
       ),
-    ).toBeRejectedWithError(Problem);
+    ).rejects.toBeInstanceOf(Problem);
   });
 
   it('nullifyPromiseResponse passes other statuses', async () => {
@@ -133,11 +134,11 @@ describe('RxJS Utils', () => {
 
     const fetchRequestFactory = new FetchRequestFactory('http://example.com');
 
-    await expectAsync(
+    expect(
       firstValueFrom(
         fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }),
       ).catch(nullifyPromiseResponse([404], [])),
-    ).toBeRejectedWithError(Problem);
+    ).rejects.toBeInstanceOf(Problem);
   });
 
   it('nullifyResponse passes other problems', async () => {
@@ -147,13 +148,13 @@ describe('RxJS Utils', () => {
 
     const fetchRequestFactory = new FetchRequestFactory('http://example.com');
 
-    await expectAsync(
+    expect(
       firstValueFrom(
         fetchRequestFactory
           .result({ method: 'GET', pathTemplate: '' })
           .pipe(nullifyResponse([], [TestProblem])),
       ),
-    ).toBeRejectedWithError(AnotherProblem, /Another Problem/i);
+    ).rejects.toBeInstanceOf(AnotherProblem);
   });
 
   it('nullifyPromiseResponse passes other problems', async () => {
@@ -163,11 +164,11 @@ describe('RxJS Utils', () => {
 
     const fetchRequestFactory = new FetchRequestFactory('http://example.com');
 
-    await expectAsync(
+    expect(
       firstValueFrom(
         fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }),
       ).catch(nullifyPromiseResponse([], [TestProblem])),
-    ).toBeRejectedWithError(AnotherProblem, /Another Problem/i);
+    ).rejects.toBeInstanceOf(AnotherProblem);
   });
 
   it('nullifyResponse passes other errors', async () => {
@@ -177,13 +178,13 @@ describe('RxJS Utils', () => {
 
     const fetchRequestFactory = new FetchRequestFactory('http://example.com');
 
-    await expectAsync(
+    expect(
       firstValueFrom(
         fetchRequestFactory
           .result({ method: 'GET', pathTemplate: '' })
           .pipe(nullifyResponse([405], [TestProblem])),
       ),
-    ).toBeRejectedWithError(Error, /Failed to send request/i);
+    ).rejects.toThrow(/Failed to send request/i);
   });
 
   it('nullifyPromiseResponse passes other errors', async () => {
@@ -193,11 +194,11 @@ describe('RxJS Utils', () => {
 
     const fetchRequestFactory = new FetchRequestFactory('http://example.com');
 
-    await expectAsync(
+    expect(
       firstValueFrom(
         fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }),
       ).catch(nullifyPromiseResponse([405], [TestProblem])),
-    ).toBeRejectedWithError(Error, /Failed to send request/i);
+    ).rejects.toThrow(/Failed to send request/i);
   });
 
   it('promiseFrom resolves to first value with signal', async () => {
@@ -211,14 +212,15 @@ describe('RxJS Utils', () => {
 
     const abort = new AbortController();
 
-    await expectAsync(
+    expect(
       promiseFrom(
-        fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }, [
-          Object,
-        ]),
+        fetchRequestFactory.result(
+          { method: 'GET', pathTemplate: '' },
+          unknownSerde,
+        ),
         abort.signal,
       ),
-    ).toBeResolvedTo(objectContaining({ message: 'Hello World' }));
+    ).resolves.toEqual(expect.objectContaining({ message: 'Hello World' }));
   });
 
   it('promiseFrom resolves to first value without signal', async () => {
@@ -230,13 +232,14 @@ describe('RxJS Utils', () => {
 
     const fetchRequestFactory = new FetchRequestFactory('http://example.com');
 
-    await expectAsync(
+    expect(
       promiseFrom(
-        fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }, [
-          Object,
-        ]),
+        fetchRequestFactory.result(
+          { method: 'GET', pathTemplate: '' },
+          unknownSerde,
+        ),
       ),
-    ).toBeResolvedTo(objectContaining({ message: 'Hello World' }));
+    ).resolves.toEqual(expect.objectContaining({ message: 'Hello World' }));
   });
 
   it('promiseFrom supports abort', async () => {
@@ -248,16 +251,17 @@ describe('RxJS Utils', () => {
 
     const abort = new AbortController();
 
-    await expectAsync(
+    expect(
       Promise.all([
         promiseFrom(
-          fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }, [
-            Object,
-          ]),
+          fetchRequestFactory.result(
+            { method: 'GET', pathTemplate: '' },
+            unknownSerde,
+          ),
           abort.signal,
         ),
         delay(100).then(() => abort.abort()),
       ]),
-    ).toBeRejectedWithError('sequence was aborted');
+    ).rejects.toThrow('sequence was aborted');
   });
 });
