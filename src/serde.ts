@@ -30,9 +30,9 @@ import {
   ZoneOffset,
 } from '@js-joda/core';
 import { TaggedValue } from 'cbor-redux';
-import { Base64 } from './util/base64';
-import { secondsToNumber } from './util/temporal';
-import { epochDateTimeTag, isoDateTimeTag, uriTag } from './media-type-codecs/cbor-tags';
+import { Base64 } from './util/base64.js';
+import { secondsToNumber } from './util/temporal.js';
+import { epochDateTimeTag, isoDateTimeTag, uriTag } from './media-type-codecs/cbor-tags.js';
 
 export type SerdeFormat = 'json' | 'cbor';
 

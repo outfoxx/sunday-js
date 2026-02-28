@@ -13,8 +13,8 @@
 // limitations under the License.
 
 import { CBOR } from 'cbor-redux';
-import { DateEncoding as SerdeDateEncoding, SerializationContext, Serde } from '../serde';
-import { MediaTypeEncoder } from './media-type-encoder';
+import { DateEncoding as SerdeDateEncoding, SerializationContext, Serde } from '../serde.js';
+import { MediaTypeEncoder } from './media-type-encoder.js';
 
 export class CBOREncoder implements MediaTypeEncoder {
   static get default(): CBOREncoder {

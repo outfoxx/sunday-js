@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { AnyTextDecoder } from './any-text-decoder';
-import { BinaryDecoder } from './binary-decoder';
-import { CBORDecoder } from './cbor-decoder';
-import { JSONDecoder } from './json-decoder';
-import { MediaType } from '../media-type';
-import { MediaTypeDecoder } from './media-type-decoder';
+import { AnyTextDecoder } from './any-text-decoder.js';
+import { BinaryDecoder } from './binary-decoder.js';
+import { CBORDecoder } from './cbor-decoder.js';
+import { JSONDecoder } from './json-decoder.js';
+import { MediaType } from '../media-type.js';
+import { MediaTypeDecoder } from './media-type-decoder.js';
 
 export interface MediaTypeDecodersBuilder {
   addDefaults(): MediaTypeDecodersBuilder;

@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ConstructableClassType } from './class-type';
-import { MediaType } from './media-type';
-import { TextMediaTypeDecoder } from './media-type-codecs/media-type-decoder';
-import { Problem } from './problem';
-import { ResultResponse } from './result-response';
-import { URLTemplate } from './url-template';
-import { Logger } from './logger';
-import { Serde } from './serde';
+import { ConstructableClassType } from './class-type.js';
+import { MediaType } from './media-type.js';
+import { TextMediaTypeDecoder } from './media-type-codecs/media-type-decoder.js';
+import { Problem } from './problem.js';
+import { ResultResponse } from './result-response.js';
+import { URLTemplate } from './url-template.js';
+import { Logger } from './logger.js';
+import { Serde } from './serde.js';
 
 export interface RequestFactory {
   readonly baseUrl: URLTemplate;

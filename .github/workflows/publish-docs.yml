@@ -9,18 +9,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
-    - uses: actions/setup-node@v3
+    - uses: oven-sh/setup-bun@v2
       with:
-        node-version: '14'
-        registry-url: 'https://registry.npmjs.org'
+        bun-version: 1.3.10
 
     - name: Install Packages
-      run: npm ci
+      run: bun install --frozen-lockfile
 
     - name: Build Documentation
-      run: npm run docs -- --out docs/${{ github.ref_name }}
+      run: bun run docs -- --out docs/${{ github.ref_name }}
 
     - name: Publish Documentation
       uses: JamesIves/github-pages-deploy-action@v4

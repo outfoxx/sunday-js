@@ -17,8 +17,8 @@ import {
   expectObject,
   SerializationContext,
   Serde,
-} from '../serde';
-import { StructuredMediaTypeEncoder } from './media-type-encoder';
+} from '../serde.js';
+import { StructuredMediaTypeEncoder } from './media-type-encoder.js';
 
 export class JSONEncoder implements StructuredMediaTypeEncoder {
   static get default(): JSONEncoder {

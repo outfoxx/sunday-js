@@ -23,9 +23,9 @@ import {
   Temporal,
   ZonedDateTime,
 } from '@js-joda/core';
-import { DateEncoding, expectObject, SerializationContext, Serde } from '../serde';
-import { encodeSeconds } from '../util/temporal';
-import { URLQueryParamsEncoder } from './media-type-encoder';
+import { DateEncoding, expectObject, SerializationContext, Serde } from '../serde.js';
+import { encodeSeconds } from '../util/temporal.js';
+import { URLQueryParamsEncoder } from './media-type-encoder.js';
 
 export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
   static get default(): WWWFormUrlEncoder {

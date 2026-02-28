@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { DeserializationContext, NumericDateDecoding, Serde } from '../serde';
-import { TextMediaTypeDecoder } from './media-type-decoder';
+import { DeserializationContext, NumericDateDecoding, Serde } from '../serde.js';
+import { TextMediaTypeDecoder } from './media-type-decoder.js';
 
 export class AnyTextDecoder implements TextMediaTypeDecoder {
   static default = new AnyTextDecoder();

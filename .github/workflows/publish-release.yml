@@ -2,37 +2,36 @@ name: Publish Release
 
 on:
   push:
-    tags: ['[0-9]+.[0-9]+.[0-9]+**']
+    tags: ['*.*.*']
 
 jobs:
   publish:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
-    - uses: actions/setup-node@v3
+    - uses: oven-sh/setup-bun@v2
       with:
-        node-version: '14'
-        registry-url: 'https://registry.npmjs.org'
+        bun-version: 1.3.10
 
     - name: Check Version Format in Tag
       id: version
       uses: nowsprinting/check-version-format-action@v3
 
     - name: Install Packages
-      run: npm ci
+      run: bun install --frozen-lockfile
 
     - name: Stamp Package Version
-      run: npm version --no-git-tag-version ${{ github.ref_name }}
+      run: bun pm pkg set version=${{ github.ref_name }}
 
     - name: Publish Package
-      run: npm publish
+      run: bun publish
       env:
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
 
     - name: Build Documentation
-      run: npm run docs -- --out docs/${{ github.ref_name }}
+      run: bun run docs -- --out docs/${{ github.ref_name }}
 
     - name: Publish Documentation
       uses: JamesIves/github-pages-deploy-action@v4

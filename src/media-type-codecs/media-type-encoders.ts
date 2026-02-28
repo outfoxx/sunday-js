@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { MediaType } from '../media-type';
-import { AnyTextEncoder } from './any-text-encoder';
-import { BinaryEncoder } from './binary-encoder';
-import { CBOREncoder } from './cbor-encoder';
-import { JSONEncoder } from './json-encoder';
-import { MediaTypeEncoder } from './media-type-encoder';
-import { WWWFormUrlEncoder } from './www-form-url-encoder';
+import { MediaType } from '../media-type.js';
+import { AnyTextEncoder } from './any-text-encoder.js';
+import { BinaryEncoder } from './binary-encoder.js';
+import { CBOREncoder } from './cbor-encoder.js';
+import { JSONEncoder } from './json-encoder.js';
+import { MediaTypeEncoder } from './media-type-encoder.js';
+import { WWWFormUrlEncoder } from './www-form-url-encoder.js';
 
 export interface MediaTypeEncodersBuilder {
   addDefaults(): MediaTypeEncodersBuilder;

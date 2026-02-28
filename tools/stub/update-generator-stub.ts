@@ -26,3 +26,4 @@ if (buildExit !== 0) {
 await mkdir(targetDir, { recursive: true });
 await copyFile(resolve(outDir, 'index.d.ts'), resolve(targetDir, 'index.d.ts'));
 await copyFile(resolve(outDir, 'index.js'), resolve(targetDir, 'index.js'));
+await copyFile(resolve(outDir, 'package.json'), resolve(targetDir, 'package.json'));

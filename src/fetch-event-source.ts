@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { EventInfo, EventParser } from './event-parser';
-import { validate } from './fetch';
-import { levelLogger, Logger, LogLevel } from './logger';
-import { MediaType } from './media-type';
-import { ExtEventSource } from './request-factory';
-import { unknownSet } from './util/any';
+import { EventInfo, EventParser } from './event-parser.js';
+import { validate } from './fetch.js';
+import { levelLogger, Logger, LogLevel } from './logger.js';
+import { MediaType } from './media-type.js';
+import { ExtEventSource } from './request-factory.js';
+import { unknownSet } from './util/any.js';
 
 export interface FetchEventSource {
   addEventListener<K extends keyof EventSourceEventMap>(

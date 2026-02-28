@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ClassType } from '../class-type';
-import { Problem } from '../problem';
+import { ClassType } from '../class-type.js';
+import { Problem } from '../problem.js';
 
 export async function nullifyNotFound<T>(promise: Promise<T>): Promise<T | null> {
   return await nullifyProblem(promise, [404], []);

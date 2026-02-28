@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { DateEncoding, Serde, SerializationContext } from '../serde';
-import { MediaTypeEncoder } from './media-type-encoder';
+import { DateEncoding, Serde, SerializationContext } from '../serde.js';
+import { MediaTypeEncoder } from './media-type-encoder.js';
 
 export class AnyTextEncoder implements MediaTypeEncoder {
   static default = new AnyTextEncoder();

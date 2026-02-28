@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ConstructableClassType } from './class-type';
-import { MediaType } from './media-type';
-import { Problem } from './problem';
-import { SundayError } from './sunday-error';
-import { Base64 } from './util/base64';
-import { errorToMessage } from './util/error';
+import { ConstructableClassType } from './class-type.js';
+import { MediaType } from './media-type.js';
+import { Problem } from './problem.js';
+import { SundayError } from './sunday-error.js';
+import { Base64 } from './util/base64.js';
+import { errorToMessage } from './util/error.js';
 
 export async function validate(
   response: Response,

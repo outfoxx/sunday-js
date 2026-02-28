@@ -1,4 +1,3 @@
-
 name: CI
 
 on:
@@ -9,28 +8,34 @@ on:
     branches: [ main ]
 
 jobs:
-
   build-test:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
-    - uses: actions/setup-node@v3
+    - uses: oven-sh/setup-bun@v2
       with:
-        node-version: 18
+        bun-version: 1.3.10
 
-    - name: Build/Test
+    - name: Install Packages
       run: |
-        npm ci
-        npm run lint
-        npm run build
-        npm run test:main
-        npm run test:esm
-        npm run test:esnext
+        bun install --frozen-lockfile
+
+    - name: Check
+      run: bun run check
+
+    - name: Bun ESM Smoke
+      run: bun run smoke:esm:bun
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+
+    - name: Node ESM Smoke
+      run: node ./tools/ci/esm-smoke.mjs
 
     - name: Prepare ESLint Report
       run: sed -i 's+/home/runner/work/sunday-js/sunday-js+/github/workspace+g' reports/lint.json

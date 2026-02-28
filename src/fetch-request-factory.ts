@@ -12,28 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Serde } from './serde';
-import { ConstructableClassType } from './class-type';
-import { validate } from './fetch';
-import { FetchEventSource } from './fetch-event-source';
-import { HeaderParameters } from './header-parameters';
-import { Logger } from './logger';
-import { MediaType } from './media-type';
-import { TextMediaTypeDecoder } from './media-type-codecs/media-type-decoder';
-import { MediaTypeDecoders } from './media-type-codecs/media-type-decoders';
-import { isURLQueryParamsEncoder } from './media-type-codecs/media-type-encoder';
-import { MediaTypeEncoders } from './media-type-codecs/media-type-encoders';
-import { Problem } from './problem';
+import { Serde } from './serde.js';
+import { ConstructableClassType } from './class-type.js';
+import { validate } from './fetch.js';
+import { FetchEventSource } from './fetch-event-source.js';
+import { HeaderParameters } from './header-parameters.js';
+import { Logger } from './logger.js';
+import { MediaType } from './media-type.js';
+import { TextMediaTypeDecoder } from './media-type-codecs/media-type-decoder.js';
+import { MediaTypeDecoders } from './media-type-codecs/media-type-decoders.js';
+import { isURLQueryParamsEncoder } from './media-type-codecs/media-type-encoder.js';
+import { MediaTypeEncoders } from './media-type-codecs/media-type-encoders.js';
+import { Problem } from './problem.js';
 import {
   ExtEventSource,
   RequestAdapter,
   RequestFactory,
   RequestSpec,
-} from './request-factory';
-import { ResultResponse } from './result-response';
-import { SundayError } from './sunday-error';
-import { URLTemplate } from './url-template';
-import { errorToMessage } from './util/error';
+} from './request-factory.js';
+import { ResultResponse } from './result-response.js';
+import { SundayError } from './sunday-error.js';
+import { URLTemplate } from './url-template.js';
+import { errorToMessage } from './util/error.js';
 
 export class FetchRequestFactory implements RequestFactory {
   public baseUrl: URLTemplate;

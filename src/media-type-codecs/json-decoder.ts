@@ -16,11 +16,11 @@ import {
   DeserializationContext,
   NumericDateDecoding as SerdeNumericDateDecoding,
   Serde,
-} from '../serde';
+} from '../serde.js';
 import {
   StructuredMediaTypeDecoder,
   TextMediaTypeDecoder,
-} from './media-type-decoder';
+} from './media-type-decoder.js';
 
 export class JSONDecoder
   implements TextMediaTypeDecoder, StructuredMediaTypeDecoder

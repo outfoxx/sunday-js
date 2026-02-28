@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Serde } from '../serde';
+import { Serde } from '../serde.js';
 
 export interface MediaTypeDecoder {
   decode<T>(response: Response, type: Serde<T>): Promise<T>;

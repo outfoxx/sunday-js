@@ -13,8 +13,8 @@
 // limitations under the License.
 
 import { CBOR } from 'cbor-redux';
-import { DeserializationContext, NumericDateDecoding as SerdeNumericDateDecoding, Serde } from '../serde';
-import { MediaTypeDecoder } from './media-type-decoder';
+import { DeserializationContext, NumericDateDecoding as SerdeNumericDateDecoding, Serde } from '../serde.js';
+import { MediaTypeDecoder } from './media-type-decoder.js';
 
 export class CBORDecoder implements MediaTypeDecoder {
   static get default(): CBORDecoder {
