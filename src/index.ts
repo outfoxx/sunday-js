@@ -39,4 +39,4 @@ export * from './request-adapters';
 
 export * from './util/base64';
 export * from './util/hex';
-export * from './util/rxjs';
+export * from './util/nullify';

@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Observable } from 'rxjs';
 import { ConstructableClassType } from './class-type';
 import { MediaType } from './media-type';
 import { TextMediaTypeDecoder } from './media-type-codecs/media-type-decoder';
@@ -30,27 +29,32 @@ export interface RequestFactory {
     problemType: ConstructableClassType<Problem>,
   ): void;
 
-  request(requestSpec: RequestSpec<unknown>): Observable<Request>;
+  request(
+    requestSpec: RequestSpec<unknown>,
+  ): Promise<Request>;
 
-  response(request: Request, dataExpected?: boolean): Observable<Response>;
+  response(
+    request: Request,
+    dataExpected?: boolean,
+  ): Promise<Response>;
 
   response<B>(
     requestSpec: RequestSpec<B>,
     dataExpected?: boolean,
-  ): Observable<Response>;
+  ): Promise<Response>;
 
   resultResponse<B, R>(
     requestSpec: RequestSpec<B>,
     resultType: Serde<R>,
-  ): Observable<ResultResponse<R>>;
+  ): Promise<ResultResponse<R>>;
 
   resultResponse<B>(
     requestSpec: RequestSpec<B>,
-  ): Observable<ResultResponse<void>>;
+  ): Promise<ResultResponse<void>>;
 
-  result<B, R>(requestSpec: RequestSpec<B>, resultType: Serde<R>): Observable<R>;
+  result<B, R>(requestSpec: RequestSpec<B>, resultType: Serde<R>): Promise<R>;
 
-  result<B>(requestSpec: RequestSpec<B>): Observable<void>;
+  result<B>(requestSpec: RequestSpec<B>): Promise<void>;
 
   eventSource(requestSpec: RequestSpec<void>): ExtEventSource;
 
@@ -63,7 +67,7 @@ export interface RequestFactory {
       data: string,
       logger?: Logger,
     ) => E | undefined,
-  ): Observable<E>;
+  ): AsyncIterable<E>;
 }
 
 export interface ExtEventSource extends EventSource {
@@ -89,9 +93,9 @@ export interface RequestSpec<B> {
   contentTypes?: MediaType[];
   acceptTypes?: MediaType[];
   headers?: Record<string, unknown>;
+  signal?: AbortSignal;
 }
 
 export interface RequestAdapter {
   adapt(requestFactory: RequestFactory, request: Request): Promise<Request>;
 }
-

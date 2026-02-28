@@ -1,0 +1,9 @@
+{
+  "name": "@outfoxx/sunday",
+  "version": "0.0.0-test",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "dependencies": {
+    "@js-joda/core": "^5.7.0"
+  }
+}

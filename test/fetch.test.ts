@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {beforeEach, describe, it, expect} from 'bun:test';
+import { beforeEach, describe, it, expect } from 'bun:test';
 import fetchMock from 'fetch-mock';
-import { catchError, firstValueFrom } from 'rxjs';
 import { FetchRequestFactory, MediaType, Problem, SundayError } from '../src';
 
 describe('Fetch API Utilities', () => {
@@ -34,15 +33,7 @@ describe('Fetch API Utilities', () => {
 
     const requestFactory = new FetchRequestFactory('http://example.com');
     expect(
-      firstValueFrom(
-        requestFactory
-          .response({ method: 'GET', pathTemplate: '/test' }, true)
-          .pipe(
-            catchError((err) => {
-              throw err;
-            }),
-          ),
-      ),
+      requestFactory.response({ method: 'GET', pathTemplate: '/test' }, true),
     ).rejects.toThrow(SundayError);
   });
 
@@ -58,25 +49,17 @@ describe('Fetch API Utilities', () => {
 
     const requestFactory = new FetchRequestFactory('http://example.com');
     expect(
-      firstValueFrom(
-        requestFactory
-          .response({ method: 'GET', pathTemplate: '/test' }, true)
-          .pipe(
-            catchError((err) => {
-              throw err;
-            }),
-          ),
-      ),
+      requestFactory.response({ method: 'GET', pathTemplate: '/test' }, true),
     ).rejects.toThrow(Problem);
   });
 
   it('validate throws Problem for unregistered problem types', async () => {
     const problem = JSON.stringify({
-      type: 'http://example.com/invali_id',
-      status: 400,
-      title: 'Invalid Id',
-      detail: 'One or more characters are invalid',
-    });
+                                     type: 'http://example.com/invali_id',
+                                     status: 400,
+                                     title: 'Invalid Id',
+                                     detail: 'One or more characters are invalid',
+                                   });
 
     fetchMock.getOnce(
       'http://example.com/test',
@@ -89,15 +72,26 @@ describe('Fetch API Utilities', () => {
 
     const requestFactory = new FetchRequestFactory('http://example.com');
     expect(
-      firstValueFrom(
-        requestFactory
-          .response({ method: 'GET', pathTemplate: '/test' }, true)
-          .pipe(
-            catchError((err) => {
-              throw err;
-            }),
-          ),
-      ),
+      requestFactory.response({ method: 'GET', pathTemplate: '/test' }, true),
     ).rejects.toThrow(Problem);
+  });
+
+  it('aborts response with an AbortSignal', async () => {
+    fetchMock.getOnce(
+      'http://example.com/test',
+      () => new Promise((resolve) => setTimeout(resolve, 5000)),
+    );
+
+    const requestFactory = new FetchRequestFactory('http://example.com');
+    const controller = new AbortController();
+
+    const responsePromise = requestFactory.response(
+      { method: 'GET', pathTemplate: '/test', signal: controller.signal },
+      true,
+    );
+
+    controller.abort();
+
+    expect(responsePromise).rejects.toThrow(/Abort/i);
   });
 });

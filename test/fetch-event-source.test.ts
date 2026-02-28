@@ -14,7 +14,7 @@
 
 import { beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import fetchMock from 'fetch-mock';
-import { unknownGet, unknownSet } from '../src/util/any';
+import { unknownGet } from '../src/util/any';
 import { FetchEventSource, MediaType, Problem } from '../src';
 import { delayedResponse } from './fetch-mock-utils';
 
@@ -244,8 +244,9 @@ describe('FetchEventSource', () => {
       delayedResponse({ status: 200 }, 5000),
     );
 
-    const eventSource = new FetchEventSource('http://example.com');
-    unknownSet(eventSource, 'signal', abortController.signal);
+    const eventSource = new FetchEventSource('http://example.com', {
+      signal: abortController.signal,
+    });
 
     await waitForEvent((resolve, reject) => {
       eventSource.onerror = (ev) => {

@@ -12,14 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { EMPTY, map, Observable, of, Subscription, switchMap } from 'rxjs';
-import { fromReadableStreamLike } from 'rxjs/internal/observable/innerFrom';
 import { EventInfo, EventParser } from './event-parser';
 import { validate } from './fetch';
 import { levelLogger, Logger, LogLevel } from './logger';
 import { MediaType } from './media-type';
 import { ExtEventSource } from './request-factory';
-import { unknownGet, unknownSet } from './util/any';
+import { unknownSet } from './util/any';
 
 export interface FetchEventSource {
   addEventListener<K extends keyof EventSourceEventMap>(
@@ -62,8 +60,12 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   private adapter: (
     url: string,
     requestInit: RequestInit,
-  ) => Observable<Request>;
-  private connectionSubscription?: Subscription;
+  ) => Promise<Request>;
+  private signal?: AbortSignal;
+  private connectionAbortController?: AbortController;
+  private connectionReader?: ReadableStreamDefaultReader<Uint8Array>;
+  private externalAbortSignal?: AbortSignal;
+  private externalAbortHandler?: () => void;
   private internalRetryTime = 100;
   private retryAttempt = 0;
   private connectionAttemptTime: number | undefined;
@@ -80,7 +82,8 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   constructor(
     url: string,
     eventSourceInit?: EventSourceInit & {
-      adapter?: (url: string, requestInit: RequestInit) => Observable<Request>;
+      adapter?: (url: string, requestInit: RequestInit) => Promise<Request>;
+      signal?: AbortSignal;
       eventTimeout?: number;
       eventTimeoutCheckInterval?: number;
       logger?: Logger;
@@ -90,7 +93,8 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     this.url = url;
     this.adapter =
       eventSourceInit?.adapter ??
-      ((_url, requestInit) => of(new Request(_url, requestInit)));
+      ((_url, requestInit) => Promise.resolve(new Request(_url, requestInit)));
+    this.signal = eventSourceInit?.signal;
     this.eventTimeout =
       eventSourceInit?.eventTimeout ?? FetchEventSource.EVENT_TIMEOUT_DEFAULT;
     this.eventTimeoutCheckInterval =
@@ -124,68 +128,71 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       headers.append(FetchEventSource.LAST_EVENT_ID_HEADER, this.lastEventId);
     }
 
-    this.connectionSubscription?.unsubscribe();
-    this.connectionSubscription = new Subscription();
+    this.abortConnection();
 
-    // Abort when connection is unsubscribed
-    const unsubscribeAbortController = new AbortController();
-    this.connectionSubscription.add(() => unsubscribeAbortController.abort());
+    const connectionAbortController = new AbortController();
+    this.connectionAbortController = connectionAbortController;
 
-    // Purely for testing purposes, allow an external signal to abort the fetch
-    const externalSignal = unknownGet(this, 'signal');
+    const externalSignal = this.signal;
     if (externalSignal instanceof AbortSignal) {
-      const externalSignalLink = () => unsubscribeAbortController.abort();
-
-      externalSignal.addEventListener('abort', externalSignalLink);
-      this.connectionSubscription.add(() =>
-        externalSignal?.removeEventListener('abort', externalSignalLink),
-      );
+      this.externalAbortSignal = externalSignal;
+      this.externalAbortHandler = () => {
+        this.connectionAbortController?.abort();
+      };
+      externalSignal.addEventListener('abort', this.externalAbortHandler);
     }
 
     const requestInit: RequestInit = {
       headers,
       cache: 'no-store',
       redirect: 'follow',
+      signal: connectionAbortController.signal,
     };
 
     this.connectionAttemptTime = Date.now();
 
-    this.connectionSubscription.add(
-      this.adapter(this.url, requestInit)
-        .pipe(
-          switchMap(async (request) => {
-            // Fetch explicitly using the unsubscribe
-            // abort controller signal
-            const response = await fetch(request, {
-              signal: unsubscribeAbortController.signal,
-            });
+    void this.adapter(this.url, requestInit)
+      .then(async (request) => {
+        const response = await fetch(request, {
+          signal: connectionAbortController.signal,
+        });
 
-            const validatedResponse = await validate(response, true);
+        const validatedResponse = await validate(response, true);
 
-            this.receivedHeaders(validatedResponse);
+        this.receivedHeaders(validatedResponse);
 
-            return validatedResponse;
-          }),
-          switchMap((response) => {
-            // If response has no body, return empty to complete immediately
-            const body = response.body;
-            if (!body) {
-              return EMPTY;
-            }
+        const body = validatedResponse.body;
+        if (!body) {
+          this.receivedComplete();
+          return;
+        }
 
-            return fromReadableStreamLike(body);
-          }),
-          map((value) => this.receivedData(value)),
-        )
-        .subscribe({
-          error: (error: unknown) => {
-            this.receivedError(error);
-          },
-          complete: () => {
-            this.receivedComplete();
-          },
-        }),
-    );
+        const reader = body.getReader();
+        this.connectionReader = reader;
+
+        while (true) {
+          const result = await reader.read();
+          if (result.done) {
+            break;
+          }
+          this.receivedData(result.value);
+        }
+
+        this.receivedComplete();
+      })
+      .catch((error: unknown) => {
+        this.receivedError(error);
+      })
+      .finally(() => {
+        if (this.connectionReader) {
+          try {
+            this.connectionReader.releaseLock();
+          } catch {
+            // ignore
+          }
+        }
+        this.connectionReader = undefined;
+      });
   }
 
   //
@@ -205,8 +212,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   }
 
   private internalClose() {
-    this.connectionSubscription?.unsubscribe();
-    this.connectionSubscription = undefined;
+    this.abortConnection();
 
     this.clearReconnect();
 
@@ -290,8 +296,8 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     this.retryAttempt = 0;
     this.readyState = this.OPEN;
 
-    // Start event timeout check, treating this
-    // connect as last time we received an event
+    // Start event timeout check, treating this connection
+    // as the last time we received an event
     this.startEventTimeoutCheck(Date.now());
 
     const event = new Event('open');
@@ -394,13 +400,13 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     // calculate total delay
     let retryDelay = Math.pow(retryMultiplier, this.RETRY_EXPONENT) * retryTime;
 
-    // Adjust delay by amount of time last connect
+    // Adjust delay by the amount of time the last connection
     // cycle took, except on the first attempt
     if (retryAttempt > 0) {
       retryDelay -= lastConnectTime;
 
-      // Ensure delay is at least as large as
-      // minimum retry time interval
+      // Ensure the delay is at least as large as
+      // the minimum retry time interval
       retryDelay = Math.max(retryDelay, retryTime);
     }
 
@@ -441,7 +447,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       eventInfo.event == null &&
       eventInfo.data == null
     ) {
-      // skip empty event
+      // skip empty events
       this.logger?.trace?.('skipping empty event');
       return;
     }
@@ -473,5 +479,35 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     const event = new Event('error');
     unknownSet(event, 'error', error);
     this.onerror?.(event);
+  }
+
+  private abortConnection() {
+    if (this.connectionAbortController) {
+      this.connectionAbortController.abort();
+    }
+    this.connectionAbortController = undefined;
+
+    if (this.connectionReader) {
+      try {
+        void this.connectionReader.cancel();
+      } catch {
+        // ignore
+      }
+      try {
+        this.connectionReader.releaseLock();
+      } catch {
+        // ignore
+      }
+    }
+    this.connectionReader = undefined;
+
+    if (this.externalAbortSignal && this.externalAbortHandler) {
+      this.externalAbortSignal.removeEventListener(
+        'abort',
+        this.externalAbortHandler,
+      );
+    }
+    this.externalAbortSignal = undefined;
+    this.externalAbortHandler = undefined;
   }
 }

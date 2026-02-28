@@ -4,7 +4,7 @@
       "filePath": "index.ts",
       "outFile": "out/index.d.ts",
       "libraries": {
-        "importedLibraries": ["@js-joda/core", "rxjs"]
+        "importedLibraries": ["@js-joda/core"]
       }
     }
   ]

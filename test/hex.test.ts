@@ -16,7 +16,7 @@ import {describe, it, expect} from 'bun:test';
 import { Hex } from '../src';
 
 describe('Hex', () => {
-  it('encodes/decodes roundtrip', () => {
+  it('encodes/decodes round trip', () => {
     const source = `AFC9E7835F33419AD46E669BB6D6`;
     const decoded = Hex.decode(source);
     const encoded = Hex.encode(decoded).toUpperCase();

@@ -33,10 +33,8 @@ import { RequestFactory } from '../../src/request-factory';
 import { ResultResponse } from '../../src/result-response';
 import { URLTemplate } from '../../src/url-template';
 import {
-  nullifyResponse,
-  nullifyPromiseResponse,
-  promiseFrom,
-} from '../../src/util/rxjs';
+  nullifyProblem,
+} from '../../src/util/nullify';
 import { Problem } from '../../src/problem';
 import {
   LocalDate,
@@ -78,9 +76,7 @@ export {
   RequestFactory,
   ResultResponse,
   URLTemplate,
-  nullifyResponse,
-  nullifyPromiseResponse,
-  promiseFrom,
+  nullifyProblem,
   Problem,
   LocalDate,
   LocalDateTime,

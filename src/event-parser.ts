@@ -98,8 +98,8 @@ export class EventParser {
       switch (byte) {
         // line-feed
         case 0xa: {
-          // if next byte is same,
-          // we found a separator
+          // if the next byte is the
+          // same, we found a separator
           if (bytes[idx + 1] == 0xa) {
             return [idx, idx + 2];
           }
@@ -108,8 +108,8 @@ export class EventParser {
 
         // carriage-return
         case 0xd: {
-          // if next byte is same,
-          // we found a separator
+          // if the next byte is the
+          // same, we found a separator
           if (bytes[idx + 1] == 0xd) {
             return [idx, idx + 2];
           }

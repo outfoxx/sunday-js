@@ -165,6 +165,7 @@ export function identitySerde<T>(): Serde<T> {
 
 export const unknownSerde: Serde<unknown> = identitySerde();
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- explicit any is the intended contract for this serde.
 export const anySerde: Serde<any> = identitySerde();
 
 export const nullSerde: Serde<null> = {
