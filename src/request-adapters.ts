@@ -39,7 +39,7 @@ export class StaticHeaderTokenAuthorizingAdapter extends HeaderTokenAuthorizingA
   }
 
   async adapt(
-    requestFactory: RequestFactory,
+    _requestFactory: RequestFactory,
     request: Request,
   ): Promise<Request> {
     return this.applyToken(request, this.accessToken);

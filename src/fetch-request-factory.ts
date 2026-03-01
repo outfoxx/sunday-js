@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Serde } from './serde.js';
-import { ConstructableClassType } from './class-type.js';
-import { validate } from './fetch.js';
+import { SchemaLike } from './schema-runtime.js';
+import { mergeHeaders, validate } from './fetch.js';
 import { FetchEventSource } from './fetch-event-source.js';
 import { HeaderParameters } from './header-parameters.js';
 import { Logger } from './logger.js';
@@ -33,14 +32,14 @@ import {
 import { ResultResponse } from './result-response.js';
 import { SundayError } from './sunday-error.js';
 import { URLTemplate } from './url-template.js';
-import { errorToMessage } from './util/error.js';
+import { errorToMessage } from './util/errors.js';
 
 export class FetchRequestFactory implements RequestFactory {
   public baseUrl: URLTemplate;
   public adapter?: RequestAdapter;
   public mediaTypeEncoders: MediaTypeEncoders;
   public mediaTypeDecoders: MediaTypeDecoders;
-  public problemTypes = new Map<string, ConstructableClassType<Problem>>();
+  public problemTypes = new Map<string, SchemaLike<Problem>>();
   public logger?: Logger;
 
   constructor(
@@ -64,7 +63,7 @@ export class FetchRequestFactory implements RequestFactory {
 
   registerProblem(
     type: URL | string,
-    problemType: ConstructableClassType<Problem>,
+    problemType: SchemaLike<Problem>,
   ): void {
     const typeStr = type instanceof URL ? type.toString() : type;
     this.problemTypes.set(typeStr, problemType);
@@ -154,19 +153,19 @@ export class FetchRequestFactory implements RequestFactory {
         ? request
         : await this.request(request);
     const response = await fetch(req);
-    return await validate(response, dataExpected ?? false, this.problemTypes);
+    return await validate(response, dataExpected ?? false, this.problemTypes, this.logger);
   }
 
   async resultResponse<B, R>(
     requestSpec: RequestSpec<B>,
-    resultType: Serde<R>,
+    resultType: SchemaLike<R>,
   ): Promise<ResultResponse<R>>;
   async resultResponse<B>(
     requestSpec: RequestSpec<B>,
   ): Promise<ResultResponse<void>>;
   async resultResponse(
     request: RequestSpec<unknown>,
-    responseType?: Serde<unknown>,
+    responseType?: SchemaLike,
   ): Promise<ResultResponse<unknown>> {
     const response = await this.response(request, !!responseType);
     if (!responseType) {
@@ -198,14 +197,14 @@ export class FetchRequestFactory implements RequestFactory {
 
   async result<B, R>(
     requestSpec: RequestSpec<B>,
-    resultType: Serde<R>,
+    resultType: SchemaLike<R>,
   ): Promise<R>;
   async result<B>(
     requestSpec: RequestSpec<B>,
   ): Promise<void>;
   async result(
     request: RequestSpec<unknown>,
-    responseType?: Serde<unknown>,
+    responseType?: SchemaLike,
   ): Promise<unknown> {
     const response = await this.response(request, !!responseType);
 
@@ -231,26 +230,20 @@ export class FetchRequestFactory implements RequestFactory {
 
   eventSource(requestSpec: RequestSpec<void>): ExtEventSource {
     //
-    const adapter = (
+    const adapter = async (
       url: string,
       requestInit: RequestInit,
     ): Promise<Request> => {
       const eventSourceSpec = Object.assign({}, requestSpec, {
         pathTemplate: url,
       });
-      return this.request(eventSourceSpec).then((baseRequest) => {
-        const headers = new Headers(baseRequest.headers);
-        const requestHeaders = new Headers(requestInit.headers);
-        requestHeaders.forEach((value, key) => headers.set(key, value));
-
-        return new Request(baseRequest, {
-          ...requestInit,
-          headers,
-          signal: composeAbortSignals(
-            eventSourceSpec.signal,
-            requestInit.signal ?? undefined,
-          ),
-        });
+      const request = await this.request(eventSourceSpec);
+      return new Request(request, {
+        ...requestInit,
+        headers: mergeHeaders(request.headers, requestInit.headers),
+        signal: composeAbortSignals(
+          eventSourceSpec.signal,
+          requestInit.signal ?? undefined),
       });
     };
 

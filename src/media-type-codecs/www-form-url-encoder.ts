@@ -23,9 +23,19 @@ import {
   Temporal,
   ZonedDateTime,
 } from '@js-joda/core';
-import { DateEncoding, expectObject, SerializationContext, Serde } from '../serde.js';
-import { encodeSeconds } from '../util/temporal.js';
+import { z } from 'zod';
+import {
+  ArrayBufferEncoding,
+  createSchemaRuntime,
+  DateEncoding,
+  NumericDateDecoding,
+  SchemaLike,
+  SchemaRuntime,
+} from '../schema-runtime.js';
+import { encodeSeconds } from '../util/numbers.js';
 import { URLQueryParamsEncoder } from './media-type-encoder.js';
+
+const FORM_OBJECT_SCHEMA = z.record(z.string(), z.unknown());
 
 export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
   static get default(): WWWFormUrlEncoder {
@@ -36,22 +46,28 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
     );
   }
 
+  runtime: SchemaRuntime;
+
   constructor(
     private arrayEncoding: WWWFormUrlEncoder.ArrayEncoding,
     private boolEncoding: WWWFormUrlEncoder.BoolEncoding,
     private dateEncoding: WWWFormUrlEncoder.DateEncoding,
     private encoder = new TextEncoder(),
-  ) {}
-
-  encode<T = unknown>(value: T, type?: Serde<T>): BodyInit {
-    const ctx: SerializationContext = {
+  ) {
+    this.runtime = createSchemaRuntime({
       format: 'json',
       dateEncoding: this.dateEncoding as unknown as DateEncoding,
-      includeNulls: false,
-    };
-    const parameters = type ? type.serialize(value, ctx) : value;
+      numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      arrayBufferEncoding: ArrayBufferEncoding.BASE64,
+    });
+  }
 
-    return this.encoder.encode(this.encodeQueryString(expectObject(parameters, 'form')));
+  encode<T = unknown>(value: T, type?: SchemaLike<T>): BodyInit {
+    const parameters = type
+      ? this.runtime.resolveSchema(type).encode(value)
+      : value;
+
+    return this.encoder.encode(this.encodeQueryString(FORM_OBJECT_SCHEMA.parse(parameters)));
   }
 
   encodeQueryString(parameters: Record<string, unknown>): string {

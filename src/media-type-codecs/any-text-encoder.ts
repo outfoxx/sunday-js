@@ -12,23 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { DateEncoding, Serde, SerializationContext } from '../serde.js';
 import { MediaTypeEncoder } from './media-type-encoder.js';
+import { SchemaLike } from '../schema-runtime.js';
 
 export class AnyTextEncoder implements MediaTypeEncoder {
   static default = new AnyTextEncoder();
 
-  encode<T>(value: T, type?: Serde<T>): BodyInit {
-    if (!type) {
-      return value as BodyInit;
+  encode<T>(value: T, _?: SchemaLike<T>): BodyInit {
+    let str: string;
+    if (typeof value == 'string') {
+      str = value as string;
+    } else {
+      throw new Error(`Unsupported value type for text encoding: ${typeof value}`);
     }
-    const ctx: SerializationContext = {
-      format: 'json',
-      dateEncoding: DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      includeNulls: false,
-    };
-    const serialized = type.serialize(value, ctx);
-    return typeof serialized === 'string' ? serialized : String(serialized);
+    return str;
   }
 }
-

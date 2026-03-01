@@ -71,18 +71,20 @@ export class MediaTypeEncoders {
   constructor(private encoders: Map<MediaType, MediaTypeEncoder>) {}
 
   supports(mediaType: MediaType): boolean {
-    return Array.from(this.encoders.keys()).some((key) =>
-      key.compatible(mediaType),
-    );
+    for (const key of this.encoders.keys()) {
+      if (key.compatible(mediaType)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   find(mediaType: MediaType): MediaTypeEncoder {
-    const found = Array.from(this.encoders.entries()).find(([type]) =>
-      type.compatible(mediaType),
-    );
-    if (!found) {
-      throw Error(`Unsupported media type - ${mediaType}`);
+    for (const [type, encoder] of this.encoders.entries()) {
+      if (type.compatible(mediaType)) {
+        return encoder;
+      }
     }
-    return found[1];
+    throw Error(`Unsupported media type - ${mediaType}`);
   }
 }

@@ -12,19 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { DeserializationContext, NumericDateDecoding, Serde } from '../serde.js';
-import { MediaTypeDecoder } from './media-type-decoder.js';
+import { ArrayBufferSchema } from '../schema-builtins.js';
+import { BufferMediaTypeDecoder } from './media-type-decoder.js';
+import { isSchema, SchemaLike } from '../schema-runtime.js';
 
-export class BinaryDecoder implements MediaTypeDecoder {
+export class BinaryDecoder implements BufferMediaTypeDecoder {
   static default = new BinaryDecoder();
 
-  async decode<T>(response: Response, type: Serde<T>): Promise<T> {
-    const arrayBuffer = await response.arrayBuffer();
-    const ctx: DeserializationContext = {
-      format: 'cbor',
-      numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-    };
-    return type.deserialize(arrayBuffer, ctx);
+  async decode<T>(response: Response, type: SchemaLike<T>): Promise<T> {
+    return this.decodeBuffer(await response.arrayBuffer(), type);
+  }
+
+  decodeBuffer<T>(buffer: ArrayBuffer, schema: SchemaLike<T>): T {
+    if (isSchema(schema)) {
+      return schema.parse(buffer);
+    } else if (schema === ArrayBufferSchema) {
+      return buffer as unknown as T;
+    } else {
+      throw new Error(`Unsupported schema type: ${typeof schema}`);
+    }
   }
 }
-

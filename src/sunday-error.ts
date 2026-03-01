@@ -18,7 +18,6 @@ export class SundayError extends Error {
   constructor(
     message: string,
     public url: string,
-    public httpVersion: string,
     public status: number,
     public statusText: string,
     public headers: Headers,
@@ -40,12 +39,11 @@ export class SundayError extends Error {
     return new SundayError(
       message,
       response.url,
-      '?.?',
       response.status,
       response.statusText,
       response.headers,
       body,
-      ResponseExample.build(response, bodyExcerpt),
+      ResponseExample.build(response, bodyExcerpt)
     );
   }
 }

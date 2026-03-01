@@ -13,14 +13,14 @@
 // limitations under the License.
 
 import {describe, it, expect} from 'bun:test';
-import { arrayBufferSerde, BinaryEncoder, Serde } from '../src';
+import { ArrayBufferSchema, BinaryEncoder } from '../src';
 
 describe('BinaryEncoder', () => {
   it('disallows encoding from non-binary types (e.g. String)', async () => {
     expect(() =>
       new BinaryEncoder().encode<unknown>(
         'some text',
-        arrayBufferSerde as Serde<unknown>,
+        ArrayBufferSchema,
       ),
     ).toThrow();
   });

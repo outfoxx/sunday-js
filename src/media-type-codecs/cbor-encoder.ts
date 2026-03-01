@@ -13,28 +13,86 @@
 // limitations under the License.
 
 import { CBOR } from 'cbor-redux';
-import { DateEncoding as SerdeDateEncoding, SerializationContext, Serde } from '../serde.js';
+import {
+  DateEncoding as SchemaDateEncoding,
+  SchemaLike, SchemaPolicy,
+  SchemaRuntime,
+} from '../schema-runtime.js';
+import { createCBORSchemaRuntime } from './default-policies.js';
 import { MediaTypeEncoder } from './media-type-encoder.js';
 
 export class CBOREncoder implements MediaTypeEncoder {
-  static get default(): CBOREncoder {
-    return new CBOREncoder(SerdeDateEncoding.DECIMAL_SECONDS_SINCE_EPOCH);
+  static readonly default = new CBOREncoder();
+
+  static fromPolicy(policy: Partial<Omit<SchemaPolicy, 'format'>>): CBOREncoder {
+    return new CBOREncoder(createCBORSchemaRuntime(policy));
   }
 
-  constructor(readonly dateEncoding: SerdeDateEncoding) {}
+  constructor(readonly runtime: SchemaRuntime = createCBORSchemaRuntime()) {
+  }
 
-  encode<T>(value: T, type?: Serde<T>): ArrayBuffer {
-    const ctx: SerializationContext = {
-      format: 'cbor',
-      dateEncoding: this.dateEncoding,
-      includeNulls: false,
-    };
-    const serialized = type ? type.serialize(value, ctx) : value;
-    return CBOR.encode(serialized);
+  encode<T>(value: T, type?: SchemaLike<T>): ArrayBuffer {
+    const serialized = type
+      ? this.runtime.resolveSchema(type).encode(value)
+      : value;
+    return CBOR.encode(pruneNullObjectProperties(serialized));
   }
 }
 
+function pruneNullObjectProperties(value: unknown): unknown {
+  if (value === null || value === undefined) {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    let result: Array<unknown> | undefined;
+    for (let index = 0; index < value.length; index += 1) {
+      const entry = value[index];
+      const next = pruneNullObjectProperties(entry);
+      if (!result && next !== entry) {
+        result = value.slice(0, index);
+      }
+      if (result) {
+        result.push(next);
+      }
+    }
+    return result ?? value;
+  }
+  if (isPlainObject(value)) {
+    const source = value as Record<string, unknown>;
+    const keys = Object.keys(source);
+    let result: Record<string, unknown> | undefined;
+    for (let index = 0; index < keys.length; index += 1) {
+      const key = keys[index];
+      const entry = source[key];
+      const next = pruneNullObjectProperties(entry);
+      const removed = next === null;
+      const changed = removed || next !== entry;
+
+      if (!result && changed) {
+        result = {};
+        for (let backfill = 0; backfill < index; backfill += 1) {
+          const prevKey = keys[backfill];
+          result[prevKey] = source[prevKey];
+        }
+      }
+
+      if (result && !removed) {
+        result[key] = next;
+      }
+    }
+    return result ?? value;
+  }
+  return value;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
 
 export namespace CBOREncoder {
-  export const DateEncoding = SerdeDateEncoding;
+  export const DateEncoding = SchemaDateEncoding;
 }

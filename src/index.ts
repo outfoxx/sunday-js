@@ -12,8 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export * from './class-type.js';
-export * from './serde.js';
+export * from './schema-runtime.js';
+export {
+  ArrayBufferSchema,
+  BooleanSchema,
+  NullSchema,
+  NumberSchema,
+  StringSchema,
+  UnknownSchema,
+  URLSchema,
+} from './schema-builtins.js';
 export * from './request-factory.js';
 export * from './fetch-request-factory.js';
 export * from './fetch-event-source.js';
@@ -37,6 +45,6 @@ export * from './date-time-types.js';
 export * from './result-response.js';
 export * from './request-adapters.js';
 
-export * from './util/base64.js';
-export * from './util/hex.js';
+// Select exports from util
+export * from './util/errors.js';
 export * from './util/nullify.js';

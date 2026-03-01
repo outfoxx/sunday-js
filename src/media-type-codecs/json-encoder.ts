@@ -13,46 +13,102 @@
 // limitations under the License.
 
 import {
-  DateEncoding as SerdeDateEncoding,
-  expectObject,
-  SerializationContext,
-  Serde,
-} from '../serde.js';
+  DateEncoding as SchemaDateEncoding,
+  SchemaLike,
+  SchemaPolicy,
+  SchemaRuntime,
+} from '../schema-runtime.js';
+import { createJSONSchemaRuntime } from './default-policies.js';
 import { StructuredMediaTypeEncoder } from './media-type-encoder.js';
+import { z } from 'zod';
+
+const JSON_OBJECT_SCHEMA = z.record(z.string(), z.unknown());
 
 export class JSONEncoder implements StructuredMediaTypeEncoder {
-  static get default(): JSONEncoder {
-    return new JSONEncoder(SerdeDateEncoding.DECIMAL_SECONDS_SINCE_EPOCH);
+  static readonly default = new JSONEncoder();
+
+  static fromPolicy(policy: Partial<Omit<SchemaPolicy, 'format'>>): JSONEncoder {
+    return new JSONEncoder(createJSONSchemaRuntime(policy));
   }
 
-  constructor(readonly dateEncoding: SerdeDateEncoding) {}
+  constructor(readonly runtime: SchemaRuntime = createJSONSchemaRuntime()) {
+  }
 
-  encode<T>(value: T, type?: Serde<T>, includeNulls = false): string {
-    const ctx: SerializationContext = {
-      format: 'json',
-      dateEncoding: this.dateEncoding,
-      includeNulls,
-    };
-    const serialized = type ? type.serialize(value, ctx) : value;
-    return JSON.stringify(serialized);
+  encode<T>(value: T, type?: SchemaLike<T>, includeNulls?: boolean): string {
+    const serialized = type
+      ? this.runtime.resolveSchema(type).encode(value)
+      : value;
+    const output = includeNulls ? serialized : pruneNullObjectProperties(serialized);
+    return JSON.stringify(output);
   }
 
   encodeObject<T>(
     value: T,
-    type?: Serde<T>,
+    type?: SchemaLike<T>,
     includeNulls = false,
   ): Record<string, unknown> {
-    const ctx: SerializationContext = {
-      format: 'json',
-      dateEncoding: this.dateEncoding,
-      includeNulls,
-    };
-    const serialized = type ? type.serialize(value, ctx) : value;
-    return expectObject(serialized, 'JSON');
+    const serialized = type
+      ? this.runtime.resolveSchema(type).encode(value)
+      : value;
+    const output = includeNulls ? serialized : pruneNullObjectProperties(serialized);
+    return JSON_OBJECT_SCHEMA.parse(output);
   }
 }
 
+function pruneNullObjectProperties(value: unknown): unknown {
+  if (value === null || value === undefined) {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    let result: Array<unknown> | undefined;
+    for (let index = 0; index < value.length; index += 1) {
+      const entry = value[index];
+      const next = pruneNullObjectProperties(entry);
+      if (!result && next !== entry) {
+        result = value.slice(0, index);
+      }
+      if (result) {
+        result.push(next);
+      }
+    }
+    return result ?? value;
+  }
+  if (isPlainObject(value)) {
+    const source = value as Record<string, unknown>;
+    const keys = Object.keys(source);
+    let result: Record<string, unknown> | undefined;
+    for (let index = 0; index < keys.length; index += 1) {
+      const key = keys[index];
+      const entry = source[key];
+      const next = pruneNullObjectProperties(entry);
+      const removed = next === null;
+      const changed = removed || next !== entry;
+
+      if (!result && changed) {
+        result = {};
+        for (let backfill = 0; backfill < index; backfill += 1) {
+          const prevKey = keys[backfill];
+          result[prevKey] = source[prevKey];
+        }
+      }
+
+      if (result && !removed) {
+        result[key] = next;
+      }
+    }
+    return result ?? value;
+  }
+  return value;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
 
 export namespace JSONEncoder {
-  export const DateEncoding = SerdeDateEncoding;
+  export const DateEncoding = SchemaDateEncoding;
 }

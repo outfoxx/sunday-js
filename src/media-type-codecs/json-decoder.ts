@@ -13,10 +13,12 @@
 // limitations under the License.
 
 import {
-  DeserializationContext,
-  NumericDateDecoding as SerdeNumericDateDecoding,
-  Serde,
-} from '../serde.js';
+  NumericDateDecoding as SchemaNumericDateDecoding,
+  SchemaLike,
+  SchemaPolicy,
+  SchemaRuntime,
+} from '../schema-runtime.js';
+import { createJSONSchemaRuntime } from './default-policies.js';
 import {
   StructuredMediaTypeDecoder,
   TextMediaTypeDecoder,
@@ -25,32 +27,30 @@ import {
 export class JSONDecoder
   implements TextMediaTypeDecoder, StructuredMediaTypeDecoder
 {
-  static get default(): JSONDecoder {
-    return new JSONDecoder(SerdeNumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH);
+  static readonly default = new JSONDecoder();
+
+  static fromPolicy(policy: Partial<Omit<SchemaPolicy, 'format'>>): JSONDecoder {
+    return new JSONDecoder(createJSONSchemaRuntime(policy));
   }
 
-  constructor(readonly numericDateDecoding: SerdeNumericDateDecoding) {}
+  constructor(readonly runtime: SchemaRuntime = createJSONSchemaRuntime()) {
+  }
 
-  async decode<T>(response: Response, type: Serde<T>): Promise<T> {
+  async decode<T>(response: Response, type: SchemaLike<T>): Promise<T> {
     const data = await response.json();
     return this.decodeObject(data, type);
   }
 
-  decodeText<T>(text: string, type: Serde<T>): T {
+  decodeText<T>(text: string, type: SchemaLike<T>): T {
     const value = JSON.parse(text);
     return this.decodeObject(value, type);
   }
 
-  decodeObject<T>(value: unknown, type: Serde<T>): T {
-    const ctx: DeserializationContext = {
-      format: 'json',
-      numericDateDecoding: this.numericDateDecoding,
-    };
-    return type.deserialize(value, ctx);
+  decodeObject<T>(value: unknown, type: SchemaLike<T>): T {
+    return this.runtime.resolveSchema(type).decode(value);
   }
 }
 
-
 export namespace JSONDecoder {
-  export const NumericDateDecoding = SerdeNumericDateDecoding;
+  export const NumericDateDecoding = SchemaNumericDateDecoding;
 }

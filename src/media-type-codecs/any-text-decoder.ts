@@ -12,23 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { DeserializationContext, NumericDateDecoding, Serde } from '../serde.js';
 import { TextMediaTypeDecoder } from './media-type-decoder.js';
+import { isSchema, SchemaLike } from '../schema-runtime.js';
 
 export class AnyTextDecoder implements TextMediaTypeDecoder {
   static default = new AnyTextDecoder();
 
-  async decode<T>(response: Response, type: Serde<T>): Promise<T> {
-    const text = await response.text();
-    return this.decodeText(text, type);
+  async decode<T>(response: Response, type: SchemaLike<T>): Promise<T> {
+    return this.decodeText(await response.text(), type);
   }
 
-  decodeText<T>(text: string, type: Serde<T>): T {
-    const ctx: DeserializationContext = {
-      format: 'json',
-      numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-    };
-    return type.deserialize(text, ctx);
+  decodeText<T>(text: string, schema: SchemaLike<T>): T {
+    if (isSchema(schema)) {
+      return schema.parse(text);
+    } else {
+      throw new Error(`Unsupported schema type: ${typeof schema}`);
+    }
   }
 }
-

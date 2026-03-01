@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {beforeEach, describe, it, expect} from 'bun:test';
 import {
+  Duration,
   Instant,
   LocalDate,
   LocalDateTime,
@@ -24,30 +24,36 @@ import {
   ZoneId,
   ZoneOffset,
 } from '@js-joda/core';
+import { beforeEach, describe, expect, it } from 'bun:test';
 import fetchMock from 'fetch-mock';
+import { z } from 'zod';
 import {
-  arrayBufferSerde,
+  ArrayBufferEncoding,
+  ArrayBufferSchema,
   CBORDecoder,
-  dateSerde,
-  instantSerde,
-  localDateSerde,
-  localDateTimeSerde,
-  localTimeSerde,
-  numberSerde,
-  offsetDateTimeSerde,
-  offsetTimeSerde,
-  Serde,
-  stringSerde,
-  urlSerde,
-  zonedDateTimeSerde,
-  Hex,
+  DateSchema,
+  DurationSchema,
+  InstantSchema,
+  LocalDateSchema,
+  LocalDateTimeSchema,
+  LocalTimeSchema,
+  OffsetDateTimeSchema,
+  OffsetTimeSchema,
+  SchemaLike,
+  URLSchema,
+  ZonedDateTimeSchema,
 } from '../src';
 import { expectEqual } from './expect-utils';
-import { objectSerde } from './serde-test-helpers';
 import NumericDateDecoding = CBORDecoder.NumericDateDecoding;
 
-const testSerde = <T>(serde: Serde<T>) =>
-  objectSerde<{ test: T }>('Test', { test: { serde } });
+const testSchema = <T>(runtime: CBORDecoder['runtime'], ref: SchemaLike<T>) =>
+  z.object({
+             test: runtime.resolveSchema(ref),
+           }) as unknown as z.ZodType<{ test: T }>;
+
+function decodeHex(hex: string) {
+  return Uint8Array.fromHex(hex.replaceAll(/\s+/g, '')).buffer;
+}
 
 describe('CBORDecoder', () => {
   beforeEach(() => {
@@ -55,568 +61,638 @@ describe('CBORDecoder', () => {
   });
 
   it('decodes object types from fetch response', async () => {
-    type Sub = { value: number };
-    type Test = { test: string; sub: Sub };
-
-    const subSerde = objectSerde<Sub>('Sub', {
-      value: { serde: numberSerde },
-    });
-    const testSerdeObj = objectSerde<Test>('Test', {
-      test: { serde: stringSerde },
-      sub: { serde: subSerde },
-    });
+    const subSchema = z.object({
+                                 value: z.number(),
+                               });
+    const testSchemaObj = z.object({
+                                     test: z.string(),
+                                     sub: subSchema,
+                                   });
 
     fetchMock.getOnce(
       'http://example.com',
       new Response(
-        Hex.decode('A2 64 74657374 61 61 63 737562 A1 65 76616C7565 05'),
+        decodeHex('A2 64 74657374 61 61 63 737562 A1 65 76616C7565 05'),
       ),
     );
     expect(
-      CBORDecoder.default.decode(await fetch('http://example.com'), testSerdeObj),
+      CBORDecoder.default.decode(await fetch('http://example.com'), testSchemaObj),
     ).resolves.toEqual({ test: 'a', sub: { value: 5 } });
   });
 
   it('decodes object types from string', async () => {
-    type Sub = { value: number };
-    type Test = { test: string; sub: Sub };
-
-    const subSerde = objectSerde<Sub>('Sub', {
-      value: { serde: numberSerde },
-    });
-    const testSerdeObj = objectSerde<Test>('Test', {
-      test: { serde: stringSerde },
-      sub: { serde: subSerde },
-    });
+    const subSchema = z.object({
+                                 value: z.number(),
+                               });
+    const testSchemaObj = z.object({
+                                     test: z.string(),
+                                     sub: subSchema,
+                                   });
 
     expect(
-      CBORDecoder.default.decodeData(
-        Hex.decode('A2 64 74657374 61 61 63 737562 A1 65 76616C7565 05'),
-        testSerdeObj,
+      CBORDecoder.default.decodeBuffer(
+        decodeHex('A2 64 74657374 61 61 63 737562 A1 65 76616C7565 05'),
+        testSchemaObj,
       ),
     ).toEqual({ test: 'a', sub: { value: 5 } });
   });
 
   it('decodes URL values from string', async () => {
     expectEqual(
-      CBORDecoder.default.decodeData(
-        Hex.decode('A1 64 74657374 73 687474703A2F2F6578616D706C652E636F6D2F'),
-        testSerde(urlSerde),
+      CBORDecoder.default.decodeBuffer(
+        decodeHex('A1 64 74657374 73 687474703A2F2F6578616D706C652E636F6D2F'),
+        testSchema(CBORDecoder.default.runtime, URLSchema),
       ),
       { test: new URL('http://example.com') },
     );
   });
 
   it('decodes URL values from tagged URL', async () => {
+    const decoder = CBORDecoder.default;
     expectEqual(
-      CBORDecoder.default.decodeData(
-        Hex.decode(
+      decoder.decodeBuffer(
+        decodeHex(
           'A1 64 74657374 D8 20 72 687474703A2F2F6578616D706C652E636F6D',
         ),
-        testSerde(urlSerde),
+        testSchema(decoder.runtime, URLSchema),
       ),
       { test: new URL('http://example.com') },
     );
   });
 
   it('decodes Instant values from string', async () => {
+    const decoder = CBORDecoder.default;
     expect(
-      CBORDecoder.default.decodeData(
-        Hex.decode(
+      decoder.decodeBuffer(
+        decodeHex(
           'A1 64 74657374 78 18 323030322D30312D30315430313A30323A30332E3030345A',
         ),
-        testSerde(instantSerde),
+        testSchema(decoder.runtime, InstantSchema),
       ),
     ).toEqual({
-      test: ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC).toInstant(),
-    });
+                test: ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC).toInstant(),
+              });
   });
 
   it('decodes Instant values from date tagged string', async () => {
+    const decoder = CBORDecoder.default;
     expect(
-      CBORDecoder.default.decodeData(
-        Hex.decode(
+      decoder.decodeBuffer(
+        decodeHex(
           'A1 64 74657374 C0 78 18 323030322D30312D30315430313A30323A30332E3030345A',
         ),
-        testSerde(instantSerde),
+        testSchema(decoder.runtime, InstantSchema),
       ),
     ).toEqual({
-      test: ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC).toInstant(),
-    });
+                test: ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC).toInstant(),
+              });
   });
 
   it('decodes Instant values from number (decimal seconds)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      },
+    );
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeData(Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'), testSerde(instantSerde)),
+      decoder.decodeBuffer(decodeHex('A1 64 74657374 FB 41CD3DC1B964FDF4'),
+                     testSchema(decoder.runtime, InstantSchema)),
     ).toEqual({
-      test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC).toInstant(),
-    });
+                test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC).toInstant(),
+              });
   });
 
   it('decodes Instant values from date tagged number (decimal seconds)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      },
+    );
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeData(
-        Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'),
-        testSerde(instantSerde),
+      decoder.decodeBuffer(
+        decodeHex('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'),
+        testSchema(decoder.runtime, InstantSchema),
       ),
     ).toEqual({
-      test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC).toInstant(),
-    });
+                test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC).toInstant(),
+              });
   });
 
   it('decodes Instant values from number (milliseconds)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      },
+    );
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
-      ).decodeData(Hex.decode('A1 64 74657374 1B 000000E472797865'), testSerde(instantSerde)),
+      decoder.decodeBuffer(decodeHex('A1 64 74657374 1B 000000E472797865'),
+                     testSchema(decoder.runtime, InstantSchema)),
     ).toEqual({
-      test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC).toInstant(),
-    });
+                test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC).toInstant(),
+              });
   });
 
-  it('decodes Instant values from date tagged number (milliseconds)', async () => {
+  it('decodes Instant values from date tagged number (epoch seconds under milliseconds policy)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      },
+    );
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
-      ).decodeData(
-        Hex.decode('A1 64 74657374 C1 1B 000000E472797865'),
-        testSerde(instantSerde),
+      decoder.decodeBuffer(
+        decodeHex('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'),
+        testSchema(decoder.runtime, InstantSchema),
       ),
     ).toEqual({
-      test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC).toInstant(),
-    });
+                test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC).toInstant(),
+              });
+  });
+
+  it('fails to decode Instant values from unsupported date tag', async () => {
+    expect(() =>
+             CBORDecoder.default.decodeBuffer(
+               decodeHex('A1 64 74657374 C2 00'),
+               testSchema(CBORDecoder.default.runtime, InstantSchema),
+             )).toThrow(/Invalid CBOR tag for temporal decoding/u);
   });
 
   it('decodes ZonedDateTime values from string', async () => {
+    const decoder = CBORDecoder.default;
     expect(
-      CBORDecoder.default.decodeData(
-        Hex.decode(
+      decoder.decodeBuffer(
+        decodeHex(
           'A1 64 74657374 78 1B 323030322D30312D30315430313A30323A30332E3030345A5B5A5D',
         ),
-        testSerde(zonedDateTimeSerde),
+        testSchema(decoder.runtime, ZonedDateTimeSchema),
       ),
     ).toEqual({
-      test: ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC),
-    });
+                test: ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC),
+              });
   });
 
   it('decodes ZonedDateTime values from date tagged string', async () => {
+    const decoder = CBORDecoder.default;
     expect(
-      CBORDecoder.default.decodeData(
-        Hex.decode(
+      decoder.decodeBuffer(
+        decodeHex(
           'A1 64 74657374 C0 78 1B 323030322D30312D30315430313A30323A30332E3030345A5B5A5D',
         ),
-        testSerde(zonedDateTimeSerde),
+        testSchema(decoder.runtime, ZonedDateTimeSchema),
       ),
     ).toEqual({
-      test: ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC),
-    });
+                test: ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC),
+              });
   });
 
   it('decodes ZonedDateTime values from number (decimal seconds)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      },
+    );
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeData(
-        Hex.decode(
+      decoder.decodeBuffer(
+        decodeHex(
           'A1 64 74657374 83 FB 41CD3DC1B900E560 61 5A 61 5A',
         ),
-        testSerde(zonedDateTimeSerde),
+        testSchema(decoder.runtime, ZonedDateTimeSchema),
       ),
     ).toEqual({
-      test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 7000000, ZoneId.UTC),
-    });
-  });
-
-  it('decodes ZonedDateTime values from legacy number (decimal seconds)', async () => {
-    expect(
-      new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeData(Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'), testSerde(zonedDateTimeSerde)),
-    ).toEqual({
-      test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC),
-    });
+                test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 7000000, ZoneId.UTC),
+              });
   });
 
   it('decodes ZonedDateTime values from date tagged number (decimal seconds)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      },
+    );
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeData(
-        Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'),
-        testSerde(zonedDateTimeSerde),
+      decoder.decodeBuffer(
+        decodeHex('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'),
+        testSchema(decoder.runtime, ZonedDateTimeSchema),
       ),
     ).toEqual({
-      test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC),
-    });
+                test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC),
+              });
   });
 
   it('decodes ZonedDateTime values from number (milliseconds)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      },
+    );
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
-      ).decodeData(
-        Hex.decode(
+      decoder.decodeBuffer(
+        decodeHex(
           'A1 64 74657374 83 1B 000000E472797557 61 5A 61 5A',
         ),
-        testSerde(zonedDateTimeSerde),
+        testSchema(decoder.runtime, ZonedDateTimeSchema),
       ),
     ).toEqual({
-      test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 7000000, ZoneId.UTC),
-    });
+                test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 7000000, ZoneId.UTC),
+              });
   });
 
-  it('decodes ZonedDateTime values from date tagged number (milliseconds)', async () => {
+  it('decodes ZonedDateTime values from date tagged number (epoch seconds under milliseconds policy)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      },
+    );
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
-      ).decodeData(
-        Hex.decode('A1 64 74657374 C1 1B 000000E472797865'),
-        testSerde(zonedDateTimeSerde),
+      decoder.decodeBuffer(
+        decodeHex('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'),
+        testSchema(decoder.runtime, ZonedDateTimeSchema),
       ),
     ).toEqual({
-      test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC),
-    });
+                test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC),
+              });
   });
 
   it('decodes OffsetDateTime values from string', async () => {
+    const decoder = CBORDecoder.default;
     expect(
-      CBORDecoder.default.decodeData(
-        Hex.decode(
+      decoder.decodeBuffer(
+        decodeHex(
           'A1 64 74657374 78 18 323030322D30312D30315430313A30323A30332E3030345A',
         ),
-        testSerde(offsetDateTimeSerde),
+        testSchema(decoder.runtime, OffsetDateTimeSchema),
       ),
     ).toEqual({
-      test: OffsetDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneOffset.UTC),
-    });
+                test: OffsetDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneOffset.UTC),
+              });
   });
 
   it('decodes OffsetDateTime values from date tagged string', async () => {
+    const decoder = CBORDecoder.default;
     expect(
-      CBORDecoder.default.decodeData(
-        Hex.decode(
+      decoder.decodeBuffer(
+        decodeHex(
           'A1 64 74657374 C0 78 18 323030322D30312D30315430313A30323A30332E3030345A',
         ),
-        testSerde(offsetDateTimeSerde),
+        testSchema(decoder.runtime, OffsetDateTimeSchema),
       ),
     ).toEqual({
-      test: OffsetDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneOffset.UTC),
-    });
+                test: OffsetDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneOffset.UTC),
+              });
   });
 
   it('decodes OffsetDateTime values from number (decimal seconds)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      },
+    );
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeData(
-        Hex.decode('A1 64 74657374 82 FB 41CD3DC1B900E560 61 5A'),
-        testSerde(offsetDateTimeSerde),
+      decoder.decodeBuffer(
+        decodeHex('A1 64 74657374 82 FB 41CD3DC1B900E560 61 5A'),
+        testSchema(decoder.runtime, OffsetDateTimeSchema),
       ),
     ).toEqual({
-      test: OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 7000000, ZoneOffset.UTC),
-    });
-  });
-
-  it('decodes OffsetDateTime values from legacy number (decimal seconds)', async () => {
-    expect(
-      new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeData(Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'), testSerde(offsetDateTimeSerde)),
-    ).toEqual({
-      test: OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC),
-    });
+                test: OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 7000000, ZoneOffset.UTC),
+              });
   });
 
   it('decodes OffsetDateTime values from date tagged number (decimal seconds)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      },
+    );
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeData(
-        Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'),
-        testSerde(offsetDateTimeSerde),
+      decoder.decodeBuffer(
+        decodeHex('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'),
+        testSchema(decoder.runtime, OffsetDateTimeSchema),
       ),
     ).toEqual({
-      test: OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC),
-    });
+                test: OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC),
+              });
   });
 
   it('decodes OffsetDateTime values from number (milliseconds)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      },
+    );
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
-      ).decodeData(
-        Hex.decode('A1 64 74657374 82 1B 000000E472797557 61 5A'),
-        testSerde(offsetDateTimeSerde),
+      decoder.decodeBuffer(
+        decodeHex('A1 64 74657374 82 1B 000000E472797557 61 5A'),
+        testSchema(decoder.runtime, OffsetDateTimeSchema),
       ),
     ).toEqual({
-      test: OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 7000000, ZoneOffset.UTC),
-    });
+                test: OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 7000000, ZoneOffset.UTC),
+              });
   });
 
-  it('decodes OffsetDateTime values from date tagged number (milliseconds)', async () => {
+  it('decodes OffsetDateTime values from date tagged number (epoch seconds under milliseconds policy)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      },
+    );
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
-      ).decodeData(
-        Hex.decode('A1 64 74657374 C1 1B 000000E472797865'),
-        testSerde(offsetDateTimeSerde),
+      decoder.decodeBuffer(
+        decodeHex('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'),
+        testSchema(decoder.runtime, OffsetDateTimeSchema),
       ),
     ).toEqual({
-      test: OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC),
-    });
+                test: OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC),
+              });
   });
 
   it('decodes OffsetTime values from string', async () => {
+    const decoder = CBORDecoder.default;
     expect(
-      CBORDecoder.default.decodeData(
-        Hex.decode('A1 64 74657374 6D 30313A30323A30332E3030345A'),
-        testSerde(offsetTimeSerde),
+      decoder.decodeBuffer(
+        decodeHex('A1 64 74657374 6D 30313A30323A30332E3030345A'),
+        testSchema(decoder.runtime, OffsetTimeSchema),
       ),
     ).toEqual({
-      test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC),
-    });
+                test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC),
+              });
   });
 
   it('decodes OffsetTime values from number (decimal seconds)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      },
+    );
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeData(
-        Hex.decode('A1 64 74657374 82 FB 40AD16020C49BA5E 61 5A'),
-        testSerde(offsetTimeSerde),
+      decoder.decodeBuffer(
+        decodeHex('A1 64 74657374 82 FB 40AD16020C49BA5E 61 5A'),
+        testSchema(decoder.runtime, OffsetTimeSchema),
       ),
     ).toEqual({
-      test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC),
-    });
+                test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC),
+              });
   });
 
   it('decodes OffsetTime values from number (milliseconds)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      },
+    );
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
-      ).decodeData(
-        Hex.decode('A1 64 74657374 82 1A 0038CEFC 61 5A'),
-        testSerde(offsetTimeSerde),
+      decoder.decodeBuffer(
+        decodeHex('A1 64 74657374 82 1A 0038CEFC 61 5A'),
+        testSchema(decoder.runtime, OffsetTimeSchema),
       ),
     ).toEqual({
-      test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC),
-    });
-  });
-
-  it('decodes OffsetTime values from legacy number (milliseconds)', async () => {
-    expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
-      ).decodeData(Hex.decode('A1 64 74657374 1A 0038CEFC'), testSerde(offsetTimeSerde)),
-    ).toEqual({
-      test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC),
-    });
-  });
-
-  it('decodes OffsetTime values from legacy array', async () => {
-    expect(
-      CBORDecoder.default.decodeData(
-        Hex.decode('A1 64 74657374 85 01 02 03 1A 00 3D 09 00 61 5A'),
-        testSerde(offsetTimeSerde),
-      ),
-    ).toEqual({
-      test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC),
-    });
+                test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC),
+              });
   });
 
   it('decodes LocalDateTime values from string', async () => {
+    const decoder = CBORDecoder.default;
     expect(
-      CBORDecoder.default.decodeData(
-        Hex.decode('A1 64 74657374 77 323030322D30312D30315430313A30323A30332E303034'),
-        testSerde(localDateTimeSerde),
+      decoder.decodeBuffer(
+        decodeHex('A1 64 74657374 77 323030322D30312D30315430313A30323A30332E303034'),
+        testSchema(decoder.runtime, LocalDateTimeSchema),
       ),
     ).toEqual({
-      test: LocalDateTime.of(2002, 1, 1, 1, 2, 3, 4000000),
-    });
+                test: LocalDateTime.of(2002, 1, 1, 1, 2, 3, 4000000),
+              });
   });
 
   it('decodes LocalDateTime values from number (decimal seconds)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      },
+    );
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeData(Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'), testSerde(localDateTimeSerde)),
+      decoder.decodeBuffer(decodeHex('A1 64 74657374 FB 41CD3DC1B964FDF4'),
+                     testSchema(decoder.runtime, LocalDateTimeSchema)),
     ).toEqual({
-      test: LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000),
-    });
+                test: LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000),
+              });
   });
 
   it('decodes LocalDateTime values from number (milliseconds)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      },
+    );
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
-      ).decodeData(Hex.decode('A1 64 74657374 1B 000000E472797865'), testSerde(localDateTimeSerde)),
+      decoder.decodeBuffer(decodeHex('A1 64 74657374 1B 000000E472797865'),
+                     testSchema(decoder.runtime, LocalDateTimeSchema)),
     ).toEqual({
-      test: LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000),
-    });
-  });
-
-  it('decodes LocalDateTime values from legacy array', async () => {
-    expect(
-      CBORDecoder.default.decodeData(
-        Hex.decode('A1 64 74657374 87 19 07 D1 02 03 04 05 06 1A 00 6A CF C0'),
-        testSerde(localDateTimeSerde),
-      ),
-    ).toEqual({
-      test: LocalDateTime.of(2001, 2, 3, 4, 5, 6, 7000000),
-    });
+                test: LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000),
+              });
   });
 
   it('decodes LocalDate values from string', async () => {
+    const decoder = CBORDecoder.default;
     expect(
-      CBORDecoder.default.decodeData(
-        Hex.decode('A1 64 74657374 6A 323030322D30312D3031'),
-        testSerde(localDateSerde),
+      decoder.decodeBuffer(
+        decodeHex('A1 64 74657374 6A 323030322D30312D3031'),
+        testSchema(decoder.runtime, LocalDateSchema),
       ),
     ).toEqual({ test: LocalDate.of(2002, 1, 1) });
   });
 
   it('decodes LocalDate values from number (decimal seconds)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      },
+    );
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeData(Hex.decode('A1 64 74657374 1A 3A7B9500'), testSerde(localDateSerde)),
+      decoder.decodeBuffer(decodeHex('A1 64 74657374 1A 3A7B9500'),
+                     testSchema(decoder.runtime, LocalDateSchema)),
     ).toEqual({ test: LocalDate.of(2001, 2, 3) });
   });
 
   it('decodes LocalDate values from number (milliseconds)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      },
+    );
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
-      ).decodeData(Hex.decode('A1 64 74657374 1B 000000E471991000'), testSerde(localDateSerde)),
+      decoder.decodeBuffer(decodeHex('A1 64 74657374 1B 000000E471991000'),
+                     testSchema(decoder.runtime, LocalDateSchema)),
     ).toEqual({ test: LocalDate.of(2001, 2, 3) });
   });
 
   it('decodes LocalTime values from string', async () => {
+    const decoder = CBORDecoder.default;
     expect(
-      CBORDecoder.default.decodeData(
-        Hex.decode('A1 64 74657374 6C 30313A30323A30332E303034'),
-        testSerde(localTimeSerde),
+      decoder.decodeBuffer(
+        decodeHex('A1 64 74657374 6C 30313A30323A30332E303034'),
+        testSchema(decoder.runtime, LocalTimeSchema),
       ),
     ).toEqual({ test: LocalTime.of(1, 2, 3, 4000000) });
   });
 
   it('decodes LocalTime values from number (decimal seconds)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      },
+    );
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeData(Hex.decode('A1 64 74657374 FB 40AD16020C49BA5E'), testSerde(localTimeSerde)),
+      decoder.decodeBuffer(decodeHex('A1 64 74657374 FB 40AD16020C49BA5E'),
+                     testSchema(decoder.runtime, LocalTimeSchema)),
     ).toEqual({ test: LocalTime.of(1, 2, 3, 4000000) });
   });
 
   it('decodes LocalTime values from number (milliseconds)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      },
+    );
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
-      ).decodeData(Hex.decode('A1 64 74657374 1A 0038CEFC'), testSerde(localTimeSerde)),
+      decoder.decodeBuffer(decodeHex('A1 64 74657374 1A 0038CEFC'),
+                           testSchema(decoder.runtime, LocalTimeSchema)),
     ).toEqual({ test: LocalTime.of(1, 2, 3, 4000000) });
   });
 
-  it('decodes LocalTime values from legacy array', async () => {
+  it('decodes Duration values from string', async () => {
+    const decoder = CBORDecoder.default;
     expect(
-      CBORDecoder.default.decodeData(
-        Hex.decode('A1 64 74657374 84 01 02 03 1A 00 3D 09 00'),
-        testSerde(localTimeSerde),
+      decoder.decodeBuffer(
+        decodeHex('A1 64 74657374 6C 50543148324D332E30303453'),
+        testSchema(decoder.runtime, DurationSchema),
       ),
-    ).toEqual({ test: LocalTime.of(1, 2, 3, 4000000) });
+    ).toEqual({ test: Duration.ofSeconds(3723, 4000000) });
+  });
+
+  it('decodes Duration values from number (decimal seconds)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      },
+    );
+    expect(
+      decoder.decodeBuffer(decodeHex('A1 64 74657374 FB 40AD16020C49BA5E'),
+                           testSchema(decoder.runtime, DurationSchema)),
+    ).toEqual({ test: Duration.ofSeconds(3723, 4000000) });
+  });
+
+  it('decodes Duration values from number (milliseconds)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      },
+    );
+    expect(
+      decoder.decodeBuffer(decodeHex('A1 64 74657374 1A 0038CEFC'),
+                           testSchema(decoder.runtime, DurationSchema)),
+    ).toEqual({ test: Duration.ofSeconds(3723, 4000000) });
   });
 
   it('decodes Date values from ISO string', async () => {
+    const decoder = CBORDecoder.default;
     expect(
-      CBORDecoder.default.decodeData(
-        Hex.decode(
+      decoder.decodeBuffer(
+        decodeHex(
           'A1 64 74657374 78 18 323030312D30322D30335430343A30353A30362E3738395A',
         ),
-        testSerde(dateSerde),
+        testSchema(decoder.runtime, DateSchema),
       ),
     ).toEqual({
-      test: new Date(Instant.ofEpochMilli(981173106789).toString()),
-    });
+                test: new Date(Instant.ofEpochMilli(981173106789).toString()),
+              });
   });
 
   it('decodes Date values from ISO date', async () => {
+    const decoder = CBORDecoder.default;
     expect(
-      CBORDecoder.default.decodeData(
-        Hex.decode(
+      decoder.decodeBuffer(
+        decodeHex(
           'A1 64 74657374 C0 78 18 323030312D30322D30335430343A30353A30362E3738395A',
         ),
-        testSerde(dateSerde),
+        testSchema(decoder.runtime, DateSchema),
       ),
     ).toEqual({
-      test: new Date(Instant.ofEpochMilli(981173106789).toString()),
-    });
+                test: new Date(Instant.ofEpochMilli(981173106789).toString()),
+              });
   });
 
   it('decodes Date values from numeric epoch (decimal seconds)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      },
+    );
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeData(Hex.decode('A1 64 74657374 FB 41CD3DC1B964FDF4'), testSerde(dateSerde)),
+      decoder.decodeBuffer(decodeHex('A1 64 74657374 FB 41CD3DC1B964FDF4'),
+                           testSchema(decoder.runtime, DateSchema)),
     ).toEqual({
-      test: new Date(Instant.ofEpochMilli(981173106789).toString()),
-    });
+                test: new Date(Instant.ofEpochMilli(981173106789).toString()),
+              });
   });
 
   it('decodes Date values from numeric epoch (milliseconds)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      },
+    );
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
-      ).decodeData(Hex.decode('A1 64 74657374 1B 000000E472797865'), testSerde(dateSerde)),
+      decoder.decodeBuffer(decodeHex('A1 64 74657374 1B 000000E472797865'),
+                           testSchema(decoder.runtime, DateSchema)),
     ).toEqual({
-      test: new Date(Instant.ofEpochMilli(981173106789).toString()),
-    });
+                test: new Date(Instant.ofEpochMilli(981173106789).toString()),
+              });
   });
 
   it('decodes Date values from epoch date (decimal seconds)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      },
+    );
     expect(
-      new CBORDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeData(
-        Hex.decode('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'),
-        testSerde(dateSerde),
+      decoder.decodeBuffer(
+        decodeHex('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'),
+        testSchema(decoder.runtime, DateSchema),
       ),
-    ).toEqual({
-      test: new Date(Instant.ofEpochMilli(981173106789).toString()),
-    });
-  });
-
-  it('decodes Date values from epoch date (milliseconds)', async () => {
-    expect(
-      new CBORDecoder(
-        NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
-      ).decodeData(
-        Hex.decode('A1 64 74657374 C1 1B 000000E472797865'),
-        testSerde(dateSerde),
-      ),
-    ).toEqual({
-      test: new Date(Instant.ofEpochMilli(981173106789).toString()),
-    });
-  });
-
-  it('decodes ArrayBuffer values from base64 string', async () => {
-    expectEqual(
-      CBORDecoder.default.decodeData(
-        Hex.decode('A1 64 74657374 70 534756736247386751304A5055694568'),
-        testSerde(arrayBufferSerde),
-      ),
-      { test: new TextEncoder().encode('Hello CBOR!!').buffer },
+    ).toEqual(
+      {
+        test: new Date(Instant.ofEpochMilli(981173106789).toString()),
+      },
     );
   });
 
-  it('decodes ArrayBuffer values from octet string', async () => {
+  it('decodes Date values from epoch date (epoch seconds under milliseconds policy)', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      },
+    );
+    expect(
+      decoder.decodeBuffer(
+        decodeHex('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'),
+        testSchema(decoder.runtime, DateSchema),
+      ),
+    ).toEqual(
+      {
+        test: new Date(Instant.ofEpochMilli(981173106789).toString()),
+      },
+    );
+  });
+
+  it('decodes ArrayBuffer values from base64 string', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+        arrayBufferEncoding: ArrayBufferEncoding.BASE64,
+      },
+    );
     expectEqual(
-      CBORDecoder.default.decodeData(
-        Hex.decode('A1 64 74657374 4C 48656C6C6F2043424F522121'),
-        testSerde(arrayBufferSerde),
+      decoder.decodeBuffer(
+        decodeHex('A1 64 74657374 D8 21 70 534756736247386751304A5055694568'),
+        testSchema(decoder.runtime, ArrayBufferSchema),
       ),
       { test: new TextEncoder().encode('Hello CBOR!!').buffer },
     );

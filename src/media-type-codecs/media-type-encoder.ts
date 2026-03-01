@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Serde } from '../serde.js';
+import { SchemaLike } from '../schema-runtime.js';
 
 export interface MediaTypeEncoder {
-  encode<T = unknown>(value: T, type: Serde<T> | undefined): BodyInit;
+  encode<T>(value: T, type?: SchemaLike<T>): BodyInit;
 }
 
 export interface URLQueryParamsEncoder extends MediaTypeEncoder {
@@ -30,9 +30,9 @@ export function isURLQueryParamsEncoder(
 }
 
 export interface StructuredMediaTypeEncoder extends MediaTypeEncoder {
-  encodeObject<T = unknown>(
+  encodeObject<T>(
     value: T,
-    type?: Serde<T>,
+    type?: SchemaLike<T>,
     includeNulls?: boolean,
   ): Record<string, unknown>;
 }

@@ -69,18 +69,20 @@ export class MediaTypeDecoders {
   constructor(private decoders: Map<MediaType, MediaTypeDecoder>) {}
 
   supports(mediaType: MediaType): boolean {
-    return Array.from(this.decoders.keys()).some((key) =>
-      key.compatible(mediaType),
-    );
+    for (const key of this.decoders.keys()) {
+      if (key.compatible(mediaType)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   find(mediaType: MediaType): MediaTypeDecoder {
-    const found = Array.from(this.decoders.entries()).find(([type]) =>
-      type.compatible(mediaType),
-    );
-    if (!found) {
-      throw Error(`Unsupported media type - ${mediaType}`);
+    for (const [type, decoder] of this.decoders.entries()) {
+      if (type.compatible(mediaType)) {
+        return decoder;
+      }
     }
-    return found[1];
+    throw Error(`Unsupported media type - ${mediaType}`);
   }
 }

@@ -17,7 +17,7 @@ import { validate } from './fetch.js';
 import { levelLogger, Logger, LogLevel } from './logger.js';
 import { MediaType } from './media-type.js';
 import { ExtEventSource } from './request-factory.js';
-import { unknownSet } from './util/any.js';
+import { unknownSet } from './util/unknowns.js';
 
 export interface FetchEventSource {
   addEventListener<K extends keyof EventSourceEventMap>(
@@ -157,7 +157,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
           signal: connectionAbortController.signal,
         });
 
-        const validatedResponse = await validate(response, true);
+        const validatedResponse = await validate(response, true, undefined, this.logger);
 
         this.receivedHeaders(validatedResponse);
 

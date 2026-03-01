@@ -14,19 +14,29 @@
 
 import {beforeEach, describe, it, expect} from 'bun:test';
 import fetchMock from 'fetch-mock';
-import { arrayBufferSerde, BinaryDecoder, Serde, stringSerde } from '../src';
+import { z } from 'zod';
+import {
+  ArrayBufferSchema,
+  BinaryDecoder,
+  SchemaLike,
+  StringSchema,
+} from '../src';
 
-const viewSerde = <T>(ctor: (buffer: ArrayBuffer) => T): Serde<T> => ({
-  serialize: () => {
-    throw new Error('Serialize not supported');
-  },
-  deserialize: (value) => {
-    if (!(value instanceof ArrayBuffer)) {
-      throw new Error('Invalid binary');
-    }
-    return ctor(value);
-  },
-});
+const arrayBufferSchema: SchemaLike<ArrayBuffer> = ArrayBufferSchema;
+const stringSchema: SchemaLike<string> = StringSchema;
+
+const viewSchema = <T>(ctor: (buffer: ArrayBuffer) => T): SchemaLike<T> =>
+  z.codec(z.unknown(), z.unknown() as z.ZodType<T>, {
+    encode: () => {
+      throw new Error('Serialize not supported');
+    },
+    decode: (value) => {
+      if (!(value instanceof ArrayBuffer)) {
+        throw new Error('Invalid binary');
+      }
+      return ctor(value);
+    },
+  });
 
 describe('BinaryDecoder', () => {
   beforeEach(() => {
@@ -36,7 +46,7 @@ describe('BinaryDecoder', () => {
   it('disallows decoding to non-binary types (e.g. String)', async () => {
     fetchMock.getOnce('http://example.com', 'some data');
     expect(
-      new BinaryDecoder().decode(await fetch('http://example.com'), stringSerde),
+      new BinaryDecoder().decode(await fetch('http://example.com'), stringSchema),
     ).rejects.toThrow();
   });
 
@@ -45,7 +55,7 @@ describe('BinaryDecoder', () => {
     expect(
       new BinaryDecoder().decode(
         await fetch('http://example.com'),
-        arrayBufferSerde,
+        arrayBufferSchema,
       ),
     ).resolves.toBeInstanceOf(ArrayBuffer);
   });
@@ -55,7 +65,7 @@ describe('BinaryDecoder', () => {
     expect(
       new BinaryDecoder().decode(
         await fetch('http://example.com'),
-        viewSerde((buffer) => new Int8Array(buffer)),
+        viewSchema((buffer) => new Int8Array(buffer)),
       ),
     ).resolves.toBeInstanceOf(Int8Array);
   });
@@ -65,7 +75,7 @@ describe('BinaryDecoder', () => {
     expect(
       new BinaryDecoder().decode(
         await fetch('http://example.com'),
-        viewSerde((buffer) => new Uint8Array(buffer)),
+        viewSchema((buffer) => new Uint8Array(buffer)),
       ),
     ).resolves.toBeInstanceOf(Uint8Array);
   });
@@ -75,7 +85,7 @@ describe('BinaryDecoder', () => {
     expect(
       new BinaryDecoder().decode(
         await fetch('http://example.com'),
-        viewSerde((buffer) => new DataView(buffer)),
+        viewSchema((buffer) => new DataView(buffer)),
       ),
     ).resolves.toBeInstanceOf(DataView);
   });

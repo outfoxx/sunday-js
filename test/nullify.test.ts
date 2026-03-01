@@ -14,6 +14,7 @@
 
 import { beforeEach, describe, it, expect } from 'bun:test';
 import fetchMock from 'fetch-mock';
+import { z } from 'zod';
 import {
   FetchRequestFactory,
   MediaType,
@@ -82,7 +83,7 @@ describe('Async Utils', () => {
       nullifyProblem(
         fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }),
         [],
-        [TestProblem],
+        [z.instanceof(TestProblem)],
       ),
     ).resolves.toBeNull();
   });
@@ -144,7 +145,7 @@ describe('Async Utils', () => {
       nullifyProblem(
         fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }),
         [],
-        [TestProblem],
+        [z.instanceof(TestProblem)],
       ),
     ).rejects.toBeInstanceOf(AnotherProblem);
   });
@@ -176,8 +177,26 @@ describe('Async Utils', () => {
       nullifyProblem(
         fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }),
         [405],
-        [TestProblem],
+        [z.instanceof(TestProblem)],
       ),
     ).rejects.toThrow(/Failed to send request/i);
+  });
+
+  it('nullifyProblem supports predicate matchers', async () => {
+    fetchMock.getOnce('http://example.com', {
+      throws: new TestProblem(),
+      status: 404,
+      headers: { 'content-type': MediaType.Problem.value },
+    });
+
+    const fetchRequestFactory = new FetchRequestFactory('http://example.com');
+
+    expect(
+      nullifyProblem(
+        fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }),
+        [],
+        [(problem) => problem.type.toString() === TestProblem.TYPE],
+      ),
+    ).resolves.toBeNull();
   });
 });

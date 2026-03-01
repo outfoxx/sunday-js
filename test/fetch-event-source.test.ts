@@ -14,8 +14,8 @@
 
 import { beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import fetchMock from 'fetch-mock';
-import { unknownGet } from '../src/util/any';
 import { FetchEventSource, MediaType, Problem } from '../src';
+import { unknownGet } from '../src/util/unknowns';
 import { delayedResponse } from './fetch-mock-utils';
 
 const waitForEvent = (

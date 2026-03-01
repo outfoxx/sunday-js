@@ -14,55 +14,104 @@
 
 import { beforeEach, describe, it, expect } from 'bun:test';
 import fetchMock from 'fetch-mock';
+import { z } from 'zod';
 import {
-  arraySerde,
+  createProblemCodec,
   FetchRequestFactory,
   MediaType,
   MediaTypeDecoders,
   MediaTypeEncoders,
-  numberSerde,
   Problem,
-  setSerde,
-  stringSerde,
+  ProblemWireSchema,
+  defineSchema,
+  SchemaLike,
   SundayError,
-  unknownSerde,
 } from '../src';
-import { unknownGet } from '../src/util/any';
+import { unknownGet } from '../src/util/unknowns';
 import { delayedResponse } from './fetch-mock-utils';
-import { objectSerde } from './serde-test-helpers';
 
-type Sub = { value: number };
-type Test = { test: string; sub: Sub };
-
-const SubSerde = objectSerde<Sub>('Sub', {
-  value: { serde: numberSerde },
+const UnknownSchema = z.unknown();
+const StringSchema = z.string();
+const SubSchema = z.object({
+  value: z.number(),
 });
 
-const TestSerde = objectSerde<Test>('Test', {
-  test: { serde: stringSerde },
-  sub: { serde: SubSerde },
+const TestSchema = z.object({
+  test: z.string(),
+  sub: SubSchema,
 });
+
+const TestArraySchema = z.array(TestSchema);
+
+const TestSetSchema = z.codec(
+  z.array(TestSchema),
+  z.set(TestSchema),
+  {
+    decode: (entries) => new Set(entries),
+    encode: (value) => Array.from(value.values()),
+  },
+);
 
 describe('FetchRequestFactory', () => {
+  const fetchRequestFactory = new FetchRequestFactory('http://example.com');
+
   beforeEach(() => {
     fetchMock.hardReset().mockGlobal();
+    fetchRequestFactory.problemTypes.clear();
   });
 
   class TestProblem extends Problem {
     static TYPE = 'http://example.com/test';
 
-    constructor() {
+    constructor(
+      spec: Partial<{
+        type: URL | string;
+        status: number;
+        title: string;
+        detail?: string;
+        instance?: URL | string;
+      }> = {},
+    ) {
       super({
-              type: TestProblem.TYPE,
-              status: 400,
-              title: 'Test Problem',
-              detail: 'This is a test problem.',
-              instance: 'error:12345',
+              type: spec.type ?? TestProblem.TYPE,
+              status: spec.status ?? 400,
+              title: spec.title ?? 'Test Problem',
+              detail: spec.detail ?? 'This is a test problem.',
+              instance: spec.instance ?? 'error:12345',
             });
     }
   }
 
-  const fetchRequestFactory = new FetchRequestFactory('http://example.com');
+  const TestProblemSchema: SchemaLike<TestProblem> = defineSchema(
+    () =>
+      z.codec(
+        z.object({
+          type: z.string(),
+          status: z.number(),
+          title: z.string(),
+          detail: z.string().optional(),
+          instance: z.string().optional(),
+        }),
+        z.instanceof(TestProblem),
+        {
+          decode: (value) =>
+            new TestProblem({
+              status: value.status,
+              title: value.title,
+              detail: value.detail,
+              instance: value.instance,
+            }),
+          encode: (value) => ({
+            type: value.type.toString(),
+            status: value.status,
+            title: value.title,
+            detail: value.detail,
+            instance: value.instance?.toString(),
+          }),
+        },
+      ),
+    { debugName: 'TestProblemSchema' },
+  );
 
   it('allows overriding defaults via options', () => {
     const specialDecoders = new MediaTypeDecoders.Builder().build();
@@ -134,7 +183,7 @@ describe('FetchRequestFactory', () => {
                                                                  method: 'POST',
                                                                  pathTemplate: '/api/contents',
                                                                  body: { a: 5 },
-                                                                 bodyType: unknownSerde,
+                                                                 bodyType: UnknownSchema,
                                                                  contentTypes: [MediaType.JSON],
                                                                });
     expect(request.url).toBe('http://example.com/api/contents');
@@ -158,7 +207,7 @@ describe('FetchRequestFactory', () => {
     });
 
     expect(
-      fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }, TestSerde),
+      fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }, TestSchema),
     ).resolves.toEqual({ test: 'a', sub: { value: 5 } });
   });
 
@@ -171,7 +220,7 @@ describe('FetchRequestFactory', () => {
     expect(
       fetchRequestFactory.result(
         { method: 'GET', pathTemplate: '' },
-        arraySerde(TestSerde),
+        TestArraySchema,
       ),
     ).resolves.toEqual([{ test: 'a', sub: { value: 5 } }]);
   });
@@ -185,7 +234,7 @@ describe('FetchRequestFactory', () => {
     expect(
       fetchRequestFactory.result(
         { method: 'GET', pathTemplate: '' },
-        setSerde(TestSerde),
+        TestSetSchema,
       ),
     ).resolves.toEqual(new Set([{ test: 'a', sub: { value: 5 } }]));
   });
@@ -199,7 +248,7 @@ describe('FetchRequestFactory', () => {
     expect(
       fetchRequestFactory.resultResponse(
         { method: 'GET', pathTemplate: '' },
-        TestSerde,
+        TestSchema,
       ),
     ).resolves.toEqual(
       expect.objectContaining({
@@ -231,7 +280,7 @@ describe('FetchRequestFactory', () => {
     expect(
       fetchRequestFactory.resultResponse(
         { method: 'GET', pathTemplate: '' },
-        arraySerde(TestSerde),
+        TestArraySchema,
       ),
     ).resolves.toEqual(
       expect.objectContaining({
@@ -250,7 +299,7 @@ describe('FetchRequestFactory', () => {
     expect(
       fetchRequestFactory.resultResponse(
         { method: 'GET', pathTemplate: '' },
-        setSerde(TestSerde),
+        TestSetSchema,
       ),
     ).resolves.toEqual(
       expect.objectContaining({
@@ -327,7 +376,7 @@ describe('FetchRequestFactory', () => {
 
     const eventStream = fetchRequestFactory.eventStream(
       { method: 'GET', pathTemplate: '' },
-      (decoder, _event, _id, data) => decoder.decodeText(data, unknownSerde),
+      (decoder, _event, _id, data) => decoder.decodeText(data, UnknownSchema),
     );
 
     const iterator = eventStream[Symbol.asyncIterator]();
@@ -372,7 +421,7 @@ describe('FetchRequestFactory', () => {
     const abort = new AbortController();
     const resultPromise = fetchRequestFactory.result(
       { method: 'GET', pathTemplate: '', signal: abort.signal },
-      unknownSerde,
+      UnknownSchema,
     );
 
     abort.abort();
@@ -393,7 +442,7 @@ describe('FetchRequestFactory', () => {
     const abort = new AbortController();
     const eventStream = fetchRequestFactory.eventStream(
       { method: 'GET', pathTemplate: '', signal: abort.signal },
-      (decoder, _event, _id, data) => decoder.decodeText(data, unknownSerde),
+      (decoder, _event, _id, data) => decoder.decodeText(data, UnknownSchema),
     );
 
     const iterator = eventStream[Symbol.asyncIterator]();
@@ -489,7 +538,7 @@ describe('FetchRequestFactory', () => {
   });
 
   it('throws typed problems for registered problem types', async () => {
-    fetchRequestFactory.registerProblem(TestProblem.TYPE, TestProblem);
+    fetchRequestFactory.registerProblem(TestProblem.TYPE, TestProblemSchema);
 
     const problemJSON = JSON.stringify({
                                          type: TestProblem.TYPE,
@@ -502,6 +551,34 @@ describe('FetchRequestFactory', () => {
     fetchMock.getOnce('http://example.com', {
       body: problemJSON,
       status: 400,
+      headers: { 'content-type': MediaType.Problem.value },
+    });
+
+    expect(
+      fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }),
+    ).rejects.toBeInstanceOf(TestProblem);
+  });
+
+  it('throws typed problems for directly registered schema refs', async () => {
+    const TestProblemSchema = createProblemCodec(
+      TestProblem,
+      ProblemWireSchema.extend({
+        detail: z.string(),
+      }),
+    );
+    fetchRequestFactory.registerProblem(TestProblem.TYPE, TestProblemSchema);
+
+    const problemJSON = JSON.stringify({
+      type: TestProblem.TYPE,
+      status: 422,
+      title: 'Validation',
+      detail: 'Invalid',
+      instance: 'error:ref',
+    });
+
+    fetchMock.getOnce('http://example.com', {
+      body: problemJSON,
+      status: 422,
       headers: { 'content-type': MediaType.Problem.value },
     });
 
@@ -555,7 +632,7 @@ describe('FetchRequestFactory', () => {
     );
 
     expect(
-      fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }, stringSerde),
+      fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }, StringSchema),
     ).rejects.toBeInstanceOf(SundayError);
   });
 });

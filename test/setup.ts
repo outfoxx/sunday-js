@@ -13,13 +13,12 @@
 // limitations under the License.
 
 import {expect} from 'bun:test';
-import { Hex } from '../src';
 
-const previewBuffer = (buffer: ArrayBuffer): string => {
+const previewBuffer = (buffer: Uint8Array): string => {
   if (buffer.byteLength < 64) {
-    return Hex.encode(buffer, ':');
+    return buffer.toHex()
   }
-  return `${Hex.encode(buffer.slice(0, 60), ':')}...${
+  return `${buffer.slice(0, 60).toHex()}...${
     buffer.byteLength - 60
   } more bytes`;
 };
@@ -43,12 +42,12 @@ expect.extend({
       };
     }
 
-    const actualBytes = Array.from(new Uint8Array(received));
-    const expectedBytes = Array.from(new Uint8Array(expected));
+    const receivedBytes = new Uint8Array(received);
+    const expectedBytes = new Uint8Array(expected);
 
     const pass =
-      actualBytes.length === expectedBytes.length &&
-      actualBytes.every((value, index) => value === expectedBytes[index]);
+      receivedBytes.length === expectedBytes.length &&
+      receivedBytes.every((value, index) => value === expectedBytes[index]);
 
     if (pass) {
       return { pass: true, message: () => '' };
@@ -57,8 +56,8 @@ expect.extend({
     return {
       pass: false,
       message: () =>
-        `Expected ArrayBuffer of bytes ${previewBuffer(expected)}\n` +
-        `Actual ArrayBuffer bytes are  ${previewBuffer(received)}`,
+        `Expected ArrayBuffer of bytes ${previewBuffer(expectedBytes)}\n` +
+        `Actual ArrayBuffer bytes are  ${previewBuffer(receivedBytes)}`,
     };
   },
 });

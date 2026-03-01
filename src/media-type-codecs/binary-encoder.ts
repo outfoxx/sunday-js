@@ -12,22 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { DateEncoding, Serde, SerializationContext } from '../serde.js';
 import { MediaTypeEncoder } from './media-type-encoder.js';
+import { SchemaLike } from '../schema-runtime.js';
 
 export class BinaryEncoder implements MediaTypeEncoder {
   static default = new BinaryEncoder();
 
-  encode<T>(value: T, type?: Serde<T>): BodyInit {
-    if (!type) {
-      return value as BodyInit;
+  encode<T>(value: T, _?: SchemaLike<T>): BodyInit {
+    let buffer: ArrayBuffer | ArrayBufferView<ArrayBuffer>;
+    if (value instanceof ArrayBuffer) {
+      buffer = value as ArrayBuffer;
+    } else if (ArrayBuffer.isView(value)) {
+      buffer = value as ArrayBufferView<ArrayBuffer>;
+    } else {
+      throw new Error(`Unsupported value type for binary decoding: ${typeof value}`);
     }
-    const ctx: SerializationContext = {
-      format: 'cbor',
-      dateEncoding: DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      includeNulls: false,
-    };
-    return type.serialize(value, ctx) as BodyInit;
+    return buffer;
   }
 }
-

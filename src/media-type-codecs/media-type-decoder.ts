@@ -12,18 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Serde } from '../serde.js';
+import { SchemaLike } from '../schema-runtime.js';
 
 export interface MediaTypeDecoder {
-  decode<T>(response: Response, type: Serde<T>): Promise<T>;
+  decode<T>(response: Response, type: SchemaLike<T>): Promise<T>;
+}
+
+export interface BufferMediaTypeDecoder extends MediaTypeDecoder {
+  decodeBuffer<T>(data: ArrayBuffer, type: SchemaLike<T>): T;
 }
 
 export interface TextMediaTypeDecoder extends MediaTypeDecoder {
-  decodeText<T>(text: string, type: Serde<T>): T;
+  decodeText<T>(text: string, type: SchemaLike<T>): T;
 }
 
 export interface StructuredMediaTypeDecoder extends MediaTypeDecoder {
-  decodeObject<T>(data: unknown, type: Serde<T>): T;
+  decodeObject<T>(data: unknown, type: SchemaLike<T>): T;
 }
 
 export function isStructuredMediaTypeDecoder(

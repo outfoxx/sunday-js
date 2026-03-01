@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ClassType } from '../class-type.js';
+import { z } from 'zod';
 import { Problem } from '../problem.js';
+
+export type ProblemMatcher = z.ZodType<Problem> | ((problem: Problem) => boolean);
 
 export async function nullifyNotFound<T>(promise: Promise<T>): Promise<T | null> {
   return await nullifyProblem(promise, [404], []);
@@ -22,19 +24,30 @@ export async function nullifyNotFound<T>(promise: Promise<T>): Promise<T | null>
 export async function nullifyProblem<T>(
   promise: Promise<T>,
   statuses: number[],
-  problemTypes: ClassType<Problem>[],
+  problemTypes: ProblemMatcher[],
 ): Promise<T | null> {
   try {
     return await promise;
   } catch (error) {
-    const errorType = (error as Record<string, unknown>)
-      .constructor as ClassType<Problem>;
-    if (
-      error instanceof Problem &&
-      (statuses.includes(error.status) || problemTypes.includes(errorType))
-    ) {
+    if (error instanceof Problem && matchesProblem(error, statuses, problemTypes)) {
       return null;
     }
     throw error;
   }
+}
+
+function matchesProblem(
+  error: Problem,
+  statuses: number[],
+  problemTypes: ProblemMatcher[],
+): boolean {
+  if (statuses.includes(error.status)) {
+    return true;
+  }
+
+  return problemTypes.some((matcher) =>
+    typeof matcher === 'function'
+      ? matcher(error)
+      : matcher.safeParse(error).success,
+  );
 }

@@ -14,6 +14,7 @@
 
 import {describe, it, expect} from 'bun:test';
 import {
+  Duration,
   Instant,
   LocalDate,
   LocalDateTime,
@@ -24,58 +25,57 @@ import {
   ZoneId,
   ZoneOffset,
 } from '@js-joda/core';
+import { z } from 'zod';
 import {
-  arrayBufferSerde,
-  dateSerde,
-  instantSerde,
+  ArrayBufferSchema,
+  DateSchema,
+  DurationSchema,
+  InstantSchema,
   JSONEncoder,
-  localDateSerde,
-  localDateTimeSerde,
-  localTimeSerde,
-  numberSerde,
-  offsetDateTimeSerde,
-  offsetTimeSerde,
-  Serde,
-  stringSerde,
-  urlSerde,
-  zonedDateTimeSerde,
+  LocalDateSchema,
+  LocalDateTimeSchema,
+  LocalTimeSchema,
+  OffsetDateTimeSchema,
+  OffsetTimeSchema,
+  SchemaLike,
+  URLSchema,
+  ZonedDateTimeSchema,
 } from '../src';
-import { objectSerde } from './serde-test-helpers';
 import DateEncoding = JSONEncoder.DateEncoding;
 
-const testSerde = <T>(serde: Serde<T>) =>
-  objectSerde<{ test: T }>('Test', { test: { serde } });
+const testSchema = <T>(runtime: JSONEncoder['runtime'], ref: SchemaLike<T>) =>
+  z.object({
+    test: runtime.resolveSchema(ref),
+  }) as unknown as z.ZodType<{ test: T }>;
 
 describe('JSONEncoder', () => {
   it('encodes object trees', () => {
-    type Sub = { value: number };
-    type Test = { test: string; sub: Sub };
-
-    const subSerde = objectSerde<Sub>('Sub', {
-      value: { serde: numberSerde },
+    const subSchema = z.object({
+      value: z.number(),
     });
-    const testSerdeObj = objectSerde<Test>('Test', {
-      test: { serde: stringSerde },
-      sub: { serde: subSerde },
+    const testSchemaObj = z.object({
+      test: z.string(),
+      sub: subSchema,
     });
 
     expect(
-      JSONEncoder.default.encode({ test: 'a', sub: { value: 5 } }, testSerdeObj),
+      JSONEncoder.default.encode({ test: 'a', sub: { value: 5 } }, testSchemaObj),
     ).toBe('{"test":"a","sub":{"value":5}}');
   });
 
-  it('encodes RUL values as strings', () => {
+  it('encodes URL values as strings', () => {
     expect(
       JSONEncoder.default.encode(
         { test: new URL('http://example.com') },
-        testSerde(urlSerde),
+        testSchema(JSONEncoder.default.runtime, URLSchema),
       ),
     ).toEqual('{"test":"http://example.com/"}');
   });
 
   it('encodes Instant values as strings', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.ISO8601 });
     expect(
-      new JSONEncoder(DateEncoding.ISO8601).encode(
+      encoder.encode(
         {
           test: ZonedDateTime.of(
             2002,
@@ -88,14 +88,15 @@ describe('JSONEncoder', () => {
             ZoneId.UTC,
           ).toInstant(),
         },
-        testSerde(instantSerde),
+        testSchema(encoder.runtime, InstantSchema),
       ),
     ).toEqual('{"test":"2002-01-01T01:02:03.004Z"}');
   });
 
   it('encodes Instant values as number (decimal seconds)', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH });
     expect(
-      new JSONEncoder(DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH).encode(
+      encoder.encode(
         {
           test: ZonedDateTime.of(
             2001,
@@ -108,14 +109,15 @@ describe('JSONEncoder', () => {
             ZoneId.UTC,
           ).toInstant(),
         },
-        testSerde(instantSerde),
+        testSchema(encoder.runtime, InstantSchema),
       ),
     ).toEqual('{"test":981173106.007}');
   });
 
   it('encodes Instant values as number (milliseconds)', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.MILLISECONDS_SINCE_EPOCH });
     expect(
-      new JSONEncoder(DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
+      encoder.encode(
         {
           test: ZonedDateTime.of(
             2001,
@@ -128,14 +130,15 @@ describe('JSONEncoder', () => {
             ZoneId.UTC,
           ).toInstant(),
         },
-        testSerde(instantSerde),
+        testSchema(encoder.runtime, InstantSchema),
       ),
     ).toEqual('{"test":981173106007}');
   });
 
   it('encodes ZonedDateTime values as strings', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.ISO8601 });
     expect(
-      new JSONEncoder(DateEncoding.ISO8601).encode(
+      encoder.encode(
         {
           test: ZonedDateTime.of(
             2002,
@@ -148,14 +151,15 @@ describe('JSONEncoder', () => {
             ZoneId.UTC,
           ),
         },
-        testSerde(zonedDateTimeSerde),
+        testSchema(encoder.runtime, ZonedDateTimeSchema),
       ),
     ).toEqual('{"test":"2002-01-01T01:02:03.004Z[Z]"}');
   });
 
   it('encodes ZonedDateTime values as number (decimal seconds)', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH });
     expect(
-      new JSONEncoder(DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH).encode(
+      encoder.encode(
         {
           test: ZonedDateTime.of(
             2001,
@@ -168,14 +172,15 @@ describe('JSONEncoder', () => {
             ZoneId.UTC,
           ),
         },
-        testSerde(zonedDateTimeSerde),
+        testSchema(encoder.runtime, ZonedDateTimeSchema),
       ),
-    ).toEqual('{"test":[981173106.007,"Z","Z"]}');
+    ).toEqual('{"test":981173106.007}');
   });
 
   it('encodes ZonedDateTime values as number (milliseconds)', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.MILLISECONDS_SINCE_EPOCH });
     expect(
-      new JSONEncoder(DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
+      encoder.encode(
         {
           test: ZonedDateTime.of(
             2001,
@@ -188,14 +193,15 @@ describe('JSONEncoder', () => {
             ZoneId.UTC,
           ),
         },
-        testSerde(zonedDateTimeSerde),
+        testSchema(encoder.runtime, ZonedDateTimeSchema),
       ),
-    ).toEqual('{"test":[981173106007,"Z","Z"]}');
+    ).toEqual('{"test":981173106007}');
   });
 
   it('encodes OffsetDateTime values as strings', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.ISO8601 });
     expect(
-      new JSONEncoder(DateEncoding.ISO8601).encode(
+      encoder.encode(
         {
           test: OffsetDateTime.of(
             2002,
@@ -208,14 +214,15 @@ describe('JSONEncoder', () => {
             ZoneOffset.UTC,
           ),
         },
-        testSerde(offsetDateTimeSerde),
+        testSchema(encoder.runtime, OffsetDateTimeSchema),
       ),
     ).toEqual('{"test":"2002-01-01T01:02:03.004Z"}');
   });
 
   it('encodes OffsetDateTime values as number (decimal seconds)', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH });
     expect(
-      new JSONEncoder(DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH).encode(
+      encoder.encode(
         {
           test: OffsetDateTime.of(
             2001,
@@ -228,14 +235,15 @@ describe('JSONEncoder', () => {
             ZoneOffset.UTC,
           ),
         },
-        testSerde(offsetDateTimeSerde),
+        testSchema(encoder.runtime, OffsetDateTimeSchema),
       ),
-    ).toEqual('{"test":[981173106.007,"Z"]}');
+    ).toEqual('{"test":981173106.007}');
   });
 
   it('encodes OffsetDateTime values as number (milliseconds)', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.MILLISECONDS_SINCE_EPOCH });
     expect(
-      new JSONEncoder(DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
+      encoder.encode(
         {
           test: OffsetDateTime.of(
             2001,
@@ -248,191 +256,248 @@ describe('JSONEncoder', () => {
             ZoneOffset.UTC,
           ),
         },
-        testSerde(offsetDateTimeSerde),
+        testSchema(encoder.runtime, OffsetDateTimeSchema),
       ),
-    ).toEqual('{"test":[981173106007,"Z"]}');
+    ).toEqual('{"test":981173106007}');
   });
 
   it('encodes OffsetTime values as strings', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.ISO8601 });
     expect(
-      new JSONEncoder(DateEncoding.ISO8601).encode(
+      encoder.encode(
         {
           test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC),
         },
-        testSerde(offsetTimeSerde),
+        testSchema(encoder.runtime, OffsetTimeSchema),
       ),
     ).toEqual('{"test":"01:02:03.004Z"}');
   });
 
   it('encodes OffsetTime values as number (decimal seconds)', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH });
     expect(
-      new JSONEncoder(DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH).encode(
+      encoder.encode(
         {
           test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC),
         },
-        testSerde(offsetTimeSerde),
+        testSchema(encoder.runtime, OffsetTimeSchema),
       ),
-    ).toEqual('{"test":[3723.004,"Z"]}');
+    ).toEqual('{"test":3723.004}');
   });
 
   it('encodes OffsetTime values as number (milliseconds)', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.MILLISECONDS_SINCE_EPOCH });
     expect(
-      new JSONEncoder(DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
+      encoder.encode(
         {
           test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC),
         },
-        testSerde(offsetTimeSerde),
+        testSchema(encoder.runtime, OffsetTimeSchema),
       ),
-    ).toEqual('{"test":[3723004,"Z"]}');
+    ).toEqual('{"test":3723004}');
   });
 
   it('encodes LocalDateTime values as strings', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.ISO8601 });
     expect(
-      new JSONEncoder(DateEncoding.ISO8601).encode(
+      encoder.encode(
         {
           test: LocalDateTime.of(2002, 1, 1, 1, 2, 3, 4000000),
         },
-        testSerde(localDateTimeSerde),
+        testSchema(encoder.runtime, LocalDateTimeSchema),
       ),
     ).toEqual('{"test":"2002-01-01T01:02:03.004"}');
   });
 
   it('encodes LocalDateTime values as number (decimal seconds)', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH });
     expect(
-      new JSONEncoder(DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH).encode(
+      encoder.encode(
         {
           test: LocalDateTime.of(2001, 2, 3, 4, 5, 6, 7000000),
         },
-        testSerde(localDateTimeSerde),
+        testSchema(encoder.runtime, LocalDateTimeSchema),
       ),
     ).toEqual('{"test":981173106.007}');
   });
 
   it('encodes LocalDateTime values as number (milliseconds)', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.MILLISECONDS_SINCE_EPOCH });
     expect(
-      new JSONEncoder(DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
+      encoder.encode(
         {
           test: LocalDateTime.of(2001, 2, 3, 4, 5, 6, 7000000),
         },
-        testSerde(localDateTimeSerde),
+        testSchema(encoder.runtime, LocalDateTimeSchema),
       ),
     ).toEqual('{"test":981173106007}');
   });
 
   it('encodes LocalDate values as strings', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.ISO8601 });
     expect(
-      new JSONEncoder(DateEncoding.ISO8601).encode(
+      encoder.encode(
         { test: LocalDate.of(2002, 1, 1) },
-        testSerde(localDateSerde),
+        testSchema(encoder.runtime, LocalDateSchema),
       ),
     ).toEqual('{"test":"2002-01-01"}');
   });
 
   it('encodes LocalDate values as number (decimal seconds)', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH });
     expect(
-      new JSONEncoder(DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH).encode(
+      encoder.encode(
         { test: LocalDate.of(2001, 2, 3) },
-        testSerde(localDateSerde),
+        testSchema(encoder.runtime, LocalDateSchema),
       ),
     ).toEqual('{"test":981158400}');
   });
 
   it('encodes LocalDate values as number (milliseconds)', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.MILLISECONDS_SINCE_EPOCH });
     expect(
-      new JSONEncoder(DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
+      encoder.encode(
         { test: LocalDate.of(2001, 2, 3) },
-        testSerde(localDateSerde),
+        testSchema(encoder.runtime, LocalDateSchema),
       ),
     ).toEqual('{"test":981158400000}');
   });
 
   it('encodes LocalTime values as strings', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.ISO8601 });
     expect(
-      new JSONEncoder(DateEncoding.ISO8601).encode(
+      encoder.encode(
         { test: LocalTime.of(1, 2, 3, 4000000) },
-        testSerde(localTimeSerde),
+        testSchema(encoder.runtime, LocalTimeSchema),
       ),
     ).toEqual('{"test":"01:02:03.004"}');
   });
 
   it('encodes LocalTime values as number (decimal seconds)', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH });
     expect(
-      new JSONEncoder(DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH).encode(
+      encoder.encode(
         { test: LocalTime.of(1, 2, 3, 4000000) },
-        testSerde(localTimeSerde),
+        testSchema(encoder.runtime, LocalTimeSchema),
       ),
     ).toEqual('{"test":3723.004}');
   });
 
   it('encodes LocalTime values as number (milliseconds)', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.MILLISECONDS_SINCE_EPOCH });
     expect(
-      new JSONEncoder(DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
+      encoder.encode(
         { test: LocalTime.of(1, 2, 3, 4000000) },
-        testSerde(localTimeSerde),
+        testSchema(encoder.runtime, LocalTimeSchema),
+      ),
+    ).toEqual('{"test":3723004}');
+  });
+
+  it('encodes Duration values as strings', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.ISO8601 });
+    expect(
+      encoder.encode(
+        { test: Duration.ofSeconds(3723, 4000000) },
+        testSchema(encoder.runtime, DurationSchema),
+      ),
+    ).toEqual('{"test":"PT1H2M3.004S"}');
+  });
+
+  it('encodes Duration values as number (decimal seconds)', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH });
+    expect(
+      encoder.encode(
+        { test: Duration.ofSeconds(3723, 4000000) },
+        testSchema(encoder.runtime, DurationSchema),
+      ),
+    ).toEqual('{"test":3723.004}');
+  });
+
+  it('encodes Duration values as number (milliseconds)', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.MILLISECONDS_SINCE_EPOCH });
+    expect(
+      encoder.encode(
+        { test: Duration.ofSeconds(3723, 4000000) },
+        testSchema(encoder.runtime, DurationSchema),
       ),
     ).toEqual('{"test":3723004}');
   });
 
   it('encodes Date values as strings', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.ISO8601 });
     expect(
-      new JSONEncoder(DateEncoding.ISO8601).encode(
+      encoder.encode(
         { test: new Date(Instant.ofEpochMilli(981173106789).toString()) },
-        testSerde(dateSerde),
+        testSchema(encoder.runtime, DateSchema),
       ),
     ).toEqual('{"test":"2001-02-03T04:05:06.789Z"}');
   });
 
   it('encodes Date values as numbers (seconds)', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH });
     expect(
-      new JSONEncoder(DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH).encode(
+      encoder.encode(
         { test: new Date(Instant.ofEpochMilli(981173106789).toString()) },
-        testSerde(dateSerde),
+        testSchema(encoder.runtime, DateSchema),
       ),
     ).toEqual('{"test":981173106.789}');
   });
 
-  it('encodes Date values as numbers (seconds)', async () => {
+  it('encodes Date values as numbers (milliseconds)', async () => {
+    const encoder = JSONEncoder.fromPolicy({ dateEncoding: DateEncoding.MILLISECONDS_SINCE_EPOCH });
     expect(
-      new JSONEncoder(DateEncoding.MILLISECONDS_SINCE_EPOCH).encode(
+      encoder.encode(
         { test: new Date(Instant.ofEpochMilli(981173106789).toString()) },
-        testSerde(dateSerde),
+        testSchema(encoder.runtime, DateSchema),
       ),
     ).toEqual('{"test":981173106789}');
   });
 
   it('encodes ArrayBuffer values as Base64', () => {
     expect(
-      JSONEncoder.default.encode({ test: new ArrayBuffer(5) }, testSerde(arrayBufferSerde)),
+      JSONEncoder.default.encode({ test: new ArrayBuffer(5) }, testSchema(JSONEncoder.default.runtime, ArrayBufferSchema)),
     ).toEqual('{"test":"AAAAAAA="}');
   });
 
   it('excludes null & undefined values by default when encoding', () => {
     type Test = { test?: ArrayBuffer | null };
-    const testSerdeObj = objectSerde<Test>('Test', {
-      test: { serde: arrayBufferSerde, optional: true, nullable: true },
-    });
+    const testSchemaObj = z.object({
+      test: JSONEncoder.default.runtime.resolveSchema(ArrayBufferSchema).nullable().optional(),
+    }) as z.ZodType<Test>;
 
-    expect(JSONEncoder.default.encode({ test: undefined }, testSerdeObj)).toEqual(
+    expect(JSONEncoder.default.encode({ test: undefined }, testSchemaObj)).toEqual(
       '{}',
     );
 
-    expect(JSONEncoder.default.encode({ test: null }, testSerdeObj)).toEqual(
+    expect(JSONEncoder.default.encode({ test: null }, testSchemaObj)).toEqual(
       '{}',
     );
   });
 
   it('includes null values when encoding configured', () => {
     type Test = { test?: ArrayBuffer | null };
-    const testSerdeObj = objectSerde<Test>('Test', {
-      test: { serde: arrayBufferSerde, optional: true, nullable: true },
-    });
+    const testSchemaObj = z.object({
+      test: JSONEncoder.default.runtime.resolveSchema(ArrayBufferSchema).nullable().optional(),
+    }) as z.ZodType<Test>;
 
     expect(
-      JSONEncoder.default.encode({ test: undefined }, testSerdeObj, true),
+      JSONEncoder.default.encode({ test: undefined }, testSchemaObj, true),
     ).toEqual('{}');
 
-    expect(JSONEncoder.default.encode({ test: null }, testSerdeObj, true)).toEqual(
+    expect(JSONEncoder.default.encode({ test: null }, testSchemaObj, true)).toEqual(
       '{"test":null}',
     );
+  });
+
+  it('prunes null object properties recursively but preserves null array elements', () => {
+    expect(
+      JSONEncoder.default.encode({
+        nested: {
+          remove: null,
+          keep: 1,
+        },
+        list: [null, { remove: null, keep: 'ok' }],
+      }),
+    ).toEqual('{"nested":{"keep":1},"list":[null,{"keep":"ok"}]}');
   });
 });

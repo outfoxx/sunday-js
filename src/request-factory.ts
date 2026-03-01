@@ -12,21 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ConstructableClassType } from './class-type.js';
 import { MediaType } from './media-type.js';
 import { TextMediaTypeDecoder } from './media-type-codecs/media-type-decoder.js';
 import { Problem } from './problem.js';
 import { ResultResponse } from './result-response.js';
+import { SchemaLike } from './schema-runtime.js';
 import { URLTemplate } from './url-template.js';
 import { Logger } from './logger.js';
-import { Serde } from './serde.js';
 
 export interface RequestFactory {
   readonly baseUrl: URLTemplate;
 
   registerProblem(
     type: URL | string,
-    problemType: ConstructableClassType<Problem>,
+    problemType: SchemaLike<Problem>,
   ): void;
 
   request(
@@ -45,14 +44,14 @@ export interface RequestFactory {
 
   resultResponse<B, R>(
     requestSpec: RequestSpec<B>,
-    resultType: Serde<R>,
+    resultType: SchemaLike<R>,
   ): Promise<ResultResponse<R>>;
 
   resultResponse<B>(
     requestSpec: RequestSpec<B>,
   ): Promise<ResultResponse<void>>;
 
-  result<B, R>(requestSpec: RequestSpec<B>, resultType: Serde<R>): Promise<R>;
+  result<B, R>(requestSpec: RequestSpec<B>, resultType: SchemaLike<R>): Promise<R>;
 
   result<B>(requestSpec: RequestSpec<B>): Promise<void>;
 
@@ -89,7 +88,7 @@ export interface RequestSpec<B> {
   pathParameters?: Record<string, unknown>;
   queryParameters?: Record<string, unknown>;
   body?: B;
-  bodyType?: Serde<B>;
+  bodyType?: SchemaLike<B>;
   contentTypes?: MediaType[];
   acceptTypes?: MediaType[];
   headers?: Record<string, unknown>;

@@ -33,6 +33,52 @@ const headerRule = {
   },
 };
 
+const relativeJsExtensionRule = {
+  meta: {
+    type: 'problem',
+    schema: [],
+  },
+  create(context) {
+    function check(node, source) {
+      if (!source || typeof source.value !== 'string') {
+        return;
+      }
+
+      const specifier = source.value;
+      if (!specifier.startsWith('.')) {
+        return;
+      }
+      if (specifier.endsWith('.js')) {
+        return;
+      }
+
+      context.report({
+        node: source,
+        message: `Relative import/export "${specifier}" must include a .js extension`,
+      });
+    }
+
+    return {
+      ImportDeclaration(node) {
+        check(node, node.source);
+      },
+      ExportAllDeclaration(node) {
+        check(node, node.source);
+      },
+      ExportNamedDeclaration(node) {
+        if (node.source) {
+          check(node, node.source);
+        }
+      },
+      ImportExpression(node) {
+        if (node.source && node.source.type === 'Literal') {
+          check(node, node.source);
+        }
+      },
+    };
+  },
+};
+
 module.exports = [
   {
     ignores: ['build/**', 'docs/**', 'reports/**', 'node_modules/**'],
@@ -44,7 +90,7 @@ module.exports = [
     languageOptions: {
       parser: tsParser,
       parserOptions: {
-        project: './tsconfig.test.json',
+        project: './tsconfig.build.json',
         tsconfigRootDir: __dirname,
         ecmaVersion: 2020,
         sourceType: 'module',
@@ -58,6 +104,7 @@ module.exports = [
       header: {
         rules: {
           header: headerRule,
+          'relative-js-extension': relativeJsExtensionRule,
         },
       },
     },
@@ -75,6 +122,7 @@ module.exports = [
       'no-undef': 'off',
       'no-redeclare': 'off',
       'header/header': 'error',
+      'header/relative-js-extension': 'error',
     },
   },
   {

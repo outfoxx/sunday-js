@@ -6,7 +6,6 @@
     "types": ["bun-types", "bun-types/test-globals"]
   },
   "include": [
-    "src/**/*.ts",
     "test/**/*.ts",
     "test/**/*.d.ts"
   ],

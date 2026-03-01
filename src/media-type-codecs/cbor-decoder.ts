@@ -13,32 +13,35 @@
 // limitations under the License.
 
 import { CBOR } from 'cbor-redux';
-import { DeserializationContext, NumericDateDecoding as SerdeNumericDateDecoding, Serde } from '../serde.js';
-import { MediaTypeDecoder } from './media-type-decoder.js';
+import {
+  NumericDateDecoding as SchemaNumericDateDecoding,
+  SchemaLike, SchemaPolicy,
+  SchemaRuntime,
+} from '../schema-runtime.js';
+import { createCBORSchemaRuntime } from './default-policies.js';
+import { BufferMediaTypeDecoder } from './media-type-decoder.js';
 
-export class CBORDecoder implements MediaTypeDecoder {
-  static get default(): CBORDecoder {
-    return new CBORDecoder(SerdeNumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH);
+export class CBORDecoder implements BufferMediaTypeDecoder {
+  static readonly default = new CBORDecoder();
+
+  static fromPolicy(policy: Partial<Omit<SchemaPolicy, 'format'>>): CBORDecoder {
+    return new CBORDecoder(createCBORSchemaRuntime(policy));
   }
 
-  constructor(readonly numericDateDecoding: SerdeNumericDateDecoding) {}
+  constructor(readonly runtime: SchemaRuntime = createCBORSchemaRuntime()) {
+  }
 
-  async decode<T>(response: Response, type: Serde<T>): Promise<T> {
+  async decode<T>(response: Response, type: SchemaLike<T>): Promise<T> {
     const buffer = await response.arrayBuffer();
-    return this.decodeData(buffer, type);
+    return this.decodeBuffer(buffer, type);
   }
 
-  decodeData<T>(buffer: ArrayBuffer, type: Serde<T>): T {
+  decodeBuffer<T>(buffer: ArrayBuffer, type: SchemaLike<T>): T {
     const data = CBOR.decode(buffer);
-    const ctx: DeserializationContext = {
-      format: 'cbor',
-      numericDateDecoding: this.numericDateDecoding,
-    };
-    return type.deserialize(data, ctx);
+    return this.runtime.resolveSchema(type).decode(data);
   }
 }
 
-
 export namespace CBORDecoder {
-  export const NumericDateDecoding = SerdeNumericDateDecoding;
+  export const NumericDateDecoding = SchemaNumericDateDecoding;
 }
