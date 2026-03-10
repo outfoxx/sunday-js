@@ -13,14 +13,16 @@
 // limitations under the License.
 
 import {
-  DateTimeFormatter,
+  DateTimeFormatter, Duration,
   Instant,
   LocalDate,
   LocalDateTime,
   LocalTime,
   OffsetDateTime,
-  OffsetTime,
-  Temporal,
+  OffsetTime, Period,
+  Temporal, TemporalAmount,
+  ZoneId,
+  ZoneOffset,
   ZonedDateTime,
 } from '@js-joda/core';
 import { z } from 'zod';
@@ -32,7 +34,7 @@ import {
   SchemaLike,
   SchemaRuntime,
 } from '../schema-runtime.js';
-import { encodeSeconds } from '../util/numbers.js';
+import { appendNumericTimeFields, secondsToNumber } from '../util/numbers.js';
 import { URLQueryParamsEncoder } from './media-type-encoder.js';
 
 const FORM_OBJECT_SCHEMA = z.record(z.string(), z.unknown());
@@ -126,6 +128,11 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
         encodeURIComponent(key) + '=' +
           encodeURIComponent(encodeTemporal(value, this.dateEncoding)),
       );
+    } else if (value instanceof TemporalAmount) {
+      components.push(
+        encodeURIComponent(key) + '=' +
+          encodeURIComponent(encodeTemporalAmount(value, this.dateEncoding)),
+      )
     } else if (typeof value === 'boolean') {
       //
       components.push(
@@ -134,6 +141,9 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
           encodeURIComponent(encodeBool(value, this.boolEncoding)),
       );
     } else if (value instanceof URL) {
+      //
+      components.push(encodeURIComponent(key) + '=' + encodeURIComponent(value.toString()));
+    } else if (value instanceof ZoneId || value instanceof ZoneOffset) {
       //
       components.push(encodeURIComponent(key) + '=' + encodeURIComponent(value.toString()));
     } else if (value instanceof ArrayBuffer) {
@@ -167,8 +177,75 @@ function encodeInstant(
     case WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH:
       return `${instant.toEpochMilli()}`;
     case WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH:
-      return `${instant.epochSecond() + instant.nano() / 1000000000}`;
+      return `${secondsToNumber(instant.epochSecond(), instant.nano())}`;
   }
+}
+
+function encodeLocalDateTime(
+  temporal: LocalDateTime,
+  dateEncoding: WWWFormUrlEncoder.DateEncoding,
+): string {
+  if (dateEncoding == WWWFormUrlEncoder.DateEncoding.ISO8601) {
+    return temporal.toString();
+  }
+  return JSON.stringify(appendNumericTimeFields(
+    [
+      temporal.year(),
+      temporal.monthValue(),
+      temporal.dayOfMonth(),
+      temporal.hour(),
+      temporal.minute(),
+    ],
+    temporal.second(),
+    numericFraction(temporal.nano(), dateEncoding),
+  ));
+}
+
+function encodeOffsetTime(
+  temporal: OffsetTime,
+  dateEncoding: WWWFormUrlEncoder.DateEncoding,
+): string {
+  if (dateEncoding == WWWFormUrlEncoder.DateEncoding.ISO8601) {
+    return temporal.toString();
+  }
+  return JSON.stringify([
+    ...appendNumericTimeFields(
+      [temporal.hour(), temporal.minute()],
+      temporal.second(),
+      numericFraction(temporal.nano(), dateEncoding),
+    ),
+    temporal.offset().toString(),
+  ]);
+}
+
+function encodeLocalTime(
+  temporal: LocalTime,
+  dateEncoding: WWWFormUrlEncoder.DateEncoding,
+): string {
+  if (dateEncoding == WWWFormUrlEncoder.DateEncoding.ISO8601) {
+    return temporal.toString();
+  }
+  return JSON.stringify(
+    appendNumericTimeFields(
+      [temporal.hour(), temporal.minute()],
+      temporal.second(),
+      numericFraction(temporal.nano(), dateEncoding),
+    ),
+  );
+}
+
+function encodeLocalDate(
+  temporal: LocalDate,
+  dateEncoding: WWWFormUrlEncoder.DateEncoding,
+): string {
+  if (dateEncoding == WWWFormUrlEncoder.DateEncoding.ISO8601) {
+    return temporal.toString();
+  }
+  return JSON.stringify([
+    temporal.year(),
+    temporal.monthValue(),
+    temporal.dayOfMonth(),
+  ]);
 }
 
 function encodeTemporal(
@@ -181,17 +258,63 @@ function encodeTemporal(
     return encodeInstant(temporal.toInstant(), dateEncoding);
   } else if (temporal instanceof OffsetDateTime) {
     return encodeInstant(temporal.toInstant(), dateEncoding);
-  } else if (temporal instanceof LocalDateTime || temporal instanceof OffsetTime || temporal instanceof LocalTime) {
-    if (dateEncoding == WWWFormUrlEncoder.DateEncoding.ISO8601) {
-      return temporal.toString();
-    }
-    return encodeSeconds(temporal.second(), temporal.nano())
-      .map((s) => s.toString())
-      .join(',');
+  } else if (temporal instanceof LocalDateTime) {
+    return encodeLocalDateTime(temporal, dateEncoding);
+  } else if (temporal instanceof OffsetTime) {
+    return encodeOffsetTime(temporal, dateEncoding);
+  } else if (temporal instanceof LocalTime) {
+    return encodeLocalTime(temporal, dateEncoding);
   } else if (temporal instanceof LocalDate) {
-    return temporal.toString();
+    return encodeLocalDate(temporal, dateEncoding);
+  } else {
+    throw new TypeError(`Unsupported Temporal type: ${temporal.constructor.name}`);
   }
-  return temporal.toString();
+}
+
+function encodeDuration(
+  duration: Duration,
+  dateEncoding: WWWFormUrlEncoder.DateEncoding,
+): string {
+  switch (dateEncoding) {
+    case WWWFormUrlEncoder.DateEncoding.ISO8601:
+      return duration.toString();
+    case WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH:
+      return `${duration.toMillis()}`;
+    case WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH:
+      return `${secondsToNumber(duration.seconds(), duration.nano())}`;
+  }
+}
+
+function encodePeriod(
+  period: Period,
+): string {
+  return period.toString();
+}
+
+function encodeTemporalAmount(
+  temporalAmount: TemporalAmount,
+  dateEncoding: WWWFormUrlEncoder.DateEncoding,
+): string {
+  if (temporalAmount instanceof Duration) {
+    return encodeDuration(temporalAmount, dateEncoding);
+  } else if (temporalAmount instanceof Period) {
+    return encodePeriod(temporalAmount);
+  } else {
+    throw new TypeError(`Unsupported TemporalAmount type: ${temporalAmount.constructor.name}`);
+  }
+}
+
+function numericFraction(
+  nanos: number,
+  dateEncoding: WWWFormUrlEncoder.DateEncoding,
+): number {
+  switch (dateEncoding) {
+    case WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH:
+      return Math.trunc(nanos / 1_000_000);
+    case WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH:
+    case WWWFormUrlEncoder.DateEncoding.ISO8601:
+      return nanos;
+  }
 }
 
 function encodeBool(
