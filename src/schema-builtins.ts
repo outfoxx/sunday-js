@@ -74,6 +74,7 @@ const URL_JSON_CODEC = z.codec(z.string(), URL_OUTPUT_SCHEMA, {
 
 const URL_CBOR_CODEC = z.codec(z.union([z.string(), z.instanceof(TaggedValue)]), URL_OUTPUT_SCHEMA, {
   decode: (value, ctx) => {
+    // Tagged URL input is accepted for compatibility and decoded before untagged string input.
     if (value instanceof TaggedValue) {
       if (value.tag == uriTag) {
         const string = z.string().parse(value.value);
@@ -96,6 +97,7 @@ const URL_CBOR_CODEC = z.codec(z.union([z.string(), z.instanceof(TaggedValue)]),
     }
   },
   encode: (value) => {
+    // CBOR tag 32 carries the same URI string Jackson expects when tags are ignored.
     return new TaggedValue(value.toString(), uriTag);
   },
 });
@@ -110,7 +112,7 @@ function base64Decoder(encoding: ArrayBufferEncoding): (value: string) => ArrayB
       options = { alphabet: 'base64url', lastChunkHandling: 'loose' };
       break;
     default:
-      throw new Error(`Invalid ArrayBufferEncoding: ${encoding}`);
+      throw new TypeError(`Invalid ArrayBufferEncoding: ${encoding}`);
   }
   return (value) => {
     const array = Uint8Array.fromBase64(value, options);
@@ -121,16 +123,16 @@ function base64Decoder(encoding: ArrayBufferEncoding): (value: string) => ArrayB
 }
 
 function base64Encoder(encoding: ArrayBufferEncoding): (buffer: ArrayBufferLike) => string {
-  let options: { alphabet: 'base64' | 'base64url', omitPadding: false };
+  let options: { alphabet: 'base64' | 'base64url', omitPadding: true };
   switch (encoding) {
     case ArrayBufferEncoding.BASE64:
-      options = { alphabet: 'base64', omitPadding: false };
+      options = { alphabet: 'base64', omitPadding: true };
       break;
     case ArrayBufferEncoding.BASE64URL:
-      options = { alphabet: 'base64url', omitPadding: false };
+      options = { alphabet: 'base64url', omitPadding: true };
       break;
     default:
-      throw new Error(`Invalid ArrayBufferEncoding: ${encoding}`);
+      throw new TypeError(`Invalid ArrayBufferEncoding: ${encoding}`);
   }
   return (value) => {
     return new Uint8Array(value).toBase64(options);
@@ -148,53 +150,48 @@ function createArrayBufferSchema(policy: SchemaPolicy): z.ZodType<ArrayBuffer> {
       if (policy.arrayBufferEncoding == ArrayBufferEncoding.RAW_BYTES) {
         return z.codec(ARRAY_BUFFER_RAW_INPUT_SCHEMA, ARRAY_BUFFER_OUTPUT_SCHEMA, {
           decode: (v) => (
-            v instanceof Uint8Array
+            ArrayBuffer.isView(v)
               ? v.buffer.slice(v.byteOffset, v.byteOffset + v.byteLength)
               : v
           ),
           encode: (v) => v,
         });
       } else {
-        return z.codec(z.union([z.instanceof(TaggedValue)]), ARRAY_BUFFER_OUTPUT_SCHEMA, {
+        const b64Decode = base64Decoder(policy.arrayBufferEncoding);
+        const b64Encode = base64Encoder(policy.arrayBufferEncoding);
+        const textTag = policy.arrayBufferEncoding === ArrayBufferEncoding.BASE64 ? base64Tag : base64UrlTag;
+        return z.codec(z.union([z.string(), z.instanceof(TaggedValue)]), ARRAY_BUFFER_OUTPUT_SCHEMA, {
           decode: (value, ctx) => {
-            const string = z.string().decode(value.value);
-            switch (value.tag) {
-              case base64Tag:
-                return Uint8Array
-                  .fromBase64(string, { alphabet: 'base64', lastChunkHandling: 'loose' })
-                  .buffer;
-              case base64UrlTag:
-                return Uint8Array
-                  .fromBase64(string, { alphabet: 'base64url', lastChunkHandling: 'loose' })
-                  .buffer;
-              default:
-                ctx.issues.push(
-                  {
-                    code: 'invalid_value',
-                    values: [base64UrlTag, base64Tag],
-                    input: value.tag
-                  }
-                )
-                return z.NEVER
+            // Tagged textual binary values are accepted for compatibility and decoded before policy-based untagged text.
+            if (value instanceof TaggedValue) {
+              const string = z.string().decode(value.value);
+              switch (value.tag) {
+                case base64Tag:
+                  return Uint8Array
+                    .fromBase64(string, { alphabet: 'base64', lastChunkHandling: 'loose' })
+                    .buffer;
+                case base64UrlTag:
+                  return Uint8Array
+                    .fromBase64(string, { alphabet: 'base64url', lastChunkHandling: 'loose' })
+                    .buffer;
+                default:
+                  ctx.issues.push(
+                    {
+                      code: 'invalid_value',
+                      values: [base64UrlTag, base64Tag],
+                      input: value.tag
+                    }
+                  )
+                  return z.NEVER
+              }
             }
-          },
 
+            return b64Decode(value);
+          },
           encode: (value) => {
-            const bytes = new Uint8Array(value);
-            switch (policy.arrayBufferEncoding) {
-              case ArrayBufferEncoding.BASE64:
-                return new TaggedValue(
-                  bytes.toBase64({ alphabet: 'base64', omitPadding: false }),
-                  base64Tag,
-                );
-              case ArrayBufferEncoding.BASE64URL:
-                return new TaggedValue(
-                  bytes.toBase64({ alphabet: 'base64url', omitPadding: false }),
-                  base64UrlTag,
-                );
-            }
-            return z.NEVER;
-          }
+            // CBOR tags 33/34 preserve Jackson-compatible textual payloads for base64 modes.
+            return new TaggedValue(b64Encode(value), textTag);
+          },
         });
       }
   }

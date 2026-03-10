@@ -226,7 +226,7 @@ describe('JSONDecoder', () => {
       }
     )
     expect(
-      decoder.decodeText('{"test":3723.004}', testSchema(decoder.runtime, OffsetTimeSchema)),
+      decoder.decodeText('{"test":[1,2,3,4000000,"Z"]}', testSchema(decoder.runtime, OffsetTimeSchema)),
     ).toEqual({
       test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC),
     });
@@ -239,7 +239,7 @@ describe('JSONDecoder', () => {
       }
     )
     expect(
-      decoder.decodeText('{"test":3723004}', testSchema(decoder.runtime, OffsetTimeSchema)),
+      decoder.decodeText('{"test":[1,2,3,4,"Z"]}', testSchema(decoder.runtime, OffsetTimeSchema)),
     ).toEqual({
       test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC),
     });
@@ -263,7 +263,7 @@ describe('JSONDecoder', () => {
       }
     )
     expect(
-      decoder.decodeText('{"test":981173106.007}', testSchema(decoder.runtime, LocalDateTimeSchema)),
+      decoder.decodeText('{"test":[2001,2,3,4,5,6,7000000]}', testSchema(decoder.runtime, LocalDateTimeSchema)),
     ).toEqual({
       test: LocalDateTime.of(2001, 2, 3, 4, 5, 6, 7000000),
     });
@@ -276,7 +276,7 @@ describe('JSONDecoder', () => {
       }
     )
     expect(
-      decoder.decodeText('{"test":981173106007}', testSchema(decoder.runtime, LocalDateTimeSchema)),
+      decoder.decodeText('{"test":[2001,2,3,4,5,6,7]}', testSchema(decoder.runtime, LocalDateTimeSchema)),
     ).toEqual({
       test: LocalDateTime.of(2001, 2, 3, 4, 5, 6, 7000000),
     });
@@ -298,7 +298,7 @@ describe('JSONDecoder', () => {
       }
     )
     expect(
-      decoder.decodeText('{"test":981158400}', testSchema(decoder.runtime, LocalDateSchema)),
+      decoder.decodeText('{"test":[2001,2,3]}', testSchema(decoder.runtime, LocalDateSchema)),
     ).toEqual({ test: LocalDate.of(2001, 2, 3) });
   });
 
@@ -309,7 +309,7 @@ describe('JSONDecoder', () => {
       }
     )
     expect(
-      decoder.decodeText('{"test":981158400000}', testSchema(decoder.runtime, LocalDateSchema)),
+      decoder.decodeText('{"test":[2001,2,3]}', testSchema(decoder.runtime, LocalDateSchema)),
     ).toEqual({ test: LocalDate.of(2001, 2, 3) });
   });
 
@@ -329,7 +329,7 @@ describe('JSONDecoder', () => {
       }
     )
     expect(
-      decoder.decodeText('{"test":3723.004}', testSchema(decoder.runtime, LocalTimeSchema)),
+      decoder.decodeText('{"test":[1,2,3,4000000]}', testSchema(decoder.runtime, LocalTimeSchema)),
     ).toEqual({ test: LocalTime.of(1, 2, 3, 4000000) });
   });
 
@@ -340,7 +340,7 @@ describe('JSONDecoder', () => {
       }
     )
     expect(
-      decoder.decodeText('{"test":3723004}', testSchema(decoder.runtime, LocalTimeSchema)),
+      decoder.decodeText('{"test":[1,2,3,4]}', testSchema(decoder.runtime, LocalTimeSchema)),
     ).toEqual({ test: LocalTime.of(1, 2, 3, 4000000) });
   });
 
@@ -415,6 +415,19 @@ describe('JSONDecoder', () => {
   it('decodes ArrayBuffer values from Base64 encoded text', async () => {
     const bytes = new Uint8Array([10, 9, 8, 7, 6, 5, 4, 3, 2, 1]);
     const base64 = bytes.toBase64();
+
+    expectEqual(
+      JSONDecoder.default.decodeText(
+        `{"test":"${base64}"}`,
+        testSchema(JSONDecoder.default.runtime, ArrayBufferSchema),
+      ),
+      { test: bytes.buffer },
+    );
+  });
+
+  it('decodes ArrayBuffer values from unpadded Base64 encoded text', async () => {
+    const bytes = new Uint8Array([10, 9, 8, 7, 6, 5, 4, 3, 2, 1]);
+    const base64 = bytes.toBase64({ omitPadding: true });
 
     expectEqual(
       JSONDecoder.default.decodeText(

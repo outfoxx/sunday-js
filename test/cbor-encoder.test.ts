@@ -24,9 +24,11 @@ import {
   ZoneId,
   ZoneOffset,
 } from '@js-joda/core';
+import { CBOR, TaggedValue } from 'cbor-redux';
 import { describe, expect, it } from 'bun:test';
 import { z } from 'zod';
 import {
+  ArrayBufferEncoding,
   ArrayBufferSchema,
   CBOREncoder,
   DateSchema,
@@ -92,7 +94,7 @@ describe('CBOREncoder', () => {
     );
   });
 
-  it('encodes URL values as URL (tagged string)', () => {
+  it('encodes URL values as tagged URI string', () => {
     expect(
       CBOREncoder.default.encode(
         { test: new URL('http://example.com') },
@@ -105,7 +107,7 @@ describe('CBOREncoder', () => {
     );
   });
 
-  it('encodes Instant values as date (string)', async () => {
+  it('encodes Instant values as tagged string', async () => {
     const encoder = CBOREncoder.fromPolicy({ dateEncoding: DateEncoding.ISO8601 });
     expect(
       encoder.encode(
@@ -130,7 +132,7 @@ describe('CBOREncoder', () => {
     );
   });
 
-  it('encodes Instant values as date (decimal seconds)', async () => {
+  it('encodes Instant values as tagged number (decimal seconds)', async () => {
     const encoder = CBOREncoder.fromPolicy({ dateEncoding: DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH });
     expect(
       encoder.encode(
@@ -151,7 +153,7 @@ describe('CBOREncoder', () => {
     ).toHaveBytes(decodeHex('A1 64 74657374 C1 FB 41CD3DC1B900E560'));
   });
 
-  it('encodes Instant values as date (milliseconds)', async () => {
+  it('encodes Instant values as untagged number (milliseconds)', async () => {
     const encoder = CBOREncoder.fromPolicy({ dateEncoding: DateEncoding.MILLISECONDS_SINCE_EPOCH });
     expect(
       encoder.encode(
@@ -169,79 +171,77 @@ describe('CBOREncoder', () => {
         },
         testSchema(encoder.runtime, InstantSchema),
       ),
-    ).toHaveBytes(decodeHex('A1 64 74657374 C1 FB 41CD3DC1B900E560'));
+    ).toHaveBytes(decodeHex('A1 64 74657374 1B 000000E472797557'));
   });
 
   it('encodes ZonedDateTime values as date (string)', async () => {
     const encoder = CBOREncoder.fromPolicy({ dateEncoding: DateEncoding.ISO8601 });
-    expect(
-      encoder.encode(
-        {
-          test: ZonedDateTime.of(
-            2002,
-            1,
-            1,
-            1,
-            2,
-            3,
-            4000000,
-            ZoneId.UTC,
-          ),
-        },
-        testSchema(encoder.runtime, ZonedDateTimeSchema),
-      ),
-    ).toHaveBytes(
-      decodeHex(
-        'A1 64 74657374 78 1B 323030322D30312D30315430313A30323A30332E3030345A5B5A5D',
-      ),
+    const encoded = encoder.encode(
+      {
+        test: ZonedDateTime.of(
+          2002,
+          1,
+          1,
+          1,
+          2,
+          3,
+          4000000,
+          ZoneId.UTC,
+        ),
+      },
+      testSchema(encoder.runtime, ZonedDateTimeSchema),
     );
+    const wire = CBOR.decode(encoded) as { test: TaggedValue };
+    expect(wire.test).toBeInstanceOf(TaggedValue);
+    expect(wire.test.tag).toBe(0);
+    expect(wire.test.value).toBe('2002-01-01T01:02:03.004Z[Z]');
   });
 
   it('encodes ZonedDateTime values as date (decimal seconds)', async () => {
     const encoder = CBOREncoder.fromPolicy({ dateEncoding: DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH });
-    expect(
-      encoder.encode(
-        {
-          test: ZonedDateTime.of(
-            2001,
-            2,
-            3,
-            4,
-            5,
-            6,
-            7000000,
-            ZoneId.UTC,
-          ),
-        },
-        testSchema(encoder.runtime, ZonedDateTimeSchema),
-      ),
-    ).toHaveBytes(decodeHex('A1 64 74657374 83 FB 41CD3DC1B900E560 61 5A 61 5A'));
+    const encoded = encoder.encode(
+      {
+        test: ZonedDateTime.of(
+          2001,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7000000,
+          ZoneId.UTC,
+        ),
+      },
+      testSchema(encoder.runtime, ZonedDateTimeSchema),
+    );
+    const wire = CBOR.decode(encoded) as { test: TaggedValue };
+    expect(wire.test).toBeInstanceOf(TaggedValue);
+    expect(wire.test.tag).toBe(1);
+    expect(wire.test.value).toBe(981173106.007);
   });
 
   it('encodes ZonedDateTime values as date (milliseconds)', async () => {
     const encoder = CBOREncoder.fromPolicy({ dateEncoding: DateEncoding.MILLISECONDS_SINCE_EPOCH });
-    expect(
-      encoder.encode(
-        {
-          test: ZonedDateTime.of(
-            2001,
-            2,
-            3,
-            4,
-            5,
-            6,
-            7000000,
-            ZoneId.UTC,
-          ),
-        },
-        testSchema(encoder.runtime, ZonedDateTimeSchema),
-      ),
-    ).toHaveBytes(
-      decodeHex('A1 64 74657374 83 1B 000000E472797557 61 5A 61 5A'),
+    const encoded = encoder.encode(
+      {
+        test: ZonedDateTime.of(
+          2001,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7000000,
+          ZoneId.UTC,
+        ),
+      },
+      testSchema(encoder.runtime, ZonedDateTimeSchema),
     );
+    const wire = CBOR.decode(encoded) as { test: number };
+    expect(wire.test).toBe(981173106007);
   });
 
-  it('encodes OffsetDateTime values as date (string)', async () => {
+  it('encodes OffsetDateTime values as tagged string', async () => {
     const encoder = CBOREncoder.fromPolicy({ dateEncoding: DateEncoding.ISO8601 });
     expect(
       encoder.encode(
@@ -266,46 +266,48 @@ describe('CBOREncoder', () => {
     );
   });
 
-  it('encodes OffsetDateTime values as date (decimal seconds)', async () => {
+  it('encodes OffsetDateTime values as tagged number (decimal seconds)', async () => {
     const encoder = CBOREncoder.fromPolicy({ dateEncoding: DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH });
-    expect(
-      encoder.encode(
-        {
-          test: OffsetDateTime.of(
-            2001,
-            2,
-            3,
-            4,
-            5,
-            6,
-            7000000,
-            ZoneOffset.UTC,
-          ),
-        },
-        testSchema(encoder.runtime, OffsetDateTimeSchema),
-      ),
-    ).toHaveBytes(decodeHex('A1 64 74657374 82 FB 41CD3DC1B900E560 61 5A'));
+    const encoded = encoder.encode(
+      {
+        test: OffsetDateTime.of(
+          2001,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7000000,
+          ZoneOffset.UTC,
+        ),
+      },
+      testSchema(encoder.runtime, OffsetDateTimeSchema),
+    );
+    const wire = CBOR.decode(encoded) as { test: TaggedValue };
+    expect(wire.test).toBeInstanceOf(TaggedValue);
+    expect(wire.test.tag).toBe(1);
+    expect(wire.test.value).toBe(981173106.007);
   });
 
-  it('encodes OffsetDateTime values as date (milliseconds)', async () => {
+  it('encodes OffsetDateTime values as untagged number (milliseconds)', async () => {
     const encoder = CBOREncoder.fromPolicy({ dateEncoding: DateEncoding.MILLISECONDS_SINCE_EPOCH });
-    expect(
-      encoder.encode(
-        {
-          test: OffsetDateTime.of(
-            2001,
-            2,
-            3,
-            4,
-            5,
-            6,
-            7000000,
-            ZoneOffset.UTC,
-          ),
-        },
-        testSchema(encoder.runtime, OffsetDateTimeSchema),
-      ),
-    ).toHaveBytes(decodeHex('A1 64 74657374 82 1B 000000E472797557 61 5A'));
+    const encoded = encoder.encode(
+      {
+        test: OffsetDateTime.of(
+          2001,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7000000,
+          ZoneOffset.UTC,
+        ),
+      },
+      testSchema(encoder.runtime, OffsetDateTimeSchema),
+    );
+    const wire = CBOR.decode(encoded) as { test: number };
+    expect(wire.test).toBe(981173106007);
   });
 
   it('encodes OffsetTime values as string', async () => {
@@ -322,26 +324,24 @@ describe('CBOREncoder', () => {
 
   it('encodes OffsetTime values as array (decimal seconds)', async () => {
     const encoder = CBOREncoder.fromPolicy({ dateEncoding: DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH });
-    expect(
+    const wire = CBOR.decode(
       encoder.encode(
         { test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC) },
         testSchema(encoder.runtime, OffsetTimeSchema),
       ),
-    ).toHaveBytes(
-      decodeHex('A1 64 74657374 82 FB 40 AD 16 02 0C 49 BA 5E 61 5A'),
-    );
+    ) as { test: unknown[] };
+    expect(wire.test).toEqual([1, 2, 3, 4000000, 'Z']);
   });
 
   it('encodes OffsetTime values as array (milliseconds)', async () => {
     const encoder = CBOREncoder.fromPolicy({ dateEncoding: DateEncoding.MILLISECONDS_SINCE_EPOCH });
-    expect(
+    const wire = CBOR.decode(
       encoder.encode(
         { test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC) },
         testSchema(encoder.runtime, OffsetTimeSchema),
       ),
-    ).toHaveBytes(
-      decodeHex('A1 64 74657374 82 1A 00 38 CE FC 61 5A'),
-    );
+    ) as { test: unknown[] };
+    expect(wire.test).toEqual([1, 2, 3, 4, 'Z']);
   });
 
   it('encodes LocalDateTime values as string', async () => {
@@ -360,52 +360,57 @@ describe('CBOREncoder', () => {
 
   it('encodes LocalDateTime values as array (decimal seconds)', async () => {
     const encoder = CBOREncoder.fromPolicy({ dateEncoding: DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH });
-    expect(
+    const wire = CBOR.decode(
       encoder.encode(
         { test: LocalDateTime.of(2001, 2, 3, 4, 5, 6, 7000000) },
         testSchema(encoder.runtime, LocalDateTimeSchema),
       ),
-    ).toHaveBytes(decodeHex('A1 64 74657374 FB 41CD3DC1B900E560'));
+    ) as { test: unknown[] };
+    expect(wire.test).toEqual([2001, 2, 3, 4, 5, 6, 7000000]);
   });
 
   it('encodes LocalDateTime values as array (milliseconds)', async () => {
     const encoder = CBOREncoder.fromPolicy({ dateEncoding: DateEncoding.MILLISECONDS_SINCE_EPOCH });
-    expect(
+    const wire = CBOR.decode(
       encoder.encode(
         { test: LocalDateTime.of(2001, 2, 3, 4, 5, 6, 7000000) },
         testSchema(encoder.runtime, LocalDateTimeSchema),
       ),
-    ).toHaveBytes(decodeHex('A1 64 74657374 1B 000000E472797557'));
+    ) as { test: unknown[] };
+    expect(wire.test).toEqual([2001, 2, 3, 4, 5, 6, 7]);
   });
 
   it('encodes LocalDate values as string', async () => {
     const encoder = CBOREncoder.fromPolicy({ dateEncoding: DateEncoding.ISO8601 });
-    expect(
+    const wire = CBOR.decode(
       encoder.encode(
         { test: LocalDate.of(2002, 1, 1) },
         testSchema(encoder.runtime, LocalDateSchema),
       ),
-    ).toHaveBytes(decodeHex('A1 64 74657374 6A 323030322D30312D3031'));
+    ) as { test: string };
+    expect(wire.test).toBe('2002-01-01');
   });
 
   it('encodes LocalDate values as array (decimal seconds)', async () => {
     const encoder = CBOREncoder.fromPolicy({ dateEncoding: DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH });
-    expect(
+    const wire = CBOR.decode(
       encoder.encode(
         { test: LocalDate.of(2001, 2, 3) },
         testSchema(encoder.runtime, LocalDateSchema),
       ),
-    ).toHaveBytes(decodeHex('A1 64 74657374 1A 3A 7B 4A 00'));
+    ) as { test: unknown[] };
+    expect(wire.test).toEqual([2001, 2, 3]);
   });
 
   it('encodes LocalDate values as array (milliseconds)', async () => {
     const encoder = CBOREncoder.fromPolicy({ dateEncoding: DateEncoding.MILLISECONDS_SINCE_EPOCH });
-    expect(
+    const wire = CBOR.decode(
       encoder.encode(
         { test: LocalDate.of(2001, 2, 3) },
         testSchema(encoder.runtime, LocalDateSchema),
       ),
-    ).toHaveBytes(decodeHex('A1 64 74657374 1B 00 00 00 E4 71 99 10 00'));
+    ) as { test: unknown[] };
+    expect(wire.test).toEqual([2001, 2, 3]);
   });
 
   it('encodes LocalTime values as string', async () => {
@@ -422,26 +427,24 @@ describe('CBOREncoder', () => {
 
   it('encodes LocalTime values as array (decimal seconds)', async () => {
     const encoder = CBOREncoder.fromPolicy({ dateEncoding: DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH });
-    expect(
+    const wire = CBOR.decode(
       encoder.encode(
         { test: LocalTime.of(1, 2, 3, 4000000) },
         testSchema(encoder.runtime, LocalTimeSchema),
       ),
-    ).toHaveBytes(
-      decodeHex('A1 64 74657374 FB 40 AD 16 02 0C 49 BA 5E'),
-    );
+    ) as { test: unknown[] };
+    expect(wire.test).toEqual([1, 2, 3, 4000000]);
   });
 
   it('encodes LocalTime values as array (milliseconds)', async () => {
     const encoder = CBOREncoder.fromPolicy({ dateEncoding: DateEncoding.MILLISECONDS_SINCE_EPOCH });
-    expect(
+    const wire = CBOR.decode(
       encoder.encode(
         { test: LocalTime.of(1, 2, 3, 4000000) },
         testSchema(encoder.runtime, LocalTimeSchema),
       ),
-    ).toHaveBytes(
-      decodeHex('A1 64 74657374 1A 00 38 CE FC'),
-    );
+    ) as { test: unknown[] };
+    expect(wire.test).toEqual([1, 2, 3, 4]);
   });
 
   it('encodes Duration values as strings', async () => {
@@ -501,5 +504,27 @@ describe('CBOREncoder', () => {
         testSchema(CBOREncoder.default.runtime, DateSchema),
       ),
     ).toHaveBytes(decodeHex('A1 64 74657374 C1 FB 41CD3DC1B964FDF4'));
+  });
+
+  it('encodes ArrayBuffer textual values as tagged base64', () => {
+    const encoder = CBOREncoder.fromPolicy({ arrayBufferEncoding: ArrayBufferEncoding.BASE64 });
+    const bytes = Uint8Array.from([0, 1, 2, 3, 251, 255, 64, 65]).buffer;
+    const wire = CBOR.decode(encoder.encode({ test: bytes }, testSchema(encoder.runtime, ArrayBufferSchema))) as {
+      test: TaggedValue;
+    };
+    expect(wire.test).toBeInstanceOf(TaggedValue);
+    expect(wire.test.tag).toBe(34);
+    expect(wire.test.value).toBe('AAECA/v/QEE');
+  });
+
+  it('encodes ArrayBuffer textual values as tagged base64url', () => {
+    const encoder = CBOREncoder.fromPolicy({ arrayBufferEncoding: ArrayBufferEncoding.BASE64URL });
+    const bytes = Uint8Array.from([0, 1, 2, 3, 251, 255, 64, 65]).buffer;
+    const wire = CBOR.decode(encoder.encode({ test: bytes }, testSchema(encoder.runtime, ArrayBufferSchema))) as {
+      test: TaggedValue;
+    };
+    expect(wire.test).toBeInstanceOf(TaggedValue);
+    expect(wire.test.tag).toBe(33);
+    expect(wire.test.value).toBe('AAECA_v_QEE');
   });
 });
