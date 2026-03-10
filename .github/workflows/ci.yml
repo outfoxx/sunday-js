@@ -27,6 +27,9 @@ jobs:
     - name: Check
       run: bun run check
 
+    - name: Docs Smoke
+      run: bun run docs -- --emit none
+
     - name: Verify JUnit Test Report
       run: test -s reports/test-report.xml
 
