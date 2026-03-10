@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {describe, it, expect} from 'bun:test';
+import { describe, it, expect, setSystemTime } from 'bun:test';
 import {
   RefreshingHeaderTokenAuthorizingAdapter,
   RequestFactory,
@@ -22,40 +22,47 @@ import {
 describe('Request Adapters', () => {
   describe('RefreshingHeaderTokenAuthorizingAdapter', () => {
     it('should cache token', async () => {
-      let tokenId = 1;
-      const refresher = async () => {
-        tokenId++;
-        return {
-          token: `token-${tokenId}`,
-          expires: new Date(Date.now() + 500),
+      const start = new Date('2026-01-01T00:00:00.000Z');
+      setSystemTime(start);
+      try {
+        let tokenId = 0;
+        const refresher = async () => {
+          tokenId++;
+          return {
+            token: `token-${tokenId}`,
+            expires: new Date(Date.now() + 500),
+          };
         };
-      };
 
-      const request = new Request('https://example.com');
-      const requestFactory = {} as RequestFactory;
-      const adapter = new RefreshingHeaderTokenAuthorizingAdapter(refresher);
+        const request = new Request('https://example.com');
+        const requestFactory = {} as RequestFactory;
+        const adapter = new RefreshingHeaderTokenAuthorizingAdapter(refresher);
 
-      expect(adapter.shouldRefresh()).toBe(true);
+        expect(adapter.shouldRefresh()).toBe(true);
 
-      const expectedRequest = new Request('https://example.com');
-      expectedRequest.headers.set('Authorization', 'Bearer token-1');
-      expect(
-        adapter.adapt(requestFactory, request),
-      ).resolves.toEqual(expectedRequest);
+        const expectedRequest = new Request('https://example.com');
+        expectedRequest.headers.set('Authorization', 'Bearer token-1');
+        const adaptedRequest = await adapter.adapt(requestFactory, request);
+        expect(adaptedRequest).toEqual(expectedRequest);
 
-      expect(adapter.shouldRefresh()).toBe(false);
+        expect(adapter.shouldRefresh()).toBe(false);
 
-      await delay(500);
+        setSystemTime(new Date(start.getTime() + 499));
+        expect(adapter.shouldRefresh()).toBe(false);
 
-      expect(adapter.shouldRefresh()).toBe(true);
+        setSystemTime(new Date(start.getTime() + 500));
+        expect(adapter.shouldRefresh()).toBe(true);
 
-      const expectedRequest2 = new Request('https://example.com');
-      expectedRequest2.headers.set('Authorization', 'Bearer token-2');
-      expect(
-        adapter.adapt(requestFactory, request),
-      ).resolves.toEqual(expectedRequest2);
+        const expectedRequest2 = new Request('https://example.com');
+        expectedRequest2.headers.set('Authorization', 'Bearer token-2');
+        const adaptedRequest2 = await adapter.adapt(requestFactory, request);
+        expect(adaptedRequest2).toEqual(expectedRequest2);
 
-      expect(adapter.shouldRefresh()).toBe(false);
+        expect(adapter.shouldRefresh()).toBe(false);
+      }
+      finally {
+        setSystemTime();
+      }
     });
   });
 
@@ -67,13 +74,8 @@ describe('Request Adapters', () => {
 
       const expectedRequest = new Request('https://example.com');
       expectedRequest.headers.set('Authorization', 'Bearer token-1');
-      expect(
-        adapter.adapt(requestFactory, request),
-      ).resolves.toEqual(expectedRequest);
+      const adaptedRequest = await adapter.adapt(requestFactory, request);
+      expect(adaptedRequest).toEqual(expectedRequest);
     });
   });
 });
-
-async function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
