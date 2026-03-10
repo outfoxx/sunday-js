@@ -17,12 +17,63 @@ export function isError(value: unknown): value is Error {
 }
 
 export function errorToMessage(value: unknown, defMsg?: string): string {
-  return isError(value) ? value.message : defMsg ?? `${fmtMsg(value)}`;
+  return isError(value) ? value.message : defMsg ?? fmtMsg(value);
 }
 
 function fmtMsg(value: unknown): string {
-  if (value instanceof Object) {
-    return JSON.stringify(value);
+  if (typeof value === 'string') {
+    return value;
   }
-  return `${value}`;
+
+  if (value === null) {
+    return 'null';
+  }
+
+  if (value === undefined) {
+    return 'undefined';
+  }
+
+  if (typeof value === 'function') {
+    return value.name ? `[function ${value.name}]` : '[function]';
+  }
+
+  if (typeof value === 'symbol') {
+    return value.toString();
+  }
+
+  if (typeof value === 'bigint') {
+    return `${value}n`;
+  }
+
+  if (typeof value === 'object') {
+    return fmtObj(value);
+  }
+
+  return String(value);
+}
+
+function fmtObj(value: object): string {
+  const ctorName = value.constructor?.name;
+
+  try {
+    const json = JSON.stringify(value);
+    if (json != null) {
+      if (
+        ctorName &&
+        ctorName !== 'Object' &&
+        ctorName !== 'Array'
+      ) {
+        return `${ctorName} ${json}`;
+      }
+      return json;
+    }
+  } catch {
+    // ignore and fall back below
+  }
+
+  if (ctorName) {
+    return `[${ctorName}]`;
+  }
+
+  return '[object]';
 }

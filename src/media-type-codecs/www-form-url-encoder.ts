@@ -49,10 +49,10 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
   runtime: SchemaRuntime;
 
   constructor(
-    private arrayEncoding: WWWFormUrlEncoder.ArrayEncoding,
-    private boolEncoding: WWWFormUrlEncoder.BoolEncoding,
-    private dateEncoding: WWWFormUrlEncoder.DateEncoding,
-    private encoder = new TextEncoder(),
+    private readonly arrayEncoding: WWWFormUrlEncoder.ArrayEncoding,
+    private readonly boolEncoding: WWWFormUrlEncoder.BoolEncoding,
+    private readonly dateEncoding: WWWFormUrlEncoder.DateEncoding,
+    private readonly encoder = new TextEncoder(),
   ) {
     this.runtime = createSchemaRuntime({
       format: 'json',
@@ -89,7 +89,7 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
     if (value == null) {
       //
       components.push(encodeURIComponent(key));
-    } else if (value instanceof Array || value instanceof Set) {
+    } else if (Array.isArray(value) || value instanceof Set) {
       // encode key according to `arrayEncoding`
       for (const item of value) {
         components.push(
@@ -137,17 +137,20 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
       //
       components.push(encodeURIComponent(key) + '=' + encodeURIComponent(value.toString()));
     } else if (value instanceof ArrayBuffer) {
-      throw Error('Encoding ArrayBuffer to form data is not supported');
+      //
+      throw new TypeError('Encoding ArrayBuffer to form data is not supported');
     } else if (typeof value === 'object') {
       //
-      for (const [nestedKey, nestedValue] of Object.entries(value).sort()) {
+      for (const [nestedKey, nestedValue] of Object.entries(value).sort((e1, e2) => e1[0].localeCompare(e2[0], 'und'))) {
         components.push(
           ...this.encodeQueryComponent(`${key}[${nestedKey}]`, nestedValue),
         );
       }
-    } else {
+    } else if (isStringInterpolable(value)) {
       //
       components.push(encodeURIComponent(key) + '=' + encodeURIComponent(`${value}`));
+    } else {
+      throw new TypeError(`Unsupported value type: ${typeof value}`);
     }
 
     return components;
@@ -164,7 +167,7 @@ function encodeInstant(
     case WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH:
       return `${instant.toEpochMilli()}`;
     case WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH:
-      return `${instant.epochSecond() + instant.nano() / 1000000000.0}`;
+      return `${instant.epochSecond() + instant.nano() / 1000000000}`;
   }
 }
 
@@ -178,23 +181,15 @@ function encodeTemporal(
     return encodeInstant(temporal.toInstant(), dateEncoding);
   } else if (temporal instanceof OffsetDateTime) {
     return encodeInstant(temporal.toInstant(), dateEncoding);
-  } else if (temporal instanceof OffsetTime) {
+  } else if (temporal instanceof LocalDateTime || temporal instanceof OffsetTime || temporal instanceof LocalTime) {
     if (dateEncoding == WWWFormUrlEncoder.DateEncoding.ISO8601) {
       return temporal.toString();
     }
-    return encodeSeconds(temporal.second(), temporal.nano()).join(',');
-  } else if (temporal instanceof LocalDateTime) {
-    if (dateEncoding == WWWFormUrlEncoder.DateEncoding.ISO8601) {
-      return temporal.toString();
-    }
-    return encodeSeconds(temporal.second(), temporal.nano()).join(',');
+    return encodeSeconds(temporal.second(), temporal.nano())
+      .map((s) => s.toString())
+      .join(',');
   } else if (temporal instanceof LocalDate) {
     return temporal.toString();
-  } else if (temporal instanceof LocalTime) {
-    if (dateEncoding == WWWFormUrlEncoder.DateEncoding.ISO8601) {
-      return temporal.toString();
-    }
-    return encodeSeconds(temporal.second(), temporal.nano()).join(',');
   }
   return temporal.toString();
 }
@@ -239,4 +234,9 @@ export namespace WWWFormUrlEncoder {
     MILLISECONDS_SINCE_EPOCH,
     ISO8601,
   }
+}
+
+function isStringInterpolable(value: unknown): value is string | number | bigint | boolean {
+  const type = typeof value;
+  return type === 'string' || type === 'number' || type === 'bigint' || type === 'boolean';
 }

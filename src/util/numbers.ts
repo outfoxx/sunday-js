@@ -17,10 +17,10 @@ export function secondsToNumber(seconds: number, nanos: number): number {
     return seconds;
   }
   const nanoStr = nanos.toString();
-  return parseFloat(`${seconds}.${'0'.repeat(9 - nanoStr.length)}${nanos}`);
+  return Number.parseFloat(`${seconds}.${'0'.repeat(9 - nanoStr.length)}${nanos}`);
 }
 
-export function encodeSeconds(seconds: number, fraction: number): unknown[] {
+export function encodeSeconds(seconds: number, fraction: number): number[] {
   const result = [];
   if (seconds != 0 || fraction != 0) {
     result.push(seconds);

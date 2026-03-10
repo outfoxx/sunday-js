@@ -18,6 +18,7 @@ import {
   SchemaPolicy,
   SchemaRuntime,
 } from '../schema-runtime.js';
+import { pruneNullObjectProperties } from '../util/objects.js';
 import { createJSONSchemaRuntime } from './default-policies.js';
 import { StructuredMediaTypeEncoder } from './media-type-encoder.js';
 import { z } from 'zod';
@@ -53,60 +54,6 @@ export class JSONEncoder implements StructuredMediaTypeEncoder {
     const output = includeNulls ? serialized : pruneNullObjectProperties(serialized);
     return JSON_OBJECT_SCHEMA.parse(output);
   }
-}
-
-function pruneNullObjectProperties(value: unknown): unknown {
-  if (value === null || value === undefined) {
-    return value;
-  }
-  if (Array.isArray(value)) {
-    let result: Array<unknown> | undefined;
-    for (let index = 0; index < value.length; index += 1) {
-      const entry = value[index];
-      const next = pruneNullObjectProperties(entry);
-      if (!result && next !== entry) {
-        result = value.slice(0, index);
-      }
-      if (result) {
-        result.push(next);
-      }
-    }
-    return result ?? value;
-  }
-  if (isPlainObject(value)) {
-    const source = value as Record<string, unknown>;
-    const keys = Object.keys(source);
-    let result: Record<string, unknown> | undefined;
-    for (let index = 0; index < keys.length; index += 1) {
-      const key = keys[index];
-      const entry = source[key];
-      const next = pruneNullObjectProperties(entry);
-      const removed = next === null;
-      const changed = removed || next !== entry;
-
-      if (!result && changed) {
-        result = {};
-        for (let backfill = 0; backfill < index; backfill += 1) {
-          const prevKey = keys[backfill];
-          result[prevKey] = source[prevKey];
-        }
-      }
-
-      if (result && !removed) {
-        result[key] = next;
-      }
-    }
-    return result ?? value;
-  }
-  return value;
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-  const proto = Object.getPrototypeOf(value);
-  return proto === Object.prototype || proto === null;
 }
 
 export namespace JSONEncoder {

@@ -35,7 +35,7 @@ export interface MediaTypeEncodersBuilderConstructor {
 }
 
 export class MediaTypeEncoders {
-  static Builder: MediaTypeEncodersBuilderConstructor = class Builder
+  static readonly Builder: MediaTypeEncodersBuilderConstructor = class Builder
     implements MediaTypeEncodersBuilder
   {
     encoders = new Map<MediaType, MediaTypeEncoder>();
@@ -64,11 +64,11 @@ export class MediaTypeEncoders {
     }
   };
 
-  static DEFAULT: MediaTypeEncoders = new MediaTypeEncoders.Builder()
+  static readonly DEFAULT: MediaTypeEncoders = new MediaTypeEncoders.Builder()
     .addDefaults()
     .build();
 
-  constructor(private encoders: Map<MediaType, MediaTypeEncoder>) {}
+  constructor(private readonly encoders: Map<MediaType, MediaTypeEncoder>) {}
 
   supports(mediaType: MediaType): boolean {
     for (const key of this.encoders.keys()) {
@@ -85,6 +85,6 @@ export class MediaTypeEncoders {
         return encoder;
       }
     }
-    throw Error(`Unsupported media type - ${mediaType}`);
+    throw new Error(`Unsupported media type - ${mediaType}`);
   }
 }

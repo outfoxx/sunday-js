@@ -16,7 +16,7 @@ import { TextMediaTypeDecoder } from './media-type-decoder.js';
 import { isSchema, SchemaLike } from '../schema-runtime.js';
 
 export class AnyTextDecoder implements TextMediaTypeDecoder {
-  static default = new AnyTextDecoder();
+  static readonly default = new AnyTextDecoder();
 
   async decode<T>(response: Response, type: SchemaLike<T>): Promise<T> {
     return this.decodeText(await response.text(), type);

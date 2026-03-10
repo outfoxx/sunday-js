@@ -78,8 +78,8 @@ export interface SchemaRuntime {
 }
 
 class DefaultSchemaRuntime implements SchemaRuntime {
-  private schemas = new Map<symbol, AnySchema>();
-  private resolving = new Set<symbol>();
+  private readonly schemas = new Map<symbol, AnySchema>();
+  private readonly resolving = new Set<symbol>();
 
   constructor(readonly policy: SchemaPolicy) {}
 

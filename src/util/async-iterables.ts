@@ -174,7 +174,7 @@ export function subscribe<E>(
   let stopPromise: Promise<void> | undefined;
 
   const stop = (): Promise<void> => {
-    if (stopPromise) {
+    if (stopPromise !== undefined) {
       return stopPromise;
     }
 
@@ -219,7 +219,7 @@ export function subscribe<E>(
       }
     }
     finally {
-      if (stopPromise) {
+      if (stopPromise !== undefined) {
         await stopPromise;
       }
       closed = true;

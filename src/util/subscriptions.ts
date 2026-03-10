@@ -22,8 +22,8 @@ export interface SubscriptionLike extends Unsubscribable {
 }
 
 export class Subscription implements SubscriptionLike {
-  private _collection = new Set<Unsubscribable>();
-  private _done = Promise.withResolvers<void>();
+  private readonly _collection = new Set<Unsubscribable>();
+  private readonly _done = Promise.withResolvers<void>();
   closed = false;
 
   add(sub: (() => unknown) | Unsubscribable): void {

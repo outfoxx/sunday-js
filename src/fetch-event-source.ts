@@ -36,11 +36,11 @@ export interface FetchEventSource {
 }
 
 export class FetchEventSource extends EventTarget implements ExtEventSource {
-  private static LAST_EVENT_ID_HEADER = 'Last-Event-ID';
-  private static MAX_RETRY_TIME_MULTIPLIER = 12;
-  private static RETRY_EXPONENT = 2.6;
-  private static EVENT_TIMEOUT_DEFAULT = 120 * 1000;
-  private static EVENT_TIMEOUT_CHECK_INTERVAL_DEFAULT = 2 * 1000;
+  private static readonly LAST_EVENT_ID_HEADER = 'Last-Event-ID';
+  private static readonly MAX_RETRY_TIME_MULTIPLIER = 12;
+  private static readonly RETRY_EXPONENT = 2.6;
+  private static readonly EVENT_TIMEOUT_DEFAULT = 120 * 1000;
+  private static readonly EVENT_TIMEOUT_CHECK_INTERVAL_DEFAULT = 2 * 1000;
 
   readonly CONNECTING = 0;
   readonly OPEN = 1;
@@ -57,11 +57,11 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     return this.internalRetryTime;
   }
 
-  private adapter: (
+  private readonly adapter: (
     url: string,
     requestInit: RequestInit,
   ) => Promise<Request>;
-  private signal?: AbortSignal;
+  private readonly signal?: AbortSignal;
   private connectionAbortController?: AbortController;
   private connectionReader?: ReadableStreamDefaultReader<Uint8Array>;
   private externalAbortSignal?: AbortSignal;
@@ -72,12 +72,12 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   private connectionOrigin?: string;
   private reconnectTimeoutHandle?: ReturnType<typeof setTimeout>;
   private lastEventId?: string;
-  private logger?: Logger;
+  private readonly logger?: Logger;
   private readonly eventTimeout?: number;
   private readonly eventTimeoutCheckInterval: number;
   private eventTimeoutCheckHandle?: ReturnType<typeof setInterval>;
   private lastEventReceivedTime = 0;
-  private eventParser = new EventParser();
+  private readonly eventParser = new EventParser();
 
   constructor(
     url: string,
@@ -268,7 +268,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       this.logger?.debug?.('event timeout reached', {
         elapsed,
       });
-      this.fireErrorEvent(Error('EventTimeout'));
+      this.fireErrorEvent(new Error('EventTimeout'));
 
       this.scheduleReconnect();
     }
@@ -284,7 +284,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
         readyState: this.readyState,
       });
 
-      this.fireErrorEvent(Error('InvalidState'));
+      this.fireErrorEvent(new Error('InvalidState'));
 
       this.scheduleReconnect();
       return;
@@ -311,7 +311,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
         readyState: this.readyState,
       });
 
-      this.fireErrorEvent(Error('InvalidState'));
+      this.fireErrorEvent(new Error('InvalidState'));
 
       this.scheduleReconnect();
       return;
@@ -424,7 +424,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   // Event Dispatch
   //
 
-  private dispatchParsedEvent = (eventInfo: EventInfo) => {
+  private readonly dispatchParsedEvent = (eventInfo: EventInfo) => {
     this.updateLastEventReceived();
 
     if (eventInfo.retry) {
@@ -455,7 +455,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     // Save last-event-id if the new id is valid
     if (eventInfo.id != null) {
       // Check for NULL as it is not allowed
-      if (eventInfo.id.indexOf('\0') == -1) {
+      if (!eventInfo.id.includes('\0')) {
         this.lastEventId = eventInfo.id;
       } else {
         this.logger?.warn?.(
@@ -488,11 +488,8 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     this.connectionAbortController = undefined;
 
     if (this.connectionReader) {
-      try {
-        void this.connectionReader.cancel();
-      } catch {
-        // ignore
-      }
+      void this.connectionReader.cancel()
+               .catch(() => this.logger?.warn?.('failed to cancel connection reader'));
       try {
         this.connectionReader.releaseLock();
       } catch {

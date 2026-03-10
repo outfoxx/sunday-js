@@ -17,7 +17,7 @@ import { BufferMediaTypeDecoder } from './media-type-decoder.js';
 import { isSchema, SchemaLike } from '../schema-runtime.js';
 
 export class BinaryDecoder implements BufferMediaTypeDecoder {
-  static default = new BinaryDecoder();
+  static readonly default = new BinaryDecoder();
 
   async decode<T>(response: Response, type: SchemaLike<T>): Promise<T> {
     return this.decodeBuffer(await response.arrayBuffer(), type);

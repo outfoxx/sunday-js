@@ -20,7 +20,7 @@ export interface EventInfo {
 }
 
 export class EventParser {
-  private decoder: TextDecoder = new TextDecoder('utf-8');
+  private readonly decoder: TextDecoder = new TextDecoder('utf-8');
   private unprocessedBuffer?: ArrayBuffer;
 
   process(

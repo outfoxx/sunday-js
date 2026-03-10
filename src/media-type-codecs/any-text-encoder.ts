@@ -16,14 +16,14 @@ import { MediaTypeEncoder } from './media-type-encoder.js';
 import { SchemaLike } from '../schema-runtime.js';
 
 export class AnyTextEncoder implements MediaTypeEncoder {
-  static default = new AnyTextEncoder();
+  static readonly default = new AnyTextEncoder();
 
   encode<T>(value: T, _?: SchemaLike<T>): BodyInit {
     let str: string;
     if (typeof value == 'string') {
       str = value as string;
     } else {
-      throw new Error(`Unsupported value type for text encoding: ${typeof value}`);
+      throw new TypeError(`Unsupported value type for text encoding: ${typeof value}`);
     }
     return str;
   }

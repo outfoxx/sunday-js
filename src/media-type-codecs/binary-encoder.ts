@@ -16,7 +16,7 @@ import { MediaTypeEncoder } from './media-type-encoder.js';
 import { SchemaLike } from '../schema-runtime.js';
 
 export class BinaryEncoder implements MediaTypeEncoder {
-  static default = new BinaryEncoder();
+  static readonly default = new BinaryEncoder();
 
   encode<T>(value: T, _?: SchemaLike<T>): BodyInit {
     let buffer: ArrayBuffer | ArrayBufferView<ArrayBuffer>;
@@ -25,7 +25,7 @@ export class BinaryEncoder implements MediaTypeEncoder {
     } else if (ArrayBuffer.isView(value)) {
       buffer = value as ArrayBufferView<ArrayBuffer>;
     } else {
-      throw new Error(`Unsupported value type for binary decoding: ${typeof value}`);
+      throw new TypeError(`Unsupported value type for binary decoding: ${typeof value}`);
     }
     return buffer;
   }

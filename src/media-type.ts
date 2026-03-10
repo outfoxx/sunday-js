@@ -206,7 +206,7 @@ export namespace MediaType {
   ): MediaType {
     const reqDef = () => {
       if (!def) {
-        throw Error('Invalid media type');
+        throw new Error('Invalid media type');
       }
       return def;
     };

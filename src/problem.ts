@@ -41,7 +41,7 @@ export type ProblemSpec = z.infer<typeof ProblemWireSchema>;
 
 export class Problem extends Error implements Problem {
 
-  public static BLANK_URL = new URL('about:blank');
+  public static readonly BLANK_URL = new URL('about:blank');
 
   public type: URL;
 
@@ -53,7 +53,7 @@ export class Problem extends Error implements Problem {
 
   public instance?: URL;
 
-  private _parameters?: Record<string, unknown>;
+  private readonly _parameters?: Record<string, unknown>;
 
   public get parameters(): Record<string, unknown> | undefined {
     return this._parameters;
@@ -155,7 +155,7 @@ export function createProblemCodec<
       status: value.status,
       detail: value.detail,
       instance: value.instance?.toString(),
-      ...(value.parameters ?? {}),
+      ...value.parameters,
     }) as TWire,
   });
 }

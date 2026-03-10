@@ -656,7 +656,7 @@ function createDateSchema(policy: SchemaPolicy): z.ZodType<Date> {
             case DateEncoding.MILLISECONDS_SINCE_EPOCH:
               return value.getTime();
             case DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH:
-              return value.getTime() / 1000.0;
+              return value.getTime() / 1000;
           }
         },
       });

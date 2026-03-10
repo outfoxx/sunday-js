@@ -145,58 +145,57 @@ function createArrayBufferSchema(policy: SchemaPolicy): z.ZodType<ArrayBuffer> {
         encode: base64Encoder(policy.arrayBufferEncoding),
       });
     case 'cbor':
-      switch (policy.arrayBufferEncoding) {
-        case ArrayBufferEncoding.RAW_BYTES:
-          return z.codec(ARRAY_BUFFER_RAW_INPUT_SCHEMA, ARRAY_BUFFER_OUTPUT_SCHEMA, {
-            decode: (v) => (
-              v instanceof Uint8Array
-                ? v.buffer.slice(v.byteOffset, v.byteOffset + v.byteLength)
-                : v
-            ),
-            encode: (v) => v,
-          });
-        default:
-          return z.codec(z.union([z.instanceof(TaggedValue)]), ARRAY_BUFFER_OUTPUT_SCHEMA, {
-            decode: (value, ctx) => {
-              const string = z.string().decode(value.value);
-              switch (value.tag) {
-                case base64Tag:
-                  return Uint8Array
-                    .fromBase64(string, { alphabet: 'base64', lastChunkHandling: 'loose'})
-                    .buffer;
-                case base64UrlTag:
-                  return Uint8Array
-                    .fromBase64(string, { alphabet: 'base64url', lastChunkHandling: 'loose'})
-                    .buffer;
-                default:
-                  ctx.issues.push(
-                    {
-                      code: 'invalid_value',
-                      values: [base64UrlTag, base64Tag],
-                      input: value.tag
-                    }
-                  )
-                  return z.NEVER
-              }
-            },
-
-            encode: (value) => {
-              const bytes = new Uint8Array(value);
-              switch (policy.arrayBufferEncoding) {
-                case ArrayBufferEncoding.BASE64:
-                  return new TaggedValue(
-                    bytes.toBase64({ alphabet: 'base64', omitPadding: false }),
-                    base64Tag,
-                  );
-                case ArrayBufferEncoding.BASE64URL:
-                  return new TaggedValue(
-                    bytes.toBase64({ alphabet: 'base64url', omitPadding: false }),
-                    base64UrlTag,
-                  );
-              }
-              return z.NEVER;
+      if (policy.arrayBufferEncoding == ArrayBufferEncoding.RAW_BYTES) {
+        return z.codec(ARRAY_BUFFER_RAW_INPUT_SCHEMA, ARRAY_BUFFER_OUTPUT_SCHEMA, {
+          decode: (v) => (
+            v instanceof Uint8Array
+              ? v.buffer.slice(v.byteOffset, v.byteOffset + v.byteLength)
+              : v
+          ),
+          encode: (v) => v,
+        });
+      } else {
+        return z.codec(z.union([z.instanceof(TaggedValue)]), ARRAY_BUFFER_OUTPUT_SCHEMA, {
+          decode: (value, ctx) => {
+            const string = z.string().decode(value.value);
+            switch (value.tag) {
+              case base64Tag:
+                return Uint8Array
+                  .fromBase64(string, { alphabet: 'base64', lastChunkHandling: 'loose' })
+                  .buffer;
+              case base64UrlTag:
+                return Uint8Array
+                  .fromBase64(string, { alphabet: 'base64url', lastChunkHandling: 'loose' })
+                  .buffer;
+              default:
+                ctx.issues.push(
+                  {
+                    code: 'invalid_value',
+                    values: [base64UrlTag, base64Tag],
+                    input: value.tag
+                  }
+                )
+                return z.NEVER
             }
-          });
+          },
+
+          encode: (value) => {
+            const bytes = new Uint8Array(value);
+            switch (policy.arrayBufferEncoding) {
+              case ArrayBufferEncoding.BASE64:
+                return new TaggedValue(
+                  bytes.toBase64({ alphabet: 'base64', omitPadding: false }),
+                  base64Tag,
+                );
+              case ArrayBufferEncoding.BASE64URL:
+                return new TaggedValue(
+                  bytes.toBase64({ alphabet: 'base64url', omitPadding: false }),
+                  base64UrlTag,
+                );
+            }
+            return z.NEVER;
+          }
+        });
       }
   }
 }

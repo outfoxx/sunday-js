@@ -82,7 +82,7 @@ export class FetchRequestFactory implements RequestFactory {
         MediaType.WWWFormUrlEncoded,
       );
       if (!isURLQueryParamsEncoder(encoder)) {
-        throw Error(
+        throw new Error(
           `MediaTypeEncoder for ${MediaType.WWWFormUrlEncoded} must be an instance of URLQueryParamsEncoder`,
         );
       }
@@ -100,7 +100,7 @@ export class FetchRequestFactory implements RequestFactory {
       );
 
       if (!supportedAcceptTypes.length) {
-        throw Error('None of the provided accept types has a registered decoder');
+        throw new Error('None of the provided accept types has a registered decoder');
       }
 
       const accept = supportedAcceptTypes.join(' , ');
@@ -123,7 +123,7 @@ export class FetchRequestFactory implements RequestFactory {
     let body: BodyInit | undefined;
     if (requestSpec.body) {
       if (!contentType) {
-        throw Error(
+        throw new Error(
           'None of the provided content types has a registered encoder',
         );
       }
