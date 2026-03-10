@@ -25,7 +25,7 @@
     "README.md"
   ],
   "scripts": {
-    "test": "bun test -r ./test/setup.ts",
+    "test": "mkdir -p reports && bun test -r ./test/setup.ts --reporter=junit --reporter-outfile=reports/test-report.xml",
     "test:watch": "bun test -r ./test/setup.ts --watch",
     "typecheck": "tsc -p tsconfig.build.json --noEmit && tsc -p tsconfig.test.json --noEmit",
     "build": "tsc -p tsconfig.build.json",
