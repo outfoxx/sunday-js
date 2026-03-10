@@ -35,7 +35,7 @@
     "pretty": "prettier src test",
     "lint": "mkdir -p reports && eslint -f json -o reports/lint.json src test",
     "lint:html": "mkdir -p reports && eslint -f html -o reports/lint.html src test",
-    "docs": "typedoc --excludeInternal --excludePrivate src/index.ts",
+    "docs": "typedoc --excludeInternal --excludePrivate --tsconfig tsconfig.build.json src/index.ts",
     "prepublishOnly": "bun run clean && bun run check",
     "publish:dry-run": "bun publish --dry-run",
     "smoke:esm:bun": "bun ./tools/ci/esm-smoke.mjs",
