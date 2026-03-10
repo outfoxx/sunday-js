@@ -30,6 +30,9 @@ jobs:
     - name: Verify JUnit Test Report
       run: test -s reports/test-report.xml
 
+    - name: Verify LCOV Coverage Report
+      run: test -s reports/coverage/lcov.info
+
     - name: Bun ESM Smoke
       run: bun run smoke:esm:bun
 

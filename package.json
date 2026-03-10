@@ -25,7 +25,7 @@
     "README.md"
   ],
   "scripts": {
-    "test": "mkdir -p reports && bun test -r ./test/setup.ts --reporter=junit --reporter-outfile=reports/test-report.xml",
+    "test": "mkdir -p reports reports/coverage && bun test -r ./test/setup.ts --coverage --coverage-reporter=lcov --coverage-dir=reports/coverage --reporter=junit --reporter-outfile=reports/test-report.xml",
     "test:watch": "bun test -r ./test/setup.ts --watch",
     "typecheck": "tsc -p tsconfig.build.json --noEmit && tsc -p tsconfig.test.json --noEmit",
     "build": "tsc -p tsconfig.build.json",
