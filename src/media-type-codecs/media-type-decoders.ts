@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { AnyTextDecoder } from './any-text-decoder';
-import { BinaryDecoder } from './binary-decoder';
-import { CBORDecoder } from './cbor-decoder';
-import { JSONDecoder } from './json-decoder';
-import { MediaType } from '../media-type';
-import { MediaTypeDecoder } from './media-type-decoder';
+import { AnyTextDecoder } from './any-text-decoder.js';
+import { BinaryDecoder } from './binary-decoder.js';
+import { CBORDecoder } from './cbor-decoder.js';
+import { JSONDecoder } from './json-decoder.js';
+import { MediaType } from '../media-type.js';
+import { MediaTypeDecoder } from './media-type-decoder.js';
 
 export interface MediaTypeDecodersBuilder {
   addDefaults(): MediaTypeDecodersBuilder;
@@ -34,7 +34,7 @@ export interface MediaTypeDecodersBuilderConstructor {
 }
 
 export class MediaTypeDecoders {
-  static Builder: MediaTypeDecodersBuilderConstructor = class Builder
+  static readonly Builder: MediaTypeDecodersBuilderConstructor = class Builder
     implements MediaTypeDecodersBuilder
   {
     decoders = new Map<MediaType, MediaTypeDecoder>();
@@ -62,25 +62,27 @@ export class MediaTypeDecoders {
     }
   };
 
-  static DEFAULT: MediaTypeDecoders = new MediaTypeDecoders.Builder()
+  static readonly DEFAULT: MediaTypeDecoders = new MediaTypeDecoders.Builder()
     .addDefaults()
     .build();
 
-  constructor(private decoders: Map<MediaType, MediaTypeDecoder>) {}
+  constructor(private readonly decoders: Map<MediaType, MediaTypeDecoder>) {}
 
   supports(mediaType: MediaType): boolean {
-    return Array.from(this.decoders.keys()).some((key) =>
-      key.compatible(mediaType),
-    );
+    for (const key of this.decoders.keys()) {
+      if (key.compatible(mediaType)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   find(mediaType: MediaType): MediaTypeDecoder {
-    const found = Array.from(this.decoders.entries()).find(([type]) =>
-      type.compatible(mediaType),
-    );
-    if (!found) {
-      throw Error(`Unsupported media type - ${mediaType}`);
+    for (const [type, decoder] of this.decoders.entries()) {
+      if (type.compatible(mediaType)) {
+        return decoder;
+      }
     }
-    return found[1];
+    throw new Error(`Unsupported media type - ${mediaType}`);
   }
 }

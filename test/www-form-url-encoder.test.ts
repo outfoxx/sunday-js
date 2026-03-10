@@ -12,7 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Instant, OffsetDateTime } from '@js-joda/core';
+import {describe, it, expect} from 'bun:test';
+import {
+  Duration,
+  Instant,
+  LocalDate,
+  LocalDateTime,
+  LocalTime,
+  OffsetDateTime,
+  OffsetTime,
+  Period,
+  ZoneId,
+  ZoneOffset,
+  ZonedDateTime,
+} from '@js-joda/core';
 import { WWWFormUrlEncoder } from '../src';
 
 describe('WWWFormUrlEncoder', () => {
@@ -204,6 +217,160 @@ describe('WWWFormUrlEncoder', () => {
     expect(encoder.encodeQueryString({ test: [date1, date2] })).toBe(
       `test=1494837000123&test=1529116810123`,
     );
+  });
+
+  type EncodingExpectations = {
+    [WWWFormUrlEncoder.DateEncoding.ISO8601]: string;
+    [WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH]: string;
+    [WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH]: string;
+  };
+
+  type TemporalEncodingCase = {
+    name: string;
+    value: unknown;
+    expected: EncodingExpectations;
+  };
+
+  const temporalCases: TemporalEncodingCase[] = [
+    {
+      name: 'Instant',
+      value: Instant.parse('2001-02-03T04:05:06.007Z'),
+      expected: {
+        [WWWFormUrlEncoder.DateEncoding.ISO8601]: '2001-02-03T04:05:06.007Z',
+        [WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH]: '981173106.007',
+        [WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH]: '981173106007',
+      },
+    },
+    {
+      name: 'ZonedDateTime',
+      value: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 7000000, ZoneId.UTC),
+      expected: {
+        [WWWFormUrlEncoder.DateEncoding.ISO8601]: '2001-02-03T04:05:06.007Z',
+        [WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH]: '981173106.007',
+        [WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH]: '981173106007',
+      },
+    },
+    {
+      name: 'OffsetDateTime',
+      value: OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 7000000, ZoneOffset.UTC),
+      expected: {
+        [WWWFormUrlEncoder.DateEncoding.ISO8601]: '2001-02-03T04:05:06.007Z',
+        [WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH]: '981173106.007',
+        [WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH]: '981173106007',
+      },
+    },
+    {
+      name: 'OffsetTime',
+      value: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.ofHoursMinutes(5, 30)),
+      expected: {
+        [WWWFormUrlEncoder.DateEncoding.ISO8601]: '01:02:03.004+05:30',
+        [WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH]: '[1,2,3,4000000,"+05:30"]',
+        [WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH]: '[1,2,3,4,"+05:30"]',
+      },
+    },
+    {
+      name: 'LocalDateTime',
+      value: LocalDateTime.of(2001, 2, 3, 4, 5, 6, 7000000),
+      expected: {
+        [WWWFormUrlEncoder.DateEncoding.ISO8601]: '2001-02-03T04:05:06.007',
+        [WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH]: '[2001,2,3,4,5,6,7000000]',
+        [WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH]: '[2001,2,3,4,5,6,7]',
+      },
+    },
+    {
+      name: 'LocalDate',
+      value: LocalDate.of(2001, 2, 3),
+      expected: {
+        [WWWFormUrlEncoder.DateEncoding.ISO8601]: '2001-02-03',
+        [WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH]: '[2001,2,3]',
+        [WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH]: '[2001,2,3]',
+      },
+    },
+    {
+      name: 'LocalTime',
+      value: LocalTime.of(1, 2, 3, 4000000),
+      expected: {
+        [WWWFormUrlEncoder.DateEncoding.ISO8601]: '01:02:03.004',
+        [WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH]: '[1,2,3,4000000]',
+        [WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH]: '[1,2,3,4]',
+      },
+    },
+    {
+      name: 'Duration',
+      value: Duration.ofSeconds(3723, 4000000),
+      expected: {
+        [WWWFormUrlEncoder.DateEncoding.ISO8601]: 'PT1H2M3.004S',
+        [WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH]: '3723.004',
+        [WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH]: '3723004',
+      },
+    },
+    {
+      name: 'Period',
+      value: Period.of(1, 2, 3),
+      expected: {
+        [WWWFormUrlEncoder.DateEncoding.ISO8601]: 'P1Y2M3D',
+        [WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH]: 'P1Y2M3D',
+        [WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH]: 'P1Y2M3D',
+      },
+    },
+    {
+      name: 'ZoneId',
+      value: ZoneId.of('UTC'),
+      expected: {
+        [WWWFormUrlEncoder.DateEncoding.ISO8601]: 'UTC',
+        [WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH]: 'UTC',
+        [WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH]: 'UTC',
+      },
+    },
+    {
+      name: 'ZoneOffset',
+      value: ZoneOffset.ofHoursMinutes(5, 30),
+      expected: {
+        [WWWFormUrlEncoder.DateEncoding.ISO8601]: '+05:30',
+        [WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH]: '+05:30',
+        [WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH]: '+05:30',
+      },
+    },
+  ];
+
+  const dateEncodings = [
+    WWWFormUrlEncoder.DateEncoding.ISO8601,
+    WWWFormUrlEncoder.DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
+    WWWFormUrlEncoder.DateEncoding.MILLISECONDS_SINCE_EPOCH,
+  ] as const;
+
+  for (const temporalCase of temporalCases) {
+    for (const dateEncoding of dateEncodings) {
+      it(`encodes ${temporalCase.name} for ${WWWFormUrlEncoder.DateEncoding[dateEncoding]}`, () => {
+        const encoder = new WWWFormUrlEncoder(
+          WWWFormUrlEncoder.ArrayEncoding.UNBRACKETED,
+          WWWFormUrlEncoder.BoolEncoding.LITERAL,
+          dateEncoding,
+        );
+
+        expect(encoder.encodeQueryString({ test: temporalCase.value })).toBe(
+          `test=${encodeURIComponent(temporalCase.expected[dateEncoding])}`,
+        );
+      });
+    }
+  }
+
+  it('encodes ZoneId and ZoneOffset without recursive object traversal', () => {
+    const encoder = WWWFormUrlEncoder.default;
+
+    expect(() =>
+      encoder.encodeQueryString({
+        zoneId: ZoneId.of('UTC'),
+        zoneOffset: ZoneOffset.ofHoursMinutes(5, 30),
+      }),
+    ).not.toThrow();
+
+    expect(
+      encoder.encodeQueryString({
+        zoneId: ZoneId.of('UTC'),
+        zoneOffset: ZoneOffset.ofHoursMinutes(5, 30),
+      }),
+    ).toBe('zoneId=UTC&zoneOffset=%2B05%3A30');
   });
 
   it('encodes null values as flags', () => {

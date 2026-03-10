@@ -12,15 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { MediaTypeEncoder } from './media-type-encoder';
+import { MediaTypeEncoder } from './media-type-encoder.js';
+import { SchemaLike } from '../schema-runtime.js';
 
 export class AnyTextEncoder implements MediaTypeEncoder {
-  static default = new AnyTextEncoder();
+  static readonly default = new AnyTextEncoder();
 
-  encode(value: unknown): BodyInit {
-    if (typeof value != 'string') {
-      throw Error('Invalid value, expected string');
+  encode<T>(value: T, _?: SchemaLike<T>): BodyInit {
+    let str: string;
+    if (typeof value == 'string') {
+      str = value as string;
+    } else {
+      throw new TypeError(`Unsupported value type for text encoding: ${typeof value}`);
     }
-    return value;
+    return str;
   }
 }

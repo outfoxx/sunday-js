@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import {describe, it, expect} from 'bun:test';
 import {
   RefreshingHeaderTokenAuthorizingAdapter,
   RequestFactory,
@@ -34,27 +35,27 @@ describe('Request Adapters', () => {
       const requestFactory = {} as RequestFactory;
       const adapter = new RefreshingHeaderTokenAuthorizingAdapter(refresher);
 
-      expect(adapter.shouldRefresh()).toBeTrue();
+      expect(adapter.shouldRefresh()).toBe(true);
 
       const expectedRequest = new Request('https://example.com');
       expectedRequest.headers.set('Authorization', 'Bearer token-1');
-      await expectAsync(adapter.adapt(requestFactory, request)).toBeResolvedTo(
-        expectedRequest,
-      );
+      expect(
+        adapter.adapt(requestFactory, request),
+      ).resolves.toEqual(expectedRequest);
 
-      expect(adapter.shouldRefresh()).toBeFalse();
+      expect(adapter.shouldRefresh()).toBe(false);
 
       await delay(500);
 
-      expect(adapter.shouldRefresh()).toBeTrue();
+      expect(adapter.shouldRefresh()).toBe(true);
 
       const expectedRequest2 = new Request('https://example.com');
       expectedRequest2.headers.set('Authorization', 'Bearer token-2');
-      await expectAsync(adapter.adapt(requestFactory, request)).toBeResolvedTo(
-        expectedRequest2,
-      );
+      expect(
+        adapter.adapt(requestFactory, request),
+      ).resolves.toEqual(expectedRequest2);
 
-      expect(adapter.shouldRefresh()).toBeFalse();
+      expect(adapter.shouldRefresh()).toBe(false);
     });
   });
 
@@ -66,9 +67,9 @@ describe('Request Adapters', () => {
 
       const expectedRequest = new Request('https://example.com');
       expectedRequest.headers.set('Authorization', 'Bearer token-1');
-      await expectAsync(adapter.adapt(requestFactory, request)).toBeResolvedTo(
-        expectedRequest,
-      );
+      expect(
+        adapter.adapt(requestFactory, request),
+      ).resolves.toEqual(expectedRequest);
     });
   });
 });

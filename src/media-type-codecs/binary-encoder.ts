@@ -12,22 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { MediaTypeEncoder } from './media-type-encoder';
+import { MediaTypeEncoder } from './media-type-encoder.js';
+import { SchemaLike } from '../schema-runtime.js';
 
 export class BinaryEncoder implements MediaTypeEncoder {
-  static default = new BinaryEncoder();
+  static readonly default = new BinaryEncoder();
 
-  encode(value: unknown): BodyInit {
-    if (
-      !ArrayBuffer.isView(value) &&
-      !(value instanceof ArrayBuffer) &&
-      !(value instanceof Blob) &&
-      !(value instanceof ReadableStream)
-    ) {
-      throw Error(
-        'Invalid value, expected BufferSource, Blob or ReadableStream',
-      );
+  encode<T>(value: T, _?: SchemaLike<T>): BodyInit {
+    let buffer: ArrayBuffer | ArrayBufferView<ArrayBuffer>;
+    if (value instanceof ArrayBuffer) {
+      buffer = value as ArrayBuffer;
+    } else if (ArrayBuffer.isView(value)) {
+      buffer = value as ArrayBufferView<ArrayBuffer>;
+    } else {
+      throw new TypeError(`Unsupported value type for binary decoding: ${typeof value}`);
     }
-    return value;
+    return buffer;
   }
 }

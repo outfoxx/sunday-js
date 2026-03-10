@@ -12,25 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ResponseExample } from './fetch';
+import { z } from 'zod';
+import { ResponseExample } from './fetch.js';
 import {
-  JsonAnyGetter,
-  JsonAnySetter,
-  JsonClassType,
-  JsonCreator,
-  JsonCreatorMode,
-  JsonIgnore,
-  JsonProperty,
-} from '@outfoxx/jackson-js';
-
-export interface ProblemSpec {
-  type: URL | string;
-  title: string;
-  status: number;
-  detail?: string;
-  instance?: URL | string;
-  [key: string]: unknown;
-}
+  defineSchema,
+  SchemaLike,
+} from './schema-runtime.js';
 
 export interface Problem {
   type: URL;
@@ -38,93 +25,70 @@ export interface Problem {
   status: number;
   detail?: string;
   instance?: URL;
+
   [key: string]: unknown;
 }
 
-@JsonCreator({ mode: JsonCreatorMode.DELEGATING })
+export const ProblemWireSchema = z.looseObject({
+  type: z.union([z.string(), z.instanceof(URL)]).optional(),
+  title: z.string(),
+  status: z.number(),
+  detail: z.string().optional(),
+  instance: z.union([z.string(), z.instanceof(URL)]).optional(),
+});
+
+export type ProblemSpec = z.infer<typeof ProblemWireSchema>;
+
 export class Problem extends Error implements Problem {
-  @JsonProperty()
-  @JsonClassType({ type: () => [URL] })
+
+  public static readonly BLANK_URL = new URL('about:blank');
+
   public type: URL;
 
-  @JsonProperty()
-  @JsonClassType({ type: () => [String] })
   public title: string;
 
-  @JsonProperty()
-  @JsonClassType({ type: () => [Number] })
   public status: number;
 
-  @JsonProperty()
-  @JsonClassType({ type: () => [String] })
   public detail?: string;
 
-  @JsonProperty()
-  @JsonClassType({ type: () => [URL] })
   public instance?: URL;
 
-  @JsonIgnore()
-  private _parameters?: Record<string, unknown>;
+  private readonly _parameters?: Record<string, unknown>;
 
-  @JsonClassType({ type: () => [Object] })
-  @JsonAnyGetter()
   public get parameters(): Record<string, unknown> | undefined {
     return this._parameters;
-  }
-
-  @JsonAnySetter()
-  private setParameter(key: string, value: unknown) {
-    this._parameters = this._parameters ?? {};
-    this._parameters[key] = value;
   }
 
   constructor(spec: ProblemSpec) {
     super(`${spec.status.toString()} ${spec.type} - ${spec.title}`);
 
-    const src = spec as unknown as Record<string, unknown>;
-    delete src.stack; // Fix for browsers that add stack to Error objects
+    const { type, title, status, detail, instance, ...parameters } = spec;
+    delete parameters.stack; // Fix for browsers that add stack to Error objects
 
-    const json = Object.assign({}, src);
-
-    this.type = Problem.parseURL(json.type) ?? new URL('about:blank');
-    delete json.type;
-
-    this.status = json.status as number;
-    delete json.status;
-
-    this.title = json.title as string;
-    delete json.title;
-
-    this.detail = json.detail as string;
-    delete json.detail;
-
-    this.instance = Problem.parseURL(json.instance);
-    delete json.instance;
-
-    if (Object.keys(json).length != 0) {
-      this._parameters = json;
-    }
+    this.type = Problem.parseURL(type) ?? Problem.BLANK_URL;
+    this.status = status;
+    this.title = title;
+    this.detail = detail;
+    this.instance = Problem.parseURL(instance);
+    this._parameters = Object.keys(parameters).length ? parameters : undefined;
   }
 
   toString(): string {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const self = this as Record<string, any>;
-    const url = self.request ? self.request?.url : undefined;
-    const response = self.response?.example;
+    const self = this as Record<string, Record<string, unknown>>;
     return JSON.stringify({
       type: this.type,
       status: this.status,
       title: this.title,
       detail: this.detail,
       instance: this.instance,
-      url,
-      response,
+      url: self.request?.url,
+      response: self.response?.example,
     });
   }
 
   static fromStatus(status: number, title: string): Problem {
     return new Problem({
-      type: 'about:blank',
+      type: Problem.BLANK_URL,
       title,
       status,
     });
@@ -137,7 +101,7 @@ export class Problem extends Error implements Problem {
     );
 
     return new Problem({
-      type: 'about:blank',
+      type: Problem.BLANK_URL,
       title: response.statusText,
       status: response.status,
       request: {
@@ -164,9 +128,42 @@ export class Problem extends Error implements Problem {
     if (value instanceof URL) {
       return value;
     }
-    if (typeof value == 'string') {
-      return new URL(value);
+    if (typeof value === 'string') {
+      try {
+        return new URL(value);
+      }
+      catch {
+        return undefined;
+      }
     }
-    return new URL(`${value}`);
+    return undefined;
   }
 }
+
+export function createProblemCodec<
+  TProblem extends Problem,
+  TWire extends z.infer<typeof ProblemWireSchema>,
+>(
+  problemType: new (spec: TWire) => TProblem,
+  wireSchema: z.ZodType<TWire>,
+): z.ZodType<TProblem> {
+  return z.codec(wireSchema, z.instanceof(problemType), {
+    decode: (value) => new problemType(value),
+    encode: (value) => ({
+      type: value.type?.toString() ?? Problem.BLANK_URL.toString(),
+      title: value.title,
+      status: value.status,
+      detail: value.detail,
+      instance: value.instance?.toString(),
+      ...value.parameters,
+    }) as TWire,
+  });
+}
+
+export const ProblemSchema: SchemaLike<Problem> = defineSchema(
+  () => createProblemCodec(Problem, ProblemWireSchema),
+  {
+    id: Symbol.for('@outfoxx/sunday/ProblemSchema'),
+    debugName: 'ProblemSchema',
+  },
+);

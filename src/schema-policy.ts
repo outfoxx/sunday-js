@@ -12,17 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export function isError(value: unknown): value is Error {
-  return value instanceof Error;
+export type SchemaFormat = 'json' | 'cbor';
+
+export enum DateEncoding {
+  DECIMAL_SECONDS_SINCE_EPOCH,
+  MILLISECONDS_SINCE_EPOCH,
+  ISO8601,
 }
 
-export function errorToMessage(value: unknown, defMsg?: string): string {
-  return isError(value) ? value.message : defMsg ?? `${fmtMsg(value)}`;
+export enum NumericDateDecoding {
+  DECIMAL_SECONDS_SINCE_EPOCH,
+  MILLISECONDS_SINCE_EPOCH,
 }
 
-function fmtMsg(value: unknown): string {
-  if (value instanceof Object) {
-    return JSON.stringify(value);
-  }
-  return `${value}`;
+export enum ArrayBufferEncoding {
+  BASE64,
+  BASE64URL,
+  RAW_BYTES,
+}
+
+export interface SchemaPolicy {
+  format: SchemaFormat;
+  dateEncoding: DateEncoding;
+  numericDateDecoding: NumericDateDecoding;
+  arrayBufferEncoding: ArrayBufferEncoding;
 }

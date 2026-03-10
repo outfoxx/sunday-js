@@ -12,75 +12,48 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Observable } from 'rxjs';
-import { AnyType } from './any-type';
-import { ClassType, ConstructableClassType } from './class-type';
-import { MediaType } from './media-type';
-import { TextMediaTypeDecoder } from './media-type-codecs/media-type-decoder';
-import { Problem } from './problem';
-import { ResultResponse } from './result-response';
-import { URLTemplate } from './url-template';
-import { Logger } from './logger';
+import { MediaType } from './media-type.js';
+import { TextMediaTypeDecoder } from './media-type-codecs/media-type-decoder.js';
+import { Problem } from './problem.js';
+import { ResultResponse } from './result-response.js';
+import { SchemaLike } from './schema-runtime.js';
+import { URLTemplate } from './url-template.js';
+import { Logger } from './logger.js';
 
 export interface RequestFactory {
   readonly baseUrl: URLTemplate;
 
   registerProblem(
     type: URL | string,
-    problemType: ConstructableClassType<Problem>,
+    problemType: SchemaLike<Problem>,
   ): void;
 
-  request(requestSpec: RequestSpec<unknown>): Observable<Request>;
+  request(
+    requestSpec: RequestSpec<unknown>,
+  ): Promise<Request>;
 
-  response(request: Request, dataExpected?: boolean): Observable<Response>;
+  response(
+    request: Request,
+    dataExpected?: boolean,
+  ): Promise<Response>;
 
   response<B>(
     requestSpec: RequestSpec<B>,
     dataExpected?: boolean,
-  ): Observable<Response>;
+  ): Promise<Response>;
 
   resultResponse<B, R>(
     requestSpec: RequestSpec<B>,
-    resultType: [ClassType<R>],
-  ): Observable<ResultResponse<R>>;
-
-  resultResponse<B, R>(
-    requestSpec: RequestSpec<B>,
-    resultType: [ClassType<Array<unknown>>, ClassType<R>],
-  ): Observable<ResultResponse<Array<R>>>;
-
-  resultResponse<B, R>(
-    requestSpec: RequestSpec<B>,
-    resultType: [ClassType<Set<unknown>>, ClassType<R>],
-  ): Observable<ResultResponse<Set<R>>>;
-
-  resultResponse<B, R>(
-    requestSpec: RequestSpec<B>,
-    resultType: AnyType,
-  ): Observable<ResultResponse<R>>;
+    resultType: SchemaLike<R>,
+  ): Promise<ResultResponse<R>>;
 
   resultResponse<B>(
     requestSpec: RequestSpec<B>,
-  ): Observable<ResultResponse<void>>;
+  ): Promise<ResultResponse<void>>;
 
-  result<B, R>(
-    requestSpec: RequestSpec<B>,
-    resultType: [ClassType<R>],
-  ): Observable<R>;
+  result<B, R>(requestSpec: RequestSpec<B>, resultType: SchemaLike<R>): Promise<R>;
 
-  result<B, R>(
-    requestSpec: RequestSpec<B>,
-    resultType: [ClassType<Array<unknown>>, ClassType<R>],
-  ): Observable<Array<R>>;
-
-  result<B, R>(
-    requestSpec: RequestSpec<B>,
-    resultType: [ClassType<Set<unknown>>, ClassType<R>],
-  ): Observable<Set<R>>;
-
-  result<B, R>(requestSpec: RequestSpec<B>, resultType: AnyType): Observable<R>;
-
-  result<B>(requestSpec: RequestSpec<B>): Observable<void>;
+  result<B>(requestSpec: RequestSpec<B>): Promise<void>;
 
   eventSource(requestSpec: RequestSpec<void>): ExtEventSource;
 
@@ -93,7 +66,7 @@ export interface RequestFactory {
       data: string,
       logger?: Logger,
     ) => E | undefined,
-  ): Observable<E>;
+  ): AsyncIterable<E>;
 }
 
 export interface ExtEventSource extends EventSource {
@@ -115,10 +88,11 @@ export interface RequestSpec<B> {
   pathParameters?: Record<string, unknown>;
   queryParameters?: Record<string, unknown>;
   body?: B;
-  bodyType?: AnyType;
+  bodyType?: SchemaLike<B>;
   contentTypes?: MediaType[];
   acceptTypes?: MediaType[];
   headers?: Record<string, unknown>;
+  signal?: AbortSignal;
 }
 
 export interface RequestAdapter {

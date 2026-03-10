@@ -16,11 +16,14 @@ export function secondsToNumber(seconds: number, nanos: number): number {
   if (nanos == 0) {
     return seconds;
   }
-  const nanoStr = nanos.toString();
-  return parseFloat(`${seconds}.${'0'.repeat(9 - nanoStr.length)}${nanos}`);
+  return seconds + (nanos / 1e9);
 }
 
-export function encodeSeconds(seconds: number, fraction: number): unknown[] {
+/**
+ * Encodes seconds and fraction into an array of numbers that matches
+ * Jackson's optional second/fraction timestamp fields.
+ */
+export function encodeNumericArray(seconds: number, fraction: number): number[] {
   const result = [];
   if (seconds != 0 || fraction != 0) {
     result.push(seconds);
@@ -29,4 +32,16 @@ export function encodeSeconds(seconds: number, fraction: number): unknown[] {
     }
   }
   return result;
+}
+
+/**
+ * Appends Jackson-style optional second/fraction fields to a required
+ * date/time prefix (such as year-month-day-hour-minute).
+ */
+export function appendNumericTimeFields(
+  prefix: number[],
+  seconds: number,
+  fraction: number,
+): number[] {
+  return [...prefix, ...encodeNumericArray(seconds, fraction)];
 }

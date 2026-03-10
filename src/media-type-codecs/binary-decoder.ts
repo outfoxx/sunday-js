@@ -12,27 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { MediaTypeDecoder } from './media-type-decoder';
-import { AnyConstructableType } from '../any-type';
+import { ArrayBufferSchema } from '../schema-builtins.js';
+import { BufferMediaTypeDecoder } from './media-type-decoder.js';
+import { isSchema, SchemaLike } from '../schema-runtime.js';
 
-export class BinaryDecoder implements MediaTypeDecoder {
-  static default = new BinaryDecoder();
+export class BinaryDecoder implements BufferMediaTypeDecoder {
+  static readonly default = new BinaryDecoder();
 
-  async decode<T>(response: Response, type: AnyConstructableType): Promise<T> {
-    const arrayBuffer = await response.arrayBuffer();
+  async decode<T>(response: Response, type: SchemaLike<T>): Promise<T> {
+    return this.decodeBuffer(await response.arrayBuffer(), type);
+  }
 
-    if (type[0] === ArrayBuffer) {
-      return arrayBuffer as unknown as T;
-    } else if (
-      type[0] === Uint8Array ||
-      type[0] === Int8Array ||
-      type[0] === DataView
-    ) {
-      return new type[0](arrayBuffer) as T;
+  decodeBuffer<T>(buffer: ArrayBuffer, schema: SchemaLike<T>): T {
+    if (isSchema(schema)) {
+      return schema.parse(buffer);
+    } else if (schema === ArrayBufferSchema) {
+      return buffer as unknown as T;
+    } else {
+      throw new Error(`Unsupported schema type: ${typeof schema}`);
     }
-
-    throw Error(
-      'Invalid value, expected ArrayBuffer, (Int|Uint)Array or DataView',
-    );
   }
 }

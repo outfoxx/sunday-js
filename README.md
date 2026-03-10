@@ -9,6 +9,8 @@ TypeScript/JavaScript framework for generated REST clients.
 
 ### [Read the Documentation](https://outfoxx.github.io/sunday)
 
+### [Schema Runtime Guide](./docs/schema-runtime-guide.md)
+
 ---
 
 NPM

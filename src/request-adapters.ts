@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { RequestAdapter, RequestFactory } from './request-factory';
+import { RequestAdapter, RequestFactory } from './request-factory.js';
 
 export abstract class HeaderTokenAuthorizingAdapter implements RequestAdapter {
   header = 'Authorization';
@@ -39,7 +39,7 @@ export class StaticHeaderTokenAuthorizingAdapter extends HeaderTokenAuthorizingA
   }
 
   async adapt(
-    requestFactory: RequestFactory,
+    _requestFactory: RequestFactory,
     request: Request,
   ): Promise<Request> {
     return this.applyToken(request, this.accessToken);

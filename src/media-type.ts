@@ -206,7 +206,7 @@ export namespace MediaType {
   ): MediaType {
     const reqDef = () => {
       if (!def) {
-        throw Error('Invalid media type');
+        throw new Error('Invalid media type');
       }
       return def;
     };
@@ -261,47 +261,56 @@ export namespace MediaType {
   }
 
   const fullRegex =
-    /^((?:[a-z]+|\*))\/(x(?:-|\\.)|(?:(?:vnd|prs|x)\.)|\*)?([a-z0-9\-.]+|\*)(?:\+([a-z]+))?( *(?:; *(?:(?:[\w.-]+) *= *(?:[\w.-]+)) *)*)$/gi;
+    /^([a-z]+|\*)\/(x(?:-|\\.)|(?:vnd|prs|x)\.|\*)?([a-z0-9\-.]+|\*)(?:\+([a-z]+))?( *(?:; *[\w.-]+ *= *[\w.-]+ *)*)$/gi;
   const paramRegex = / *; *([\w.-]+) *= *([\w.-]+)/gi;
 
   export const Plain = new MediaType({
     type: MediaType.Type.Text,
     subtype: 'plain',
   });
+
   export const HTML = new MediaType({
     type: MediaType.Type.Text,
     subtype: 'html',
   });
+
   export const JSON = new MediaType({
     type: MediaType.Type.Application,
     subtype: 'json',
   });
+
   export const YAML = new MediaType({
     type: MediaType.Type.Application,
     subtype: 'yaml',
   });
+
   export const CBOR = new MediaType({
     type: MediaType.Type.Application,
     subtype: 'cbor',
   });
+
   export const EventStream = new MediaType({
     type: MediaType.Type.Text,
     subtype: 'event-stream',
   });
+
   export const OctetStream = new MediaType({
     type: MediaType.Type.Application,
     subtype: 'octet-stream',
   });
+
   export const WWWFormUrlEncoded = new MediaType({
     type: MediaType.Type.Application,
     tree: MediaType.Tree.Obsolete,
     subtype: 'www-form-urlencoded',
   });
+
   export const X509CACert = new MediaType({
     type: MediaType.Type.Application,
     tree: MediaType.Tree.Obsolete,
     subtype: 'x509-ca-cert',
   });
+
   export const X509UserCert = new MediaType({
     type: MediaType.Type.Application,
     tree: MediaType.Tree.Obsolete,
@@ -312,18 +321,22 @@ export namespace MediaType {
     type: MediaType.Type.Any,
     subtype: '*',
   });
+
   export const AnyText = new MediaType({
     type: MediaType.Type.Text,
     subtype: '*',
   });
+
   export const AnyImage = new MediaType({
     type: MediaType.Type.Image,
     subtype: '*',
   });
+
   export const AnyAudio = new MediaType({
     type: MediaType.Type.Audio,
     subtype: '*',
   });
+
   export const AnyVideo = new MediaType({
     type: MediaType.Type.Video,
     subtype: '*',
@@ -335,6 +348,7 @@ export namespace MediaType {
     subtype: '*',
     suffix: Suffix.JSON,
   });
+
   export const XMLStructured = new MediaType({
     type: MediaType.Type.Any,
     tree: MediaType.Tree.Any,

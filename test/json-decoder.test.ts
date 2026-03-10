@@ -12,565 +12,416 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import {beforeEach, describe, it, expect} from 'bun:test';
 import {
+  ArrayBufferSchema,
+  DateSchema,
+  DurationSchema,
+  InstantSchema,
+  JSONDecoder,
+  LocalDateSchema,
+  LocalDateTimeSchema,
+  LocalTimeSchema,
+  OffsetDateTimeSchema,
+  OffsetTimeSchema,
+  SchemaLike,
+  URLSchema,
+  ZonedDateTimeSchema,
+} from '../src';
+import {
+  Duration,
+  Instant,
   LocalDate,
   LocalDateTime,
   LocalTime,
   OffsetDateTime,
   OffsetTime,
+  ZonedDateTime,
   ZoneId,
   ZoneOffset,
-} from '@js-joda/core';
+} from '../src';
 import fetchMock from 'fetch-mock';
-import { JsonClassType, JsonProperty } from '@outfoxx/jackson-js';
-import { Base64, Instant, JSONDecoder, ZonedDateTime } from '../src';
+import { z } from 'zod';
+import { expectEqual } from './expect-utils';
 import NumericDateDecoding = JSONDecoder.NumericDateDecoding;
+
+const testSchema = <T>(runtime: JSONDecoder['runtime'], ref: SchemaLike<T>) =>
+  z.object({
+    test: runtime.resolveSchema(ref),
+  }) as unknown as z.ZodType<{ test: T }>;
 
 describe('JSONDecoder', () => {
   beforeEach(() => {
-    fetchMock.reset();
+    fetchMock.hardReset().mockGlobal();
   });
 
-  it('decodes jackson-js types from fetch response', async () => {
-    //
-    class Sub {
-      constructor(
-        @JsonProperty()
-        public value: number,
-      ) {}
-    }
-
-    class Test {
-      constructor(
-        @JsonProperty()
-        public test: string,
-        @JsonProperty()
-        @JsonClassType({ type: () => [Sub] })
-        public sub: Sub,
-      ) {}
-    }
+  it('decodes object types from fetch response', async () => {
+    const subSchema = z.object({
+      value: z.number(),
+    });
+    const testSchemaObj = z.object({
+      test: z.string(),
+      sub: subSchema,
+    });
 
     fetchMock.getOnce('http://example.com', '{"test":"a","sub":{"value":5}}');
-    await expectAsync(
-      JSONDecoder.default.decode(await fetch('http://example.com'), [Test]),
-    ).toBeResolvedTo(new Test('a', new Sub(5)));
+    expect(
+      JSONDecoder.default.decode(await fetch('http://example.com'), testSchemaObj),
+    ).resolves.toEqual({ test: 'a', sub: { value: 5 } });
   });
 
-  it('decodes jackson-js types from string', async () => {
-    //
-    class Sub {
-      constructor(
-        @JsonProperty()
-        public value: number,
-      ) {}
-    }
-
-    class Test {
-      constructor(
-        @JsonProperty()
-        public test: string,
-        @JsonProperty()
-        @JsonClassType({ type: () => [Sub] })
-        public sub: Sub,
-      ) {}
-    }
+  it('decodes object types from string', async () => {
+    const subSchema = z.object({
+      value: z.number(),
+    });
+    const testSchemaObj = z.object({
+      test: z.string(),
+      sub: subSchema,
+    });
 
     expect(
-      JSONDecoder.default.decodeText('{"test":"a","sub":{"value":5}}', [Test]),
-    ).toEqual(new Test('a', new Sub(5)));
+      JSONDecoder.default.decodeText(
+        '{"test":"a","sub":{"value":5}}',
+        testSchemaObj,
+      ),
+    ).toEqual({ test: 'a', sub: { value: 5 } });
   });
 
   it('decodes URL values from string', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [URL] })
-        public test: URL,
-      ) {}
-    }
-
-    expect(
-      JSONDecoder.default.decodeText('{"test":"http://example.com"}', [Test]),
-    ).toEqual(new Test(new URL('http://example.com')));
+    expectEqual(
+      JSONDecoder.default.decodeText(
+        '{"test":"http://example.com"}',
+        testSchema(JSONDecoder.default.runtime, URLSchema),
+      ),
+      { test: new URL('http://example.com') },
+    );
   });
 
   it('decodes Instant values from string', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [Instant] })
-        public test: Instant,
-      ) {}
-    }
-
     expect(
-      JSONDecoder.default.decodeText('{"test":"2002-01-01T01:02:03.004Z"}', [
-        Test,
-      ]),
-    ).toEqual(
-      new Test(
-        ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC).toInstant(),
+      JSONDecoder.default.decodeText(
+        '{"test":"2002-01-01T01:02:03.004Z"}',
+        testSchema(JSONDecoder.default.runtime, InstantSchema),
       ),
-    );
+    ).toEqual({
+      test: ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC).toInstant(),
+    });
   });
 
   it('decodes Instant values from number (decimal seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [Instant] })
-        public test: Instant,
-      ) {}
-    }
-
+    const decoder = JSONDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      }
+    )
     expect(
-      new JSONDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeText('{"test":981173106.789}', [Test]),
-    ).toEqual(
-      new Test(
-        ZonedDateTime.of(
-          2001,
-          2,
-          3,
-          4,
-          5,
-          6,
-          789000000,
-          ZoneId.UTC,
-        ).toInstant(),
-      ),
-    );
+      decoder.decodeText('{"test":981173106.007}', testSchema(decoder.runtime, InstantSchema)),
+    ).toEqual({
+      test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 7000000, ZoneId.UTC).toInstant(),
+    });
   });
 
   it('decodes Instant values from number (milliseconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [Instant] })
-        public test: Instant,
-      ) {}
-    }
-
+    const decoder = JSONDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      }
+    )
     expect(
-      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
-        '{"test":981173106789}',
-        [Test],
-      ),
-    ).toEqual(
-      new Test(
-        ZonedDateTime.of(
-          2001,
-          2,
-          3,
-          4,
-          5,
-          6,
-          789000000,
-          ZoneId.UTC,
-        ).toInstant(),
-      ),
-    );
+      decoder.decodeText('{"test":981173106007}', testSchema(decoder.runtime, InstantSchema)),
+    ).toEqual({
+      test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 7000000, ZoneId.UTC).toInstant(),
+    });
   });
 
   it('decodes ZonedDateTime values from string', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [ZonedDateTime] })
-        public test: ZonedDateTime,
-      ) {}
-    }
-
     expect(
-      JSONDecoder.default.decodeText('{"test":"2002-01-01T01:02:03.004Z"}', [
-        Test,
-      ]),
-    ).toEqual(
-      new Test(ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC)),
-    );
+      JSONDecoder.default.decodeText(
+        '{"test":"2002-01-01T01:02:03.004Z"}',
+        testSchema(JSONDecoder.default.runtime, ZonedDateTimeSchema),
+      ),
+    ).toEqual({
+      test: ZonedDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneId.UTC),
+    });
   });
 
   it('decodes ZonedDateTime values from number (decimal seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [ZonedDateTime] })
-        public test: ZonedDateTime,
-      ) {}
-    }
-
+    const decoder = JSONDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      }
+    )
     expect(
-      new JSONDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeText('{"test":981173106.789}', [Test]),
-    ).toEqual(
-      new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC)),
-    );
+      decoder.decodeText('{"test":981173106.007}', testSchema(decoder.runtime, ZonedDateTimeSchema)),
+    ).toEqual({
+      test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 7000000, ZoneId.UTC),
+    });
   });
 
   it('decodes ZonedDateTime values from number (milliseconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [ZonedDateTime] })
-        public test: ZonedDateTime,
-      ) {}
-    }
-
+    const decoder = JSONDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      }
+    )
     expect(
-      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
-        '{"test":981173106789}',
-        [Test],
-      ),
-    ).toEqual(
-      new Test(ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC)),
-    );
+      decoder.decodeText('{"test":981173106007}', testSchema(decoder.runtime, ZonedDateTimeSchema)),
+    ).toEqual({
+      test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 7000000, ZoneId.UTC),
+    });
   });
 
   it('decodes OffsetDateTime values from string', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [OffsetDateTime] })
-        public test: OffsetDateTime,
-      ) {}
-    }
-
     expect(
-      JSONDecoder.default.decodeText('{"test":"2002-01-01T01:02:03.004Z"}', [
-        Test,
-      ]),
-    ).toEqual(
-      new Test(OffsetDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneOffset.UTC)),
-    );
+      JSONDecoder.default.decodeText(
+        '{"test":"2002-01-01T01:02:03.004Z"}',
+        testSchema(JSONDecoder.default.runtime, OffsetDateTimeSchema),
+      ),
+    ).toEqual({
+      test: OffsetDateTime.of(2002, 1, 1, 1, 2, 3, 4000000, ZoneOffset.UTC),
+    });
   });
 
   it('decodes OffsetDateTime values from number (decimal seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [OffsetDateTime] })
-        public test: OffsetDateTime,
-      ) {}
-    }
-
+    const decoder = JSONDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      }
+    )
     expect(
-      new JSONDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeText('{"test":981173106.789}', [Test]),
-    ).toEqual(
-      new Test(
-        OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC),
-      ),
-    );
+      decoder.decodeText('{"test":981173106.007}', testSchema(decoder.runtime, OffsetDateTimeSchema)),
+    ).toEqual({
+      test: OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 7000000, ZoneOffset.UTC),
+    });
   });
 
   it('decodes OffsetDateTime values from number (milliseconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [OffsetDateTime] })
-        public test: OffsetDateTime,
-      ) {}
-    }
-
+    const decoder = JSONDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      }
+    )
     expect(
-      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
-        '{"test":981173106789}',
-        [Test],
-      ),
-    ).toEqual(
-      new Test(
-        OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC),
-      ),
-    );
+      decoder.decodeText('{"test":981173106007}', testSchema(decoder.runtime, OffsetDateTimeSchema)),
+    ).toEqual({
+      test: OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 7000000, ZoneOffset.UTC),
+    });
   });
 
   it('decodes OffsetTime values from string', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [OffsetTime] })
-        public test: OffsetTime,
-      ) {}
-    }
-
     expect(
-      JSONDecoder.default.decodeText('{"test":"01:02:03.004Z"}', [Test]),
-    ).toEqual(new Test(OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC)));
+      JSONDecoder.default.decodeText(
+        '{"test":"01:02:03.004Z"}',
+        testSchema(JSONDecoder.default.runtime, OffsetTimeSchema),
+      ),
+    ).toEqual({
+      test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC),
+    });
   });
 
   it('decodes OffsetTime values from number (decimal seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [OffsetTime] })
-        public test: OffsetTime,
-      ) {}
-    }
-
+    const decoder = JSONDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      }
+    )
     expect(
-      new JSONDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeText('{"test":[4,5,6,789000000,"Z"]}', [Test]),
-    ).toEqual(new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)));
+      decoder.decodeText('{"test":3723.004}', testSchema(decoder.runtime, OffsetTimeSchema)),
+    ).toEqual({
+      test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC),
+    });
   });
 
   it('decodes OffsetTime values from number (milliseconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [OffsetTime] })
-        public test: OffsetTime,
-      ) {}
-    }
-
+    const decoder = JSONDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      }
+    )
     expect(
-      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
-        '{"test":[4,5,6,789,"Z"]}',
-        [Test],
-      ),
-    ).toEqual(new Test(OffsetTime.of(4, 5, 6, 789000000, ZoneOffset.UTC)));
+      decoder.decodeText('{"test":3723004}', testSchema(decoder.runtime, OffsetTimeSchema)),
+    ).toEqual({
+      test: OffsetTime.of(1, 2, 3, 4000000, ZoneOffset.UTC),
+    });
   });
 
   it('decodes LocalDateTime values from string', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalDateTime] })
-        public test: LocalDateTime,
-      ) {}
-    }
-
     expect(
-      JSONDecoder.default.decodeText('{"test":"2002-01-01T01:02:03.004"}', [
-        Test,
-      ]),
-    ).toEqual(new Test(LocalDateTime.of(2002, 1, 1, 1, 2, 3, 4000000)));
+      JSONDecoder.default.decodeText(
+        '{"test":"2002-01-01T01:02:03.004"}',
+        testSchema(JSONDecoder.default.runtime, LocalDateTimeSchema),
+      ),
+    ).toEqual({
+      test: LocalDateTime.of(2002, 1, 1, 1, 2, 3, 4000000),
+    });
   });
 
   it('decodes LocalDateTime values from number (decimal seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalDateTime] })
-        public test: LocalDateTime,
-      ) {}
-    }
-
+    const decoder = JSONDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      }
+    )
     expect(
-      new JSONDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeText('{"test":[2001,2,3,4,5,6,789000000]}', [Test]),
-    ).toEqual(new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)));
+      decoder.decodeText('{"test":981173106.007}', testSchema(decoder.runtime, LocalDateTimeSchema)),
+    ).toEqual({
+      test: LocalDateTime.of(2001, 2, 3, 4, 5, 6, 7000000),
+    });
   });
 
   it('decodes LocalDateTime values from number (milliseconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalDateTime] })
-        public test: LocalDateTime,
-      ) {}
-    }
-
+    const decoder = JSONDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      }
+    )
     expect(
-      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
-        '{"test":[2001,2,3,4,5,6,789]}',
-        [Test],
-      ),
-    ).toEqual(new Test(LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000)));
+      decoder.decodeText('{"test":981173106007}', testSchema(decoder.runtime, LocalDateTimeSchema)),
+    ).toEqual({
+      test: LocalDateTime.of(2001, 2, 3, 4, 5, 6, 7000000),
+    });
   });
 
   it('decodes LocalDate values from string', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalDate] })
-        public test: LocalDate,
-      ) {}
-    }
-
     expect(
-      JSONDecoder.default.decodeText('{"test":"2002-01-01"}', [Test]),
-    ).toEqual(new Test(LocalDate.of(2002, 1, 1)));
+      JSONDecoder.default.decodeText(
+        '{"test":"2002-01-01"}',
+        testSchema(JSONDecoder.default.runtime, LocalDateSchema),
+      ),
+    ).toEqual({ test: LocalDate.of(2002, 1, 1) });
   });
 
   it('decodes LocalDate values from number (decimal seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalDate] })
-        public test: LocalDate,
-      ) {}
-    }
-
+    const decoder = JSONDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      }
+    )
     expect(
-      new JSONDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeText('{"test":[2001,2,3]}', [Test]),
-    ).toEqual(new Test(LocalDate.of(2001, 2, 3)));
+      decoder.decodeText('{"test":981158400}', testSchema(decoder.runtime, LocalDateSchema)),
+    ).toEqual({ test: LocalDate.of(2001, 2, 3) });
   });
 
   it('decodes LocalDate values from number (milliseconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalDate] })
-        public test: LocalDate,
-      ) {}
-    }
-
+    const decoder = JSONDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      }
+    )
     expect(
-      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
-        '{"test":[2001,2,3]}',
-        [Test],
-      ),
-    ).toEqual(new Test(LocalDate.of(2001, 2, 3)));
+      decoder.decodeText('{"test":981158400000}', testSchema(decoder.runtime, LocalDateSchema)),
+    ).toEqual({ test: LocalDate.of(2001, 2, 3) });
   });
 
   it('decodes LocalTime values from string', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalTime] })
-        public test: LocalTime,
-      ) {}
-    }
-
     expect(
-      JSONDecoder.default.decodeText('{"test":"01:02:03.004"}', [Test]),
-    ).toEqual(new Test(LocalTime.of(1, 2, 3, 4000000)));
+      JSONDecoder.default.decodeText(
+        '{"test":"01:02:03.004"}',
+        testSchema(JSONDecoder.default.runtime, LocalTimeSchema),
+      ),
+    ).toEqual({ test: LocalTime.of(1, 2, 3, 4000000) });
   });
 
   it('decodes LocalTime values from number (decimal seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalTime] })
-        public test: LocalTime,
-      ) {}
-    }
-
+    const decoder = JSONDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      }
+    )
     expect(
-      new JSONDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeText('{"test":[4,5,6,789000000]}', [Test]),
-    ).toEqual(new Test(LocalTime.of(4, 5, 6, 789000000)));
+      decoder.decodeText('{"test":3723.004}', testSchema(decoder.runtime, LocalTimeSchema)),
+    ).toEqual({ test: LocalTime.of(1, 2, 3, 4000000) });
   });
 
   it('decodes LocalTime values from number (milliseconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [LocalTime] })
-        public test: LocalTime,
-      ) {}
-    }
-
+    const decoder = JSONDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      }
+    )
     expect(
-      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
-        '{"test":[4,5,6,789]}',
-        [Test],
+      decoder.decodeText('{"test":3723004}', testSchema(decoder.runtime, LocalTimeSchema)),
+    ).toEqual({ test: LocalTime.of(1, 2, 3, 4000000) });
+  });
+
+  it('decodes Duration values from string', async () => {
+    expect(
+      JSONDecoder.default.decodeText(
+        '{"test":"PT1H2M3.004S"}',
+        testSchema(JSONDecoder.default.runtime, DurationSchema),
       ),
-    ).toEqual(new Test(LocalTime.of(4, 5, 6, 789000000)));
+    ).toEqual({ test: Duration.parse('PT1H2M3.004S') });
+  });
+
+  it('decodes Duration values from number (decimal seconds)', async () => {
+    const decoder = JSONDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      }
+    )
+    expect(
+      decoder.decodeText('{"test":3723.004}', testSchema(decoder.runtime, DurationSchema)),
+    ).toEqual({ test: Duration.ofSeconds(3723, 4000000) });
+  });
+
+  it('decodes Duration values from number (milliseconds)', async () => {
+    const decoder = JSONDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      }
+    )
+    expect(
+      decoder.decodeText('{"test":3723004}', testSchema(decoder.runtime, DurationSchema)),
+    ).toEqual({ test: Duration.ofSeconds(3723, 4000000) });
   });
 
   it('decodes Date values from string', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [Date] })
-        public test: Date,
-      ) {}
-    }
-
     expect(
-      JSONDecoder.default.decodeText('{"test":"2001-02-03T04:05:06.789Z"}', [
-        Test,
-      ]),
-    ).toEqual(
-      new Test(new Date(Instant.ofEpochMilli(981173106789).toString())),
-    );
+      JSONDecoder.default.decodeText(
+        '{"test":"2001-02-03T04:05:06.789Z"}',
+        testSchema(JSONDecoder.default.runtime, DateSchema),
+      ),
+    ).toEqual({
+      test: new Date(Instant.ofEpochMilli(981173106789).toString()),
+    });
   });
 
   it('decodes Date values from number (seconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [Date] })
-        public test: Date,
-      ) {}
-    }
-
+    const decoder = JSONDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+      }
+    )
     expect(
-      new JSONDecoder(
-        NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-      ).decodeText('{"test":981173106.789}', [Test]),
-    ).toEqual(
-      new Test(new Date(Instant.ofEpochMilli(981173106789).toString())),
-    );
+      decoder.decodeText('{"test":981173106.789}', testSchema(decoder.runtime, DateSchema)),
+    ).toEqual({
+      test: new Date(Instant.ofEpochMilli(981173106789).toString()),
+    });
   });
 
   it('decodes Date values from number (milliseconds)', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [Date] })
-        public test: Date,
-      ) {}
-    }
-
+    const decoder = JSONDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
+      }
+    )
     expect(
-      new JSONDecoder(NumericDateDecoding.MILLISECONDS_SINCE_EPOCH).decodeText(
-        '{"test":981173106789}',
-        [Test],
-      ),
-    ).toEqual(
-      new Test(new Date(Instant.ofEpochMilli(981173106789).toString())),
-    );
+      decoder.decodeText('{"test":981173106789}', testSchema(decoder.runtime, DateSchema)),
+    ).toEqual({
+      test: new Date(Instant.ofEpochMilli(981173106789).toString()),
+    });
   });
 
   it('decodes ArrayBuffer values from Base64 encoded text', async () => {
-    //
-    class Test {
-      constructor(
-        @JsonProperty()
-        @JsonClassType({ type: () => [ArrayBuffer] })
-        public test: ArrayBuffer,
-      ) {}
-    }
+    const bytes = new Uint8Array([10, 9, 8, 7, 6, 5, 4, 3, 2, 1]);
+    const base64 = bytes.toBase64();
 
-    const bin = Base64.encode(new Uint8Array([10, 9, 8, 7, 6, 5, 4, 3, 2, 1]));
-
-    expect(JSONDecoder.default.decodeText(`{"test":"${bin}"}`, [Test])).toEqual(
-      new Test(Base64.decode(bin)),
+    expectEqual(
+      JSONDecoder.default.decodeText(
+        `{"test":"${base64}"}`,
+        testSchema(JSONDecoder.default.runtime, ArrayBufferSchema),
+      ),
+      { test: bytes.buffer },
     );
   });
 });

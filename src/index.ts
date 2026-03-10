@@ -12,31 +12,39 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export * from './any-type';
-export * from './class-type';
-export * from './request-factory';
-export * from './fetch-request-factory';
-export * from './fetch-event-source';
-export * from './url-template';
-export * from './media-type';
-export * from './media-type-codecs/media-type-decoder';
-export * from './media-type-codecs/media-type-decoders';
-export * from './media-type-codecs/media-type-encoder';
-export * from './media-type-codecs/media-type-encoders';
-export * from './media-type-codecs/json-decoder';
-export * from './media-type-codecs/json-encoder';
-export * from './media-type-codecs/cbor-decoder';
-export * from './media-type-codecs/cbor-encoder';
-export * from './media-type-codecs/binary-decoder';
-export * from './media-type-codecs/binary-encoder';
-export * from './media-type-codecs/www-form-url-encoder';
-export * from './logger';
-export * from './sunday-error';
-export * from './problem';
-export * from './date-time-types';
-export * from './result-response';
-export * from './request-adapters';
+export * from './schema-runtime.js';
+export {
+  ArrayBufferSchema,
+  BooleanSchema,
+  NullSchema,
+  NumberSchema,
+  StringSchema,
+  UnknownSchema,
+  URLSchema,
+} from './schema-builtins.js';
+export * from './request-factory.js';
+export * from './fetch-request-factory.js';
+export * from './fetch-event-source.js';
+export * from './url-template.js';
+export * from './media-type.js';
+export * from './media-type-codecs/media-type-decoder.js';
+export * from './media-type-codecs/media-type-decoders.js';
+export * from './media-type-codecs/media-type-encoder.js';
+export * from './media-type-codecs/media-type-encoders.js';
+export * from './media-type-codecs/json-decoder.js';
+export * from './media-type-codecs/json-encoder.js';
+export * from './media-type-codecs/cbor-decoder.js';
+export * from './media-type-codecs/cbor-encoder.js';
+export * from './media-type-codecs/binary-decoder.js';
+export * from './media-type-codecs/binary-encoder.js';
+export * from './media-type-codecs/www-form-url-encoder.js';
+export * from './logger.js';
+export * from './sunday-error.js';
+export * from './problem.js';
+export * from './date-time-types.js';
+export * from './result-response.js';
+export * from './request-adapters.js';
 
-export * from './util/base64';
-export * from './util/hex';
-export * from './util/rxjs';
+// Select exports from util
+export * from './util/errors.js';
+export * from './util/nullify.js';

@@ -12,11 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import fetchMock from 'fetch-mock';
-import { unknownGet, unknownSet } from '../src/util/any';
 import { FetchEventSource, MediaType, Problem } from '../src';
+import { unknownGet } from '../src/util/unknowns';
 import { delayedResponse } from './fetch-mock-utils';
-import objectContaining = jasmine.objectContaining;
+
+const waitForEvent = (
+  setup: (resolve: () => void, reject: (error: Error) => void) => void,
+  timeoutMs = 5000,
+): Promise<void> =>
+  new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('Timed out waiting for event.'));
+    }, timeoutMs);
+
+    setup(
+      () => {
+        clearTimeout(timeout);
+        resolve();
+      },
+      (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      },
+    );
+  });
 
 declare global {
   interface EventSourceEventMap {
@@ -26,10 +47,10 @@ declare global {
 
 describe('FetchEventSource', () => {
   beforeEach(() => {
-    fetchMock.reset();
+    fetchMock.hardReset().mockGlobal();
   });
 
-  it('ignores double connect', (done) => {
+  it('ignores double connect', async () => {
     const eventStream = new TextEncoder().encode(
       'event: hello\nid: 12345\ndata: Hello World!\n\n',
     ).buffer;
@@ -46,16 +67,24 @@ describe('FetchEventSource', () => {
       {
         status: 503,
       },
-      { overwriteRoutes: false },
     );
 
     const eventSource = new FetchEventSource('http://example.com');
-    eventSource.onmessage = () => done();
-    eventSource.connect();
-    eventSource.connect();
+    await waitForEvent((resolve, _reject) => {
+      eventSource.onmessage = () => {
+        eventSource.close();
+        resolve();
+      };
+      eventSource.onerror = (event) => {
+        eventSource.close();
+        _reject(new Error(`Unexpected event source error: ${String(event)}`));
+      };
+      eventSource.connect();
+      eventSource.connect();
+    });
   });
 
-  it('updates retry time', (done) => {
+  it('updates retry time', async () => {
     const eventStream = new TextEncoder().encode(
       'retry: 12345\nevent: hello\nid: 12345\ndata: Hello World!\n\n',
     ).buffer;
@@ -72,20 +101,25 @@ describe('FetchEventSource', () => {
       {
         status: 503,
       },
-      { overwriteRoutes: false },
     );
 
     const eventSource = new FetchEventSource('http://example.com');
 
-    eventSource.onmessage = () => {
-      eventSource.close();
-      expect(eventSource.retryTime).toBe(12345);
-      done();
-    };
-    eventSource.connect();
+    await waitForEvent((resolve, _reject) => {
+      eventSource.onmessage = () => {
+        eventSource.close();
+        expect(eventSource.retryTime).toBe(12345);
+        resolve();
+      };
+      eventSource.onerror = (event) => {
+        eventSource.close();
+        _reject(new Error(`Unexpected event source error: ${String(event)}`));
+      };
+      eventSource.connect();
+    });
   });
 
-  it('reconnects with last-event-id', (done) => {
+  it('reconnects with last-event-id', async () => {
     const eventStream = new TextEncoder().encode(
       'event: hello\nid: 12345\ndata: Hello World!\n\n',
     ).buffer;
@@ -97,37 +131,38 @@ describe('FetchEventSource', () => {
           headers: { 'content-type': MediaType.EventStream.toString() },
         }),
     );
-    fetchMock.get(
-      'http://example.com',
-      (_, req) => {
-        expect(req.headers).toEqual(
-          objectContaining({ 'last-event-id': '12345' }),
-        );
+    fetchMock.get('http://example.com', (callLog) => {
+      expect(callLog.options.headers ?? {}).toEqual(
+        expect.objectContaining({ 'last-event-id': '12345' }),
+      );
 
-        return {
-          status: 503,
-        };
-      },
-      { overwriteRoutes: false },
-    );
+      return {
+        status: 503,
+      };
+    });
 
     let connectErrors = 0;
 
     const eventSource = new FetchEventSource('http://example.com');
-    eventSource.onerror = (ev) => {
-      const error = unknownGet(ev, 'error');
-      if (error instanceof Problem && error.status == 503) {
-        connectErrors += 1;
-      }
-      if (connectErrors >= 2) {
-        eventSource.close();
-        done();
-      }
-    };
-    eventSource.connect();
+    await waitForEvent((resolve, _reject) => {
+      eventSource.onerror = (ev) => {
+        const error = unknownGet(ev, 'error');
+        if (error instanceof Problem && error.status == 503) {
+          connectErrors += 1;
+        }
+        if (connectErrors >= 2) {
+          eventSource.close();
+          resolve();
+        }
+      };
+      eventSource.onmessage = () => {
+        // Ignore the initial message; reconnect behavior is asserted via errors.
+      };
+      eventSource.connect();
+    });
   });
 
-  it('reconnects with last-event-id ignoring invalid ids', (done) => {
+  it('reconnects with last-event-id ignoring invalid ids', async () => {
     const eventStream = new TextEncoder().encode(
       'event: hello\nid: 12345\ndata: Hello World!\n\n' +
         'event: hello\nid: a\0c\ndata: Hello World!\n\n',
@@ -140,37 +175,38 @@ describe('FetchEventSource', () => {
           headers: { 'content-type': MediaType.EventStream.toString() },
         }),
     );
-    fetchMock.get(
-      'http://example.com',
-      (_, req) => {
-        expect(req.headers).toEqual(
-          objectContaining({ 'last-event-id': '12345' }),
-        );
+    fetchMock.get('http://example.com', (callLog) => {
+      expect(callLog.options.headers ?? {}).toEqual(
+        expect.objectContaining({ 'last-event-id': '12345' }),
+      );
 
-        return {
-          status: 503,
-        };
-      },
-      { overwriteRoutes: false },
-    );
+      return {
+        status: 503,
+      };
+    });
 
     let connectErrors = 0;
 
     const eventSource = new FetchEventSource('http://example.com');
-    eventSource.onerror = (ev) => {
-      const error = unknownGet(ev, 'error');
-      if (error instanceof Problem && error.status == 503) {
-        connectErrors += 1;
-      }
-      if (connectErrors >= 2) {
-        eventSource.close();
-        done();
-      }
-    };
-    eventSource.connect();
+    await waitForEvent((resolve, _reject) => {
+      eventSource.onerror = (ev) => {
+        const error = unknownGet(ev, 'error');
+        if (error instanceof Problem && error.status == 503) {
+          connectErrors += 1;
+        }
+        if (connectErrors >= 2) {
+          eventSource.close();
+          resolve();
+        }
+      };
+      eventSource.onmessage = () => {
+        // Ignore the initial message; reconnect behavior is asserted via errors.
+      };
+      eventSource.connect();
+    });
   });
 
-  it('dispatches events', (done) => {
+  it('dispatches events', async () => {
     const eventStream = new TextEncoder().encode(
       'event: hello\nid: 12345\ndata: Hello World!\n\n',
     ).buffer;
@@ -185,42 +221,53 @@ describe('FetchEventSource', () => {
     fetchMock.get(
       'http://example.com',
       { status: 503 },
-      { overwriteRoutes: false },
     );
 
     const eventSource = new FetchEventSource('http://example.com');
-    eventSource.addEventListener('hello', () => {
-      eventSource.close();
-      done();
+    await waitForEvent((resolve, reject) => {
+      eventSource.addEventListener('hello', () => {
+        eventSource.close();
+        resolve();
+      });
+      eventSource.onerror = (event) => {
+        eventSource.close();
+        reject(new Error(`Unexpected event source error: ${String(event)}`));
+      };
+      eventSource.connect();
     });
-    eventSource.connect();
   });
 
-  it('handles close aborts gracefully', (done) => {
+  it('handles close aborts gracefully', async () => {
     const abortController = new AbortController();
 
     fetchMock.get('http://example.com', () =>
       delayedResponse({ status: 200 }, 5000),
     );
 
-    const eventSource = new FetchEventSource('http://example.com');
-    unknownSet(eventSource, 'signal', abortController.signal);
+    const eventSource = new FetchEventSource('http://example.com', {
+      signal: abortController.signal,
+    });
 
-    eventSource.onerror = (ev) => {
-      const error = unknownGet(ev, 'error');
-      if (error instanceof DOMException && error.name === 'AbortError') {
+    await waitForEvent((resolve, reject) => {
+      eventSource.onerror = (ev) => {
+        const error = unknownGet(ev, 'error');
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          eventSource.close();
+          resolve();
+          return;
+        }
         eventSource.close();
-        done();
-      }
-    };
-    eventSource.connect();
+        reject(new Error(`Unexpected event source error: ${String(error)}`));
+      };
+      eventSource.connect();
 
-    setTimeout(() => {
-      abortController.abort();
-    }, 250);
+      setTimeout(() => {
+        abortController.abort();
+      }, 250);
+    });
   });
 
-  it('counts comment only pings as events but does not dispatch', (done) => {
+  it('counts comment only pings as events but does not dispatch', async () => {
     const eventStream = new TextEncoder().encode(
       ': ping\n\n: ping\n\nevent: hello\nid: 12345\ndata: Hello World!\n\n',
     ).buffer;
@@ -235,7 +282,6 @@ describe('FetchEventSource', () => {
     fetchMock.get(
       'http://example.com',
       { status: 503 },
-      { overwriteRoutes: false },
     );
 
     const eventSource = new FetchEventSource('http://example.com');
@@ -243,49 +289,76 @@ describe('FetchEventSource', () => {
     const lastEventReceivedTimeSet = spyOn(
       eventSource,
       'updateLastEventReceived' as any, // eslint-disable-line @typescript-eslint/no-explicit-any
-    ).and.callThrough();
+    );
 
-    const dispatchEventSpy = spyOn(
-      eventSource,
-      'dispatchEvent',
-    ).and.callThrough();
+    const dispatchEventSpy = spyOn(eventSource, 'dispatchEvent');
 
-    eventSource.onmessage = (ev) => {
-      expect(ev.type).toEqual('hello');
-      expect(ev.data).toEqual('Hello World!');
+    await waitForEvent((resolve, reject) => {
+      eventSource.onmessage = (ev) => {
+        expect(ev.type).toEqual('hello');
+        expect(ev.data).toEqual('Hello World!');
 
-      if (ev.type === 'hello') {
-        expect(dispatchEventSpy).toHaveBeenCalledTimes(1);
-        expect(lastEventReceivedTimeSet).toHaveBeenCalledTimes(4);
-        done();
-      }
-    };
-
-    eventSource.connect();
+        if (ev.type === 'hello') {
+          expect(dispatchEventSpy).toHaveBeenCalledTimes(1);
+          expect(lastEventReceivedTimeSet).toHaveBeenCalledTimes(4);
+          resolve();
+        }
+      };
+      eventSource.onerror = (event) => {
+        reject(new Error(`Unexpected event source error: ${String(event)}`));
+      };
+      eventSource.connect();
+    });
   });
 
-  xit('survives disconnections & close/connect cycles', (done) => {
-    let messagesReceived = 0;
-    const eventSource = new FetchEventSource('http://localhost:5555/stream', {
-      logger: console,
-    });
-    eventSource.onopen = () => {
-      console.log({ on: 'open (survival)', source: this });
-    };
-    eventSource.onmessage = (ev) => {
-      console.log({ on: 'message (survival)s', event: ev, source: this });
-      if (messagesReceived++ >= 50) {
-        done();
-      }
-    };
-    eventSource.onerror = (err) => {
-      console.error({ on: 'error (survival)', err, source: this });
-    };
-    eventSource.connect();
+  it('survives disconnections & close/connect cycles', async () => {
+    const url = 'http://example.com/stream';
+    const firstEvent = new TextEncoder().encode(
+      'event: hello\nid: 1\ndata: First\n\n',
+    ).buffer;
+    const secondEvent = new TextEncoder().encode(
+      'event: hello\nid: 2\ndata: Second\n\n',
+    ).buffer;
 
-    setTimeout(() => {
-      eventSource.close();
+    fetchMock.getOnce(
+      url,
+      () =>
+        new Response(new Blob([firstEvent]), {
+          headers: { 'content-type': MediaType.EventStream.toString() },
+        }),
+    );
+    fetchMock.getOnce(
+      url,
+      () =>
+        new Response(new Blob([secondEvent]), {
+          headers: { 'content-type': MediaType.EventStream.toString() },
+        }),
+    );
+
+    const eventSource = new FetchEventSource(url);
+    let messagesReceived = 0;
+
+    await waitForEvent((resolve, reject) => {
+      eventSource.onmessage = (ev) => {
+        messagesReceived += 1;
+
+        if (messagesReceived === 1) {
+          eventSource.close();
+          setTimeout(() => eventSource.connect(), 10);
+          return;
+        }
+
+        if (messagesReceived === 2) {
+          expect(ev.data).toBe('Second');
+          eventSource.close();
+          resolve();
+        }
+      };
+      eventSource.onerror = (event) => {
+        eventSource.close();
+        reject(new Error(`Unexpected event source error: ${String(event)}`));
+      };
       eventSource.connect();
-    }, 5000);
-  }, 600000);
+    });
+  });
 });

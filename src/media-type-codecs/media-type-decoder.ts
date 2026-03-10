@@ -12,23 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { AnyType } from '../any-type';
+import { SchemaLike } from '../schema-runtime.js';
 
 export interface MediaTypeDecoder {
-  decode<T>(response: Response, type: AnyType): Promise<T>;
+  decode<T>(response: Response, type: SchemaLike<T>): Promise<T>;
+}
+
+export interface BufferMediaTypeDecoder extends MediaTypeDecoder {
+  decodeBuffer<T>(data: ArrayBuffer, type: SchemaLike<T>): T;
 }
 
 export interface TextMediaTypeDecoder extends MediaTypeDecoder {
-  decodeText<T>(text: string, type: AnyType): T;
+  decodeText<T>(text: string, type: SchemaLike<T>): T;
 }
 
 export interface StructuredMediaTypeDecoder extends MediaTypeDecoder {
-  decodeObject<T>(data: unknown, type: AnyType): T;
+  decodeObject<T>(data: unknown, type: SchemaLike<T>): T;
 }
 
 export function isStructuredMediaTypeDecoder(
   decoder: MediaTypeDecoder | StructuredMediaTypeDecoder | undefined,
 ): decoder is StructuredMediaTypeDecoder {
   const rec = decoder as unknown as Record<string, unknown>;
-  return !!rec.decodeObject ?? false;
+  return typeof rec.decodeObject === 'function';
 }

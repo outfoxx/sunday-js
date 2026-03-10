@@ -15,4 +15,6 @@
 export const isoDateTimeTag = 0;
 export const epochDateTimeTag = 1;
 export const uriTag = 32;
+export const base64UrlTag = 33;
+export const base64Tag = 34;
 export const epochDateTag = 100;

@@ -1,0 +1,22 @@
+{
+  "name": "@outfoxx/sunday",
+  "version": "0.0.0-test",
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js"
+    },
+    "./*": {
+      "types": "./index.d.ts",
+      "import": "./index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@js-joda/core": "^5.7.0",
+    "zod": "^4.3.6"
+  }
+}

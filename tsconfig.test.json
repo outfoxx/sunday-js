@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
+    "types": ["bun-types", "bun-types/test-globals"]
+  },
+  "include": [
+    "test/**/*.ts",
+    "test/**/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "build"
+  ]
+}

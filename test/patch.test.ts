@@ -12,142 +12,146 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { JSONDecoder, JSONEncoder } from '../src';
-import {
-  JsonClassType,
-  JsonInclude,
-  JsonIncludeType,
-  JsonProperty,
-} from '@outfoxx/jackson-js';
+import {describe, it, expect} from 'bun:test';
+import { z } from 'zod';
+import { ArrayBufferSchema, JSONDecoder, JSONEncoder } from '../src';
+import { expectEqual } from './expect-utils';
 
-@JsonInclude({ value: JsonIncludeType.ALWAYS })
-class BPatch {
-  @JsonProperty({ required: false })
-  @JsonClassType({ type: () => [String] })
-  public type?: string;
-  @JsonProperty({ required: false })
-  @JsonClassType({ type: () => [ArrayBuffer] })
-  public enc?: ArrayBuffer | null;
-  @JsonProperty({ required: false })
-  @JsonClassType({ type: () => [ArrayBuffer] })
-  public sig?: ArrayBuffer | null;
+type BPatch = {
+  type?: string | null;
+  enc?: ArrayBuffer | null;
+  sig?: ArrayBuffer | null;
+};
 
-  constructor(init: Partial<BPatch>) {
-    Object.assign(this, init);
-  }
-}
+type APatch = {
+  name?: string | null;
+  b?: BPatch | null;
+  c?: string | null;
+};
 
-@JsonInclude({ value: JsonIncludeType.ALWAYS })
-class APatch {
-  @JsonProperty({ required: false })
-  @JsonClassType({ type: () => [String] })
-  public name?: string | null;
-  @JsonProperty({ required: false })
-  @JsonClassType({ type: () => [BPatch] })
-  public b?: BPatch | null;
-  @JsonProperty({ required: false })
-  @JsonClassType({ type: () => [String] })
-  public c?: string | null;
+const arrayBufferCodec = JSONEncoder.default.runtime.resolveSchema(ArrayBufferSchema);
 
-  constructor(init: Partial<APatch>) {
-    Object.assign(this, init);
-  }
-}
+const BPatchSchema = z.object({
+  type: z.string().nullable().optional(),
+  enc: arrayBufferCodec.nullable().optional(),
+  sig: arrayBufferCodec.nullable().optional(),
+});
+
+const APatchSchema = z.object({
+  name: z.string().nullable().optional(),
+  b: BPatchSchema.nullable().optional(),
+  c: z.string().nullable().optional(),
+});
 
 describe('JSON Merge Patching', () => {
-  describe('validate JacksonJS functionality', () => {
-    it('handles nested patch classes', () => {
-      const patch = new APatch({
+  describe('validate schema functionality', () => {
+    it('handles nested patch objects', () => {
+      const patch: APatch = {
         name: 'kevin',
-        b: new BPatch({
+        b: {
           type: '17',
           enc: new Uint8Array([1, 2, 3]).buffer,
           sig: null,
-        }),
-      });
+        },
+      };
 
-      const patchJSON = JSONEncoder.default.encode(patch, [APatch]);
-      const patchDecoded = JSONDecoder.default.decodeText<APatch>(patchJSON, [
-        APatch,
-      ]);
+      const patchJSON = JSONEncoder.default.encode(patch, APatchSchema, true);
+      const patchDecoded = JSONDecoder.default.decodeText<APatch>(
+        patchJSON,
+        APatchSchema,
+      );
 
       expect(patchDecoded.c).toBeUndefined();
       expect(patchDecoded.b?.sig).toBeNull();
-      expect(patchDecoded).toEqual(patch);
-      expect(JSONEncoder.default.encode(patchDecoded)).toEqual(patchJSON);
+      expectEqual(patchDecoded, patch);
+      expect(JSONEncoder.default.encode(patchDecoded, APatchSchema, true)).toEqual(
+        patchJSON,
+      );
     });
 
     it('excludes undefined primitives', () => {
-      const patch = new APatch({
+      const patch: APatch = {
         name: 'kevin',
-        b: new BPatch({
+        b: {
           type: '17',
           enc: new Uint8Array([1, 2, 3]).buffer,
           sig: null,
-        }),
-      });
+        },
+      };
 
-      const patchJSON = JSONEncoder.default.encode(patch, [APatch]);
-      const patchDecoded = JSONDecoder.default.decodeText<APatch>(patchJSON, [
-        APatch,
-      ]);
+      const patchJSON = JSONEncoder.default.encode(patch, APatchSchema, true);
+      const patchDecoded = JSONDecoder.default.decodeText<APatch>(
+        patchJSON,
+        APatchSchema,
+      );
 
       expect(patchDecoded.c).toBeUndefined();
-      expect(patchDecoded).toEqual(patch);
-      expect(JSONEncoder.default.encode(patchDecoded)).toEqual(patchJSON);
+      expectEqual(patchDecoded, patch);
+      expect(JSONEncoder.default.encode(patchDecoded, APatchSchema, true)).toEqual(
+        patchJSON,
+      );
     });
 
-    it('excludes undefined classes', () => {
-      const patch = new APatch({
+    it('excludes undefined objects', () => {
+      const patch: APatch = {
         name: 'kevin',
         c: 'test',
-      });
+      };
 
-      const patchJSON = JSONEncoder.default.encode(patch, [APatch]);
-      const patchDecoded = JSONDecoder.default.decodeText<APatch>(patchJSON, [
-        APatch,
-      ]);
+      const patchJSON = JSONEncoder.default.encode(patch, APatchSchema, true);
+      const patchDecoded = JSONDecoder.default.decodeText<APatch>(
+        patchJSON,
+        APatchSchema,
+      );
 
       expect(patchDecoded.b).toBeUndefined();
-      expect(patchDecoded).toEqual(patch);
-      expect(JSONEncoder.default.encode(patchDecoded)).toEqual(patchJSON);
+      expectEqual(patchDecoded, patch);
+      expect(JSONEncoder.default.encode(patchDecoded, APatchSchema, true)).toEqual(
+        patchJSON,
+      );
     });
 
     it('includes null primitives', () => {
-      const patch = new APatch({
+      const patch: APatch = {
         name: 'kevin',
-        b: new BPatch({
+        b: {
           type: '17',
           enc: new Uint8Array([1, 2, 3]).buffer,
           sig: null,
-        }),
+        },
         c: null,
-      });
+      };
 
-      const patchJSON = JSONEncoder.default.encode(patch, [APatch]);
-      const patchDecoded = JSONDecoder.default.decodeText<APatch>(patchJSON, [
-        APatch,
-      ]);
+      const patchJSON = JSONEncoder.default.encode(patch, APatchSchema, true);
+      const patchDecoded = JSONDecoder.default.decodeText<APatch>(
+        patchJSON,
+        APatchSchema,
+      );
 
       expect(patchDecoded.c).toBeNull();
-      expect(patchDecoded).toEqual(patch);
-      expect(JSONEncoder.default.encode(patchDecoded)).toEqual(patchJSON);
+      expectEqual(patchDecoded, patch);
+      expect(JSONEncoder.default.encode(patchDecoded, APatchSchema, true)).toEqual(
+        patchJSON,
+      );
     });
 
-    it('includes null classes', () => {
-      const patch = new APatch({
+    it('includes null objects', () => {
+      const patch: APatch = {
         name: 'kevin',
         b: null,
         c: 'test',
-      });
+      };
 
-      const patchJSON = JSONEncoder.default.encode(patch, [APatch]);
-      const patchDecoded = JSONDecoder.default.decodeText<APatch>(patchJSON, [
-        APatch,
-      ]);
+      const patchJSON = JSONEncoder.default.encode(patch, APatchSchema, true);
+      const patchDecoded = JSONDecoder.default.decodeText<APatch>(
+        patchJSON,
+        APatchSchema,
+      );
 
       expect(patchDecoded.b).toBeNull();
-      expect(JSONEncoder.default.encode(patchDecoded)).toEqual(patchJSON);
+      expect(JSONEncoder.default.encode(patchDecoded, APatchSchema, true)).toEqual(
+        patchJSON,
+      );
     });
   });
 });

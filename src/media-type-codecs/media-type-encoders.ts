@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { MediaType } from '../media-type';
-import { AnyTextEncoder } from './any-text-encoder';
-import { BinaryEncoder } from './binary-encoder';
-import { CBOREncoder } from './cbor-encoder';
-import { JSONEncoder } from './json-encoder';
-import { MediaTypeEncoder } from './media-type-encoder';
-import { WWWFormUrlEncoder } from './www-form-url-encoder';
+import { MediaType } from '../media-type.js';
+import { AnyTextEncoder } from './any-text-encoder.js';
+import { BinaryEncoder } from './binary-encoder.js';
+import { CBOREncoder } from './cbor-encoder.js';
+import { JSONEncoder } from './json-encoder.js';
+import { MediaTypeEncoder } from './media-type-encoder.js';
+import { WWWFormUrlEncoder } from './www-form-url-encoder.js';
 
 export interface MediaTypeEncodersBuilder {
   addDefaults(): MediaTypeEncodersBuilder;
@@ -35,7 +35,7 @@ export interface MediaTypeEncodersBuilderConstructor {
 }
 
 export class MediaTypeEncoders {
-  static Builder: MediaTypeEncodersBuilderConstructor = class Builder
+  static readonly Builder: MediaTypeEncodersBuilderConstructor = class Builder
     implements MediaTypeEncodersBuilder
   {
     encoders = new Map<MediaType, MediaTypeEncoder>();
@@ -64,25 +64,27 @@ export class MediaTypeEncoders {
     }
   };
 
-  static DEFAULT: MediaTypeEncoders = new MediaTypeEncoders.Builder()
+  static readonly DEFAULT: MediaTypeEncoders = new MediaTypeEncoders.Builder()
     .addDefaults()
     .build();
 
-  constructor(private encoders: Map<MediaType, MediaTypeEncoder>) {}
+  constructor(private readonly encoders: Map<MediaType, MediaTypeEncoder>) {}
 
   supports(mediaType: MediaType): boolean {
-    return Array.from(this.encoders.keys()).some((key) =>
-      key.compatible(mediaType),
-    );
+    for (const key of this.encoders.keys()) {
+      if (key.compatible(mediaType)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   find(mediaType: MediaType): MediaTypeEncoder {
-    const found = Array.from(this.encoders.entries()).find(([type]) =>
-      type.compatible(mediaType),
-    );
-    if (!found) {
-      throw Error(`Unsupported media type - ${mediaType}`);
+    for (const [type, encoder] of this.encoders.entries()) {
+      if (type.compatible(mediaType)) {
+        return encoder;
+      }
     }
-    return found[1];
+    throw new Error(`Unsupported media type - ${mediaType}`);
   }
 }

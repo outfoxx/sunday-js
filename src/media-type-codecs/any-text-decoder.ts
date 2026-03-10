@@ -12,23 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { AnyType } from '../any-type';
-import { TextMediaTypeDecoder } from './media-type-decoder';
+import { TextMediaTypeDecoder } from './media-type-decoder.js';
+import { isSchema, SchemaLike } from '../schema-runtime.js';
 
 export class AnyTextDecoder implements TextMediaTypeDecoder {
-  static default = new AnyTextDecoder();
+  static readonly default = new AnyTextDecoder();
 
-  async decode<T>(response: Response, type: AnyType): Promise<T> {
-    if (type[0] != String) {
-      throw Error('Invalid type, expected String');
-    }
-    return (await response.text()) as unknown as T;
+  async decode<T>(response: Response, type: SchemaLike<T>): Promise<T> {
+    return this.decodeText(await response.text(), type);
   }
 
-  decodeText<T>(text: string, type: AnyType): T {
-    if (type[0] != String) {
-      throw Error('Invalid type, expected String');
+  decodeText<T>(text: string, schema: SchemaLike<T>): T {
+    if (isSchema(schema)) {
+      return schema.parse(text);
+    } else {
+      throw new Error(`Unsupported schema type: ${typeof schema}`);
     }
-    return text as unknown as T;
   }
 }

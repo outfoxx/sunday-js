@@ -12,11 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { BinaryEncoder } from '../src';
+import {describe, it, expect} from 'bun:test';
+import { ArrayBufferSchema, BinaryEncoder } from '../src';
 
 describe('BinaryEncoder', () => {
   it('disallows encoding from non-binary types (e.g. String)', async () => {
-    expect(() => new BinaryEncoder().encode('some text')).toThrow();
+    expect(() =>
+      new BinaryEncoder().encode<unknown>(
+        'some text',
+        ArrayBufferSchema,
+      ),
+    ).toThrow();
   });
 
   it('allows encoding from ArrayBuffer', async () => {
