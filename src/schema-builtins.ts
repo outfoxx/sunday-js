@@ -181,7 +181,7 @@ function createArrayBufferSchema(policy: SchemaPolicy): z.ZodType<ArrayBuffer> {
                       values: [base64UrlTag, base64Tag],
                       input: value.tag
                     }
-                  )
+                  );
                   return z.NEVER
               }
             }

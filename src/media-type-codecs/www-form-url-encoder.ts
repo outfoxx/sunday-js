@@ -155,7 +155,7 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
 
   private encodeMapQueryComponent(key: string, value: Map<string, unknown>): string[] {
     const components: string[] = [];
-    const entries = Array.from(value.entries()).sort(compareEntryKeys)
+    const entries = Array.from(value.entries()).sort(compareEntryKeys);
     for (const [nestedKey, nestedValue] of entries) {
       components.push(
         ...this.encodeQueryComponent(`${key}[${nestedKey}]`, nestedValue),

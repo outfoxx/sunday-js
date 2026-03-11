@@ -380,7 +380,7 @@ describe('CBOREncoder', () => {
     expect(wire.test).toEqual([2001, 2, 3, 4, 5, 6, 7]);
   });
 
-  it('encodes LocalDate values as string', async () => {
+  it('encodes LocalDate values as ISO string (ISO8601 policy)', async () => {
     const encoder = CBOREncoder.fromPolicy({ dateEncoding: DateEncoding.ISO8601 });
     const wire = CBOR.decode(
       encoder.encode(
@@ -391,7 +391,7 @@ describe('CBOREncoder', () => {
     expect(wire.test).toBe('2002-01-01');
   });
 
-  it('encodes LocalDate values as array (decimal seconds)', async () => {
+  it('encodes LocalDate values as numeric array (DECIMAL_SECONDS policy)', async () => {
     const encoder = CBOREncoder.fromPolicy({ dateEncoding: DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH });
     const wire = CBOR.decode(
       encoder.encode(
@@ -402,7 +402,7 @@ describe('CBOREncoder', () => {
     expect(wire.test).toEqual([2001, 2, 3]);
   });
 
-  it('encodes LocalDate values as array (milliseconds)', async () => {
+  it('encodes LocalDate values as numeric array (MILLISECONDS policy)', async () => {
     const encoder = CBOREncoder.fromPolicy({ dateEncoding: DateEncoding.MILLISECONDS_SINCE_EPOCH });
     const wire = CBOR.decode(
       encoder.encode(

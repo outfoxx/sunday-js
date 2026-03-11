@@ -336,7 +336,7 @@ describe('JSONDecoder', () => {
         '{"test":[25,2,"Z"]}',
         testSchema(JSONDecoder.default.runtime, OffsetTimeSchema),
       ),
-    ).toThrow(/Invalid LocalTime numeric timestamp array/u);
+    ).toThrow(/Invalid value for HourOfDay/u);
   });
 
   it('fails to decode OffsetTime values from arrays with invalid offset values', async () => {
@@ -400,7 +400,7 @@ describe('JSONDecoder', () => {
         '{"test":[2001,2,3,4,5,6,-1]}',
         testSchema(JSONDecoder.default.runtime, LocalDateTimeSchema),
       ),
-    ).toThrow(/Invalid LocalDateTime numeric timestamp array/u);
+    ).toThrow(/Fractional component must be a non-negative integer/u);
   });
 
   it('decodes LocalDate values from string', async () => {
@@ -492,13 +492,13 @@ describe('JSONDecoder', () => {
     ).toThrow(/LocalTime numeric timestamps must be/u);
   });
 
-  it('fails to decode LocalTime values from arrays with invalid values', async () => {
+  it('fails to decode LocalTime values from arrays with invalid fraction values', async () => {
     expect(
       () => JSONDecoder.default.decodeText(
-        '{"test":[24,2]}',
+        '{"test":[1,2,3,-1]}',
         testSchema(JSONDecoder.default.runtime, LocalTimeSchema),
       ),
-    ).toThrow(/Invalid LocalTime numeric timestamp array/u);
+    ).toThrow(/Fractional component must be a non-negative integer/u);
   });
 
   it('decodes Duration values from string', async () => {

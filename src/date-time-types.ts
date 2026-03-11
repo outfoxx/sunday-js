@@ -114,8 +114,7 @@ const LOCAL_DATE_ARRAY_INPUT_SCHEMA = z.array(z.number());
 const LOCAL_TIME_ARRAY_INPUT_SCHEMA = z.array(z.number());
 const OFFSET_TIME_ARRAY_INPUT_SCHEMA = z.array(z.union([z.number(), z.string()]));
 
-const OFFSET_TIME_JSON_INPUT_SCHEMA = z.union([z.string(), OFFSET_TIME_ARRAY_INPUT_SCHEMA]);
-const OFFSET_TIME_CBOR_INPUT_SCHEMA = z.union([z.string(), OFFSET_TIME_ARRAY_INPUT_SCHEMA]);
+const OFFSET_TIME_INPUT_SCHEMA = z.union([z.string(), OFFSET_TIME_ARRAY_INPUT_SCHEMA]);
 
 const LOCAL_DATE_TIME_INPUT_SCHEMA = z.union([z.string(), LOCAL_DATE_TIME_ARRAY_INPUT_SCHEMA]);
 const LOCAL_DATE_JSON_INPUT_SCHEMA = z.union([z.string(), LOCAL_DATE_ARRAY_INPUT_SCHEMA]);
@@ -252,7 +251,12 @@ function parseLocalDateTimeArray(
   ctx: CodecContext,
 ): JsJodaLocalDateTime | typeof z.NEVER {
   if (value.length < 5 || value.length > 7) {
-    return pushIssue(ctx, 'LocalDateTime numeric timestamps must be [year,month,day,hour,minute,(second),(fraction)]', value);
+    return pushIssue(
+      ctx,
+      'LocalDateTime numeric timestamps must be ' +
+        '[year,month,day,hour,minute,(second),(fraction)]',
+      value
+    );
   }
   try {
     const year = value[0];
@@ -264,8 +268,13 @@ function parseLocalDateTimeArray(
     const nanos = value.length === 7 ? decodeFractionToNanos(value[6], policy) : 0;
     return LocalDateTime.of(year, month, day, hour, minute, second, nanos);
   }
-  catch {
-    return pushIssue(ctx, 'Invalid LocalDateTime numeric timestamp array', value);
+  catch (error) {
+    const details = error instanceof Error ? `: ${error.message}` : '';
+    return pushIssue(
+      ctx,
+      `Invalid LocalDateTime numeric timestamp array${details}`,
+      value,
+    );
   }
 }
 
@@ -296,8 +305,13 @@ function parseLocalTimeArray(
     const nanos = value.length === 4 ? decodeFractionToNanos(value[3], policy) : 0;
     return LocalTime.of(hour, minute, second, nanos);
   }
-  catch {
-    return pushIssue(ctx, 'Invalid LocalTime numeric timestamp array', value);
+  catch (error) {
+    const details = error instanceof Error ? `: ${error.message}` : '';
+    return pushIssue(
+      ctx,
+      `Invalid LocalTime numeric timestamp array${details}`,
+      value,
+    );
   }
 }
 
@@ -589,38 +603,20 @@ function createOffsetDateTimeSchema(policy: SchemaPolicy): z.ZodType<JsJodaOffse
 }
 
 function createOffsetTimeSchema(policy: SchemaPolicy): z.ZodType<JsJodaOffsetTime> {
-  switch (policy.format) {
-    case 'json':
-      return z.codec(OFFSET_TIME_JSON_INPUT_SCHEMA, OFFSET_TIME_OUTPUT_SCHEMA, {
-        decode: (value, ctx) => {
-          if (typeof value === 'string') {
-            return OffsetTime.parse(value, offsetTimeFormatter);
-          }
-          return parseOffsetTimeArray(value, policy, ctx);
-        },
-        encode: (value) => {
-          if (policy.dateEncoding === DateEncoding.ISO8601) {
-            return offsetTimeFormatter.format(value);
-          }
-          return encodeOffsetTimeArray(value, policy.dateEncoding);
-        },
-      });
-    case 'cbor':
-      return z.codec(OFFSET_TIME_CBOR_INPUT_SCHEMA, OFFSET_TIME_OUTPUT_SCHEMA, {
-        decode: (value, ctx) => {
-          if (typeof value === 'string') {
-            return OffsetTime.parse(value, offsetTimeFormatter);
-          }
-          return parseOffsetTimeArray(value, policy, ctx);
-        },
-        encode: (value) => {
-          if (policy.dateEncoding === DateEncoding.ISO8601) {
-            return offsetTimeFormatter.format(value);
-          }
-          return encodeOffsetTimeArray(value, policy.dateEncoding);
-        },
-      });
-  }
+  return z.codec(OFFSET_TIME_INPUT_SCHEMA, OFFSET_TIME_OUTPUT_SCHEMA, {
+    decode: (value, ctx) => {
+      if (typeof value === 'string') {
+        return OffsetTime.parse(value, offsetTimeFormatter);
+      }
+      return parseOffsetTimeArray(value, policy, ctx);
+    },
+    encode: (value) => {
+      if (policy.dateEncoding === DateEncoding.ISO8601) {
+        return offsetTimeFormatter.format(value);
+      }
+      return encodeOffsetTimeArray(value, policy.dateEncoding);
+    },
+  });
 }
 
 function createLocalDateTimeSchema(policy: SchemaPolicy): z.ZodType<JsJodaLocalDateTime> {
@@ -635,6 +631,9 @@ function createLocalDateTimeSchema(policy: SchemaPolicy): z.ZodType<JsJodaLocalD
       if (policy.dateEncoding === DateEncoding.ISO8601) {
         return DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(value);
       }
+      // CBOR tag 100 (epoch-day) is accepted on decode for compatibility,
+      // but the encoder always emits [year, month, day] to match Jackson's
+      // array output.
       return encodeLocalDateTimeArray(value, policy.dateEncoding);
     },
   });
