@@ -18,6 +18,7 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: npm
 
     steps:
     - uses: actions/checkout@v6
