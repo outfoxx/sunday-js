@@ -24,7 +24,7 @@ import {
   ZoneId,
   ZoneOffset,
 } from '@js-joda/core';
-import { CBOR } from 'cbor-redux';
+import { CBOR, TaggedValue } from 'cbor-redux';
 import { beforeEach, describe, expect, it } from 'bun:test';
 import fetchMock from 'fetch-mock';
 import { z } from 'zod';
@@ -125,6 +125,14 @@ describe('CBORDecoder', () => {
     );
   });
 
+  it('fails to decode URL values from unsupported tagged URL', async () => {
+    const decoder = CBORDecoder.default;
+    expect(() => decoder.decodeBuffer(
+      encodeCbor({ test: new TaggedValue('http://example.com', 999) }),
+      testSchema(decoder.runtime, URLSchema),
+    )).toThrow(/Invalid tag for URL/u);
+  });
+
   it('decodes Instant values from string', async () => {
     const decoder = CBORDecoder.default;
     expect(
@@ -221,6 +229,24 @@ describe('CBORDecoder', () => {
              )).toThrow(/Invalid CBOR tag for temporal decoding/u);
   });
 
+  it('fails to decode Instant values from tag 0 with non-string payload', async () => {
+    expect(() =>
+      CBORDecoder.default.decodeBuffer(
+        encodeCbor({ test: new TaggedValue(123, 0) }),
+        testSchema(CBORDecoder.default.runtime, InstantSchema),
+      ),
+    ).toThrow(/CBOR tag 0 must contain a string datetime/u);
+  });
+
+  it('fails to decode Instant values from tag 1 with non-number payload', async () => {
+    expect(() =>
+      CBORDecoder.default.decodeBuffer(
+        encodeCbor({ test: new TaggedValue('not-a-number', 1) }),
+        testSchema(CBORDecoder.default.runtime, InstantSchema),
+      ),
+    ).toThrow(/CBOR tag 1 must contain epoch-seconds/u);
+  });
+
   it('decodes ZonedDateTime values from string', async () => {
     const decoder = CBORDecoder.default;
     expect(
@@ -313,6 +339,15 @@ describe('CBORDecoder', () => {
               });
   });
 
+  it('fails to decode ZonedDateTime values from unsupported date tag', async () => {
+    expect(() =>
+      CBORDecoder.default.decodeBuffer(
+        encodeCbor({ test: new TaggedValue(0, 2) }),
+        testSchema(CBORDecoder.default.runtime, ZonedDateTimeSchema),
+      ),
+    ).toThrow(/Invalid CBOR tag for temporal decoding/u);
+  });
+
   it('decodes OffsetDateTime values from string', async () => {
     const decoder = CBORDecoder.default;
     expect(
@@ -403,6 +438,15 @@ describe('CBORDecoder', () => {
     ).toEqual({
                 test: OffsetDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneOffset.UTC),
               });
+  });
+
+  it('fails to decode OffsetDateTime values from unsupported date tag', async () => {
+    expect(() =>
+      CBORDecoder.default.decodeBuffer(
+        encodeCbor({ test: new TaggedValue(0, 2) }),
+        testSchema(CBORDecoder.default.runtime, OffsetDateTimeSchema),
+      ),
+    ).toThrow(/Invalid CBOR tag for temporal decoding/u);
   });
 
   it('decodes OffsetTime values from string', async () => {
@@ -533,6 +577,26 @@ describe('CBORDecoder', () => {
         testSchema(decoder.runtime, LocalDateSchema),
       ),
     ).toEqual({ test: LocalDate.of(2001, 2, 3) });
+  });
+
+  it('fails to decode LocalDate values from unsupported tag', async () => {
+    const decoder = CBORDecoder.default;
+    expect(() =>
+      decoder.decodeBuffer(
+        encodeCbor({ test: new TaggedValue(11356, 0) }),
+        testSchema(decoder.runtime, LocalDateSchema),
+      ),
+    ).toThrow(/Invalid CBOR tag for LocalDate decoding/u);
+  });
+
+  it('fails to decode LocalDate values from non-integer epoch-day tag payload', async () => {
+    const decoder = CBORDecoder.default;
+    expect(() =>
+      decoder.decodeBuffer(
+        encodeCbor({ test: new TaggedValue(1.5, 100) }),
+        testSchema(decoder.runtime, LocalDateSchema),
+      ),
+    ).toThrow(/CBOR tag 100 must contain an integer epoch-day/u);
   });
 
   it('decodes LocalTime values from string', async () => {
@@ -693,6 +757,15 @@ describe('CBORDecoder', () => {
     );
   });
 
+  it('fails to decode Date values from unsupported date tag', async () => {
+    expect(() =>
+      CBORDecoder.default.decodeBuffer(
+        encodeCbor({ test: new TaggedValue(0, 2) }),
+        testSchema(CBORDecoder.default.runtime, DateSchema),
+      ),
+    ).toThrow(/Invalid CBOR tag for temporal decoding/u);
+  });
+
   it('decodes ArrayBuffer values from base64 string', async () => {
     const decoder = CBORDecoder.fromPolicy(
       {
@@ -732,5 +805,20 @@ describe('CBORDecoder', () => {
       ),
       { test: Uint8Array.from([1]).buffer },
     );
+  });
+
+  it('fails to decode ArrayBuffer values from unsupported binary text tag', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+        arrayBufferEncoding: ArrayBufferEncoding.BASE64,
+      },
+    );
+    expect(() =>
+      decoder.decodeBuffer(
+        encodeCbor({ test: new TaggedValue('AQ', 99) }),
+        testSchema(decoder.runtime, ArrayBufferSchema),
+      ),
+    ).toThrow();
   });
 });
