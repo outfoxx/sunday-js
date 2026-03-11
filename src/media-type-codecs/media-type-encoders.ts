@@ -30,9 +30,7 @@ export interface MediaTypeEncodersBuilder {
 
   build(): MediaTypeEncoders;
 }
-export interface MediaTypeEncodersBuilderConstructor {
-  new (): MediaTypeEncodersBuilder;
-}
+export type MediaTypeEncodersBuilderConstructor = new () => MediaTypeEncodersBuilder;
 
 export class MediaTypeEncoders {
   static readonly Builder: MediaTypeEncodersBuilderConstructor = class Builder

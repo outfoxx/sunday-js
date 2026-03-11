@@ -234,9 +234,7 @@ export class FetchRequestFactory implements RequestFactory {
       url: string,
       requestInit: RequestInit,
     ): Promise<Request> => {
-      const eventSourceSpec = Object.assign({}, requestSpec, {
-        pathTemplate: url,
-      });
+      const eventSourceSpec = { ...requestSpec, pathTemplate: url };
       const request = await this.request(eventSourceSpec);
       return new Request(request, {
         ...requestInit,

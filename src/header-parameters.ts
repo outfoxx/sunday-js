@@ -36,7 +36,7 @@ export namespace HeaderParameters {
       return [];
     }
 
-    if (value instanceof Array) {
+    if (Array.isArray(value)) {
       const result: string[] = [];
 
       for (const item of value) {
@@ -50,7 +50,34 @@ export namespace HeaderParameters {
       return result;
     }
 
-    return [validate(name, `${value}`)];
+    const string = convertToString(value);
+    if (string == null) {
+      return [];
+    }
+
+    return [validate(name, string)];
+  }
+
+  function convertToString(value: unknown): string | undefined {
+    if (value == null) {
+      return undefined;
+    } else if (typeof value === 'string') {
+      return value;
+    } else if (
+      typeof value === 'number' ||
+      typeof value === 'bigint' ||
+      typeof value === 'boolean'
+    ) {
+      return `${value}`;
+    } else if (typeof value === 'symbol' || value instanceof URL) {
+      return value.toString();
+    } else if (value instanceof Date) {
+      return value.toISOString();
+    } else if (typeof value === 'object') {
+      return JSON.stringify(value);
+    } else {
+      throw new TypeError(`Unsupported header parameter type: ${typeof value}`);
+    }
   }
 
   const asciiRegex = /^[\x20-\x7F]*$/;

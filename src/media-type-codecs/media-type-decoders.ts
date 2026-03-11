@@ -29,9 +29,7 @@ export interface MediaTypeDecodersBuilder {
 
   build(): MediaTypeDecoders;
 }
-export interface MediaTypeDecodersBuilderConstructor {
-  new (): MediaTypeDecodersBuilder;
-}
+export type MediaTypeDecodersBuilderConstructor = new () => MediaTypeDecodersBuilder;
 
 export class MediaTypeDecoders {
   static readonly Builder: MediaTypeDecodersBuilderConstructor = class Builder
