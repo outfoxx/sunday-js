@@ -50,7 +50,18 @@ jobs:
         fi
 
     - name: Publish Package
-      run: npm publish
+      env:
+        PACKAGE_VERSION: ${{ steps.version.outputs.full_without_prefix }}
+      run: |
+        if [[ "$PACKAGE_VERSION" == *-* ]]; then
+          DIST_TAG="${PACKAGE_VERSION#*-}"
+          DIST_TAG="${DIST_TAG%%.*}"
+          echo "Publishing prerelease ${PACKAGE_VERSION} with dist-tag '${DIST_TAG}'"
+          npm publish --tag "${DIST_TAG}"
+        else
+          echo "Publishing stable ${PACKAGE_VERSION} with dist-tag 'latest'"
+          npm publish --tag latest
+        fi
 
     - name: Build Documentation
       run: bun run docs -- --out docs/${{ github.ref_name }}
