@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 concurrency:
   group: publish-release-${{ github.ref }}
@@ -35,10 +36,16 @@ jobs:
     - name: Stamp Package Version
       run: bun pm pkg set version=${{ steps.version.outputs.full_without_prefix }}
 
+    - name: Verify OIDC Context
+      run: |
+        if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+          echo "OIDC token request context is unavailable."
+          echo "Ensure workflow permissions include 'id-token: write' and npm trusted publishing is configured."
+          exit 1
+        fi
+
     - name: Publish Package
       run: bun publish
-      env:
-        NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
 
     - name: Build Documentation
       run: bun run docs -- --out docs/${{ github.ref_name }}
