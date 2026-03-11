@@ -282,7 +282,7 @@ describe('JSONEncoder', () => {
         },
         testSchema(encoder.runtime, OffsetTimeSchema),
       ),
-    ).toEqual('{"test":3723.004}');
+    ).toEqual('{"test":[1,2,3,4000000,"Z"]}');
   });
 
   it('encodes OffsetTime values as number (milliseconds)', async () => {
@@ -294,7 +294,7 @@ describe('JSONEncoder', () => {
         },
         testSchema(encoder.runtime, OffsetTimeSchema),
       ),
-    ).toEqual('{"test":3723004}');
+    ).toEqual('{"test":[1,2,3,4,"Z"]}');
   });
 
   it('encodes LocalDateTime values as strings', async () => {
@@ -318,7 +318,7 @@ describe('JSONEncoder', () => {
         },
         testSchema(encoder.runtime, LocalDateTimeSchema),
       ),
-    ).toEqual('{"test":981173106.007}');
+    ).toEqual('{"test":[2001,2,3,4,5,6,7000000]}');
   });
 
   it('encodes LocalDateTime values as number (milliseconds)', async () => {
@@ -330,7 +330,7 @@ describe('JSONEncoder', () => {
         },
         testSchema(encoder.runtime, LocalDateTimeSchema),
       ),
-    ).toEqual('{"test":981173106007}');
+    ).toEqual('{"test":[2001,2,3,4,5,6,7]}');
   });
 
   it('encodes LocalDate values as strings', async () => {
@@ -350,7 +350,7 @@ describe('JSONEncoder', () => {
         { test: LocalDate.of(2001, 2, 3) },
         testSchema(encoder.runtime, LocalDateSchema),
       ),
-    ).toEqual('{"test":981158400}');
+    ).toEqual('{"test":[2001,2,3]}');
   });
 
   it('encodes LocalDate values as number (milliseconds)', async () => {
@@ -360,7 +360,7 @@ describe('JSONEncoder', () => {
         { test: LocalDate.of(2001, 2, 3) },
         testSchema(encoder.runtime, LocalDateSchema),
       ),
-    ).toEqual('{"test":981158400000}');
+    ).toEqual('{"test":[2001,2,3]}');
   });
 
   it('encodes LocalTime values as strings', async () => {
@@ -380,7 +380,7 @@ describe('JSONEncoder', () => {
         { test: LocalTime.of(1, 2, 3, 4000000) },
         testSchema(encoder.runtime, LocalTimeSchema),
       ),
-    ).toEqual('{"test":3723.004}');
+    ).toEqual('{"test":[1,2,3,4000000]}');
   });
 
   it('encodes LocalTime values as number (milliseconds)', async () => {
@@ -390,7 +390,7 @@ describe('JSONEncoder', () => {
         { test: LocalTime.of(1, 2, 3, 4000000) },
         testSchema(encoder.runtime, LocalTimeSchema),
       ),
-    ).toEqual('{"test":3723004}');
+    ).toEqual('{"test":[1,2,3,4]}');
   });
 
   it('encodes Duration values as strings', async () => {
@@ -421,6 +421,22 @@ describe('JSONEncoder', () => {
         testSchema(encoder.runtime, DurationSchema),
       ),
     ).toEqual('{"test":3723004}');
+  });
+
+  it('uses Jackson-style timestamp defaults for local date-time and duration', async () => {
+    expect(
+      JSONEncoder.default.encode(
+        { test: LocalDateTime.of(2001, 2, 3, 4, 5, 6, 7000000) },
+        testSchema(JSONEncoder.default.runtime, LocalDateTimeSchema),
+      ),
+    ).toEqual('{"test":[2001,2,3,4,5,6,7000000]}');
+
+    expect(
+      JSONEncoder.default.encode(
+        { test: Duration.ofSeconds(3723, 4000000) },
+        testSchema(JSONEncoder.default.runtime, DurationSchema),
+      ),
+    ).toEqual('{"test":3723.004}');
   });
 
   it('encodes Date values as strings', async () => {
@@ -456,7 +472,7 @@ describe('JSONEncoder', () => {
   it('encodes ArrayBuffer values as Base64', () => {
     expect(
       JSONEncoder.default.encode({ test: new ArrayBuffer(5) }, testSchema(JSONEncoder.default.runtime, ArrayBufferSchema)),
-    ).toEqual('{"test":"AAAAAAA="}');
+    ).toEqual('{"test":"AAAAAAA"}');
   });
 
   it('excludes null & undefined values by default when encoding', () => {

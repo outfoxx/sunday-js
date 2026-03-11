@@ -21,7 +21,7 @@ export class URLTemplate {
   ) {}
 
   complete(relativeTemplate: string, parameters: Record<string, unknown>): URL {
-    const allParameters = Object.assign({}, this.parameters, parameters);
+    const allParameters = { ...this.parameters, ...parameters };
     const baseTempl = this.template.endsWith('/')
       ? this.template.slice(0, -1)
       : this.template;

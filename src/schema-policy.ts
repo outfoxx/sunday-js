@@ -14,12 +14,22 @@
 
 export type SchemaFormat = 'json' | 'cbor';
 
+/**
+ * Write-side flag bundle that mirrors Jackson date/time serialization modes.
+ * - `ISO8601`: `WRITE_DATES_AS_TIMESTAMPS` disabled.
+ * - `DECIMAL_SECONDS_SINCE_EPOCH`: timestamps enabled with nanos precision.
+ * - `MILLISECONDS_SINCE_EPOCH`: timestamps enabled with millis precision.
+ */
 export enum DateEncoding {
   DECIMAL_SECONDS_SINCE_EPOCH,
   MILLISECONDS_SINCE_EPOCH,
   ISO8601,
 }
 
+/**
+ * Read-side interpretation for untagged numeric date/time payloads.
+ * This mirrors Jackson numeric timestamp decoding expectations.
+ */
 export enum NumericDateDecoding {
   DECIMAL_SECONDS_SINCE_EPOCH,
   MILLISECONDS_SINCE_EPOCH,

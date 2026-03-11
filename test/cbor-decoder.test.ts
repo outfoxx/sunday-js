@@ -24,6 +24,7 @@ import {
   ZoneId,
   ZoneOffset,
 } from '@js-joda/core';
+import { CBOR, TaggedValue } from 'cbor-redux';
 import { beforeEach, describe, expect, it } from 'bun:test';
 import fetchMock from 'fetch-mock';
 import { z } from 'zod';
@@ -53,6 +54,10 @@ const testSchema = <T>(runtime: CBORDecoder['runtime'], ref: SchemaLike<T>) =>
 
 function decodeHex(hex: string) {
   return Uint8Array.fromHex(hex.replaceAll(/\s+/g, '')).buffer;
+}
+
+function encodeCbor(value: unknown): ArrayBuffer {
+  return CBOR.encode(value);
 }
 
 describe('CBORDecoder', () => {
@@ -118,6 +123,14 @@ describe('CBORDecoder', () => {
       ),
       { test: new URL('http://example.com') },
     );
+  });
+
+  it('fails to decode URL values from unsupported tagged URL', async () => {
+    const decoder = CBORDecoder.default;
+    expect(() => decoder.decodeBuffer(
+      encodeCbor({ test: new TaggedValue('http://example.com', 999) }),
+      testSchema(decoder.runtime, URLSchema),
+    )).toThrow(/Invalid tag for URL/u);
   });
 
   it('decodes Instant values from string', async () => {
@@ -216,6 +229,24 @@ describe('CBORDecoder', () => {
              )).toThrow(/Invalid CBOR tag for temporal decoding/u);
   });
 
+  it('fails to decode Instant values from tag 0 with non-string payload', async () => {
+    expect(() =>
+      CBORDecoder.default.decodeBuffer(
+        encodeCbor({ test: new TaggedValue(123, 0) }),
+        testSchema(CBORDecoder.default.runtime, InstantSchema),
+      ),
+    ).toThrow(/CBOR tag 0 must contain a string datetime/u);
+  });
+
+  it('fails to decode Instant values from tag 1 with non-number payload', async () => {
+    expect(() =>
+      CBORDecoder.default.decodeBuffer(
+        encodeCbor({ test: new TaggedValue('not-a-number', 1) }),
+        testSchema(CBORDecoder.default.runtime, InstantSchema),
+      ),
+    ).toThrow(/CBOR tag 1 must contain epoch-seconds/u);
+  });
+
   it('decodes ZonedDateTime values from string', async () => {
     const decoder = CBORDecoder.default;
     expect(
@@ -252,9 +283,7 @@ describe('CBORDecoder', () => {
     );
     expect(
       decoder.decodeBuffer(
-        decodeHex(
-          'A1 64 74657374 83 FB 41CD3DC1B900E560 61 5A 61 5A',
-        ),
+        decodeHex('A1 64 74657374 FB 41CD3DC1B900E560'),
         testSchema(decoder.runtime, ZonedDateTimeSchema),
       ),
     ).toEqual({
@@ -286,9 +315,7 @@ describe('CBORDecoder', () => {
     );
     expect(
       decoder.decodeBuffer(
-        decodeHex(
-          'A1 64 74657374 83 1B 000000E472797557 61 5A 61 5A',
-        ),
+        decodeHex('A1 64 74657374 1B 000000E472797557'),
         testSchema(decoder.runtime, ZonedDateTimeSchema),
       ),
     ).toEqual({
@@ -310,6 +337,15 @@ describe('CBORDecoder', () => {
     ).toEqual({
                 test: ZonedDateTime.of(2001, 2, 3, 4, 5, 6, 789000000, ZoneId.UTC),
               });
+  });
+
+  it('fails to decode ZonedDateTime values from unsupported date tag', async () => {
+    expect(() =>
+      CBORDecoder.default.decodeBuffer(
+        encodeCbor({ test: new TaggedValue(0, 2) }),
+        testSchema(CBORDecoder.default.runtime, ZonedDateTimeSchema),
+      ),
+    ).toThrow(/Invalid CBOR tag for temporal decoding/u);
   });
 
   it('decodes OffsetDateTime values from string', async () => {
@@ -348,7 +384,7 @@ describe('CBORDecoder', () => {
     );
     expect(
       decoder.decodeBuffer(
-        decodeHex('A1 64 74657374 82 FB 41CD3DC1B900E560 61 5A'),
+        decodeHex('A1 64 74657374 FB 41CD3DC1B900E560'),
         testSchema(decoder.runtime, OffsetDateTimeSchema),
       ),
     ).toEqual({
@@ -380,7 +416,7 @@ describe('CBORDecoder', () => {
     );
     expect(
       decoder.decodeBuffer(
-        decodeHex('A1 64 74657374 82 1B 000000E472797557 61 5A'),
+        decodeHex('A1 64 74657374 1B 000000E472797557'),
         testSchema(decoder.runtime, OffsetDateTimeSchema),
       ),
     ).toEqual({
@@ -404,6 +440,15 @@ describe('CBORDecoder', () => {
               });
   });
 
+  it('fails to decode OffsetDateTime values from unsupported date tag', async () => {
+    expect(() =>
+      CBORDecoder.default.decodeBuffer(
+        encodeCbor({ test: new TaggedValue(0, 2) }),
+        testSchema(CBORDecoder.default.runtime, OffsetDateTimeSchema),
+      ),
+    ).toThrow(/Invalid CBOR tag for temporal decoding/u);
+  });
+
   it('decodes OffsetTime values from string', async () => {
     const decoder = CBORDecoder.default;
     expect(
@@ -416,7 +461,7 @@ describe('CBORDecoder', () => {
               });
   });
 
-  it('decodes OffsetTime values from number (decimal seconds)', async () => {
+  it('decodes OffsetTime values from array (decimal seconds)', async () => {
     const decoder = CBORDecoder.fromPolicy(
       {
         numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
@@ -424,7 +469,7 @@ describe('CBORDecoder', () => {
     );
     expect(
       decoder.decodeBuffer(
-        decodeHex('A1 64 74657374 82 FB 40AD16020C49BA5E 61 5A'),
+        encodeCbor({ test: [1, 2, 3, 4000000, 'Z'] }),
         testSchema(decoder.runtime, OffsetTimeSchema),
       ),
     ).toEqual({
@@ -432,7 +477,7 @@ describe('CBORDecoder', () => {
               });
   });
 
-  it('decodes OffsetTime values from number (milliseconds)', async () => {
+  it('decodes OffsetTime values from array (milliseconds)', async () => {
     const decoder = CBORDecoder.fromPolicy(
       {
         numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
@@ -440,7 +485,7 @@ describe('CBORDecoder', () => {
     );
     expect(
       decoder.decodeBuffer(
-        decodeHex('A1 64 74657374 82 1A 0038CEFC 61 5A'),
+        encodeCbor({ test: [1, 2, 3, 4, 'Z'] }),
         testSchema(decoder.runtime, OffsetTimeSchema),
       ),
     ).toEqual({
@@ -460,29 +505,33 @@ describe('CBORDecoder', () => {
               });
   });
 
-  it('decodes LocalDateTime values from number (decimal seconds)', async () => {
+  it('decodes LocalDateTime values from array (decimal seconds)', async () => {
     const decoder = CBORDecoder.fromPolicy(
       {
         numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
       },
     );
     expect(
-      decoder.decodeBuffer(decodeHex('A1 64 74657374 FB 41CD3DC1B964FDF4'),
-                     testSchema(decoder.runtime, LocalDateTimeSchema)),
+      decoder.decodeBuffer(
+        encodeCbor({ test: [2001, 2, 3, 4, 5, 6, 789000000] }),
+        testSchema(decoder.runtime, LocalDateTimeSchema),
+      ),
     ).toEqual({
                 test: LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000),
               });
   });
 
-  it('decodes LocalDateTime values from number (milliseconds)', async () => {
+  it('decodes LocalDateTime values from array (milliseconds)', async () => {
     const decoder = CBORDecoder.fromPolicy(
       {
         numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
       },
     );
     expect(
-      decoder.decodeBuffer(decodeHex('A1 64 74657374 1B 000000E472797865'),
-                     testSchema(decoder.runtime, LocalDateTimeSchema)),
+      decoder.decodeBuffer(
+        encodeCbor({ test: [2001, 2, 3, 4, 5, 6, 789] }),
+        testSchema(decoder.runtime, LocalDateTimeSchema),
+      ),
     ).toEqual({
                 test: LocalDateTime.of(2001, 2, 3, 4, 5, 6, 789000000),
               });
@@ -498,28 +547,56 @@ describe('CBORDecoder', () => {
     ).toEqual({ test: LocalDate.of(2002, 1, 1) });
   });
 
-  it('decodes LocalDate values from number (decimal seconds)', async () => {
+  it('decodes LocalDate values from array (decimal seconds)', async () => {
     const decoder = CBORDecoder.fromPolicy(
       {
         numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
       },
     );
     expect(
-      decoder.decodeBuffer(decodeHex('A1 64 74657374 1A 3A7B9500'),
-                     testSchema(decoder.runtime, LocalDateSchema)),
+      decoder.decodeBuffer(encodeCbor({ test: [2001, 2, 3] }), testSchema(decoder.runtime, LocalDateSchema)),
     ).toEqual({ test: LocalDate.of(2001, 2, 3) });
   });
 
-  it('decodes LocalDate values from number (milliseconds)', async () => {
+  it('decodes LocalDate values from array (milliseconds)', async () => {
     const decoder = CBORDecoder.fromPolicy(
       {
         numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
       },
     );
     expect(
-      decoder.decodeBuffer(decodeHex('A1 64 74657374 1B 000000E471991000'),
-                     testSchema(decoder.runtime, LocalDateSchema)),
+      decoder.decodeBuffer(encodeCbor({ test: [2001, 2, 3] }), testSchema(decoder.runtime, LocalDateSchema)),
     ).toEqual({ test: LocalDate.of(2001, 2, 3) });
+  });
+
+  it('decodes LocalDate values from epoch-day tag', async () => {
+    const decoder = CBORDecoder.default;
+    expect(
+      decoder.decodeBuffer(
+        decodeHex('A1 64 74657374 D8 64 19 2C 5C'),
+        testSchema(decoder.runtime, LocalDateSchema),
+      ),
+    ).toEqual({ test: LocalDate.of(2001, 2, 3) });
+  });
+
+  it('fails to decode LocalDate values from unsupported tag', async () => {
+    const decoder = CBORDecoder.default;
+    expect(() =>
+      decoder.decodeBuffer(
+        encodeCbor({ test: new TaggedValue(11356, 0) }),
+        testSchema(decoder.runtime, LocalDateSchema),
+      ),
+    ).toThrow(/Invalid CBOR tag for LocalDate decoding/u);
+  });
+
+  it('fails to decode LocalDate values from non-integer epoch-day tag payload', async () => {
+    const decoder = CBORDecoder.default;
+    expect(() =>
+      decoder.decodeBuffer(
+        encodeCbor({ test: new TaggedValue(1.5, 100) }),
+        testSchema(decoder.runtime, LocalDateSchema),
+      ),
+    ).toThrow(/CBOR tag 100 must contain an integer epoch-day/u);
   });
 
   it('decodes LocalTime values from string', async () => {
@@ -532,27 +609,25 @@ describe('CBORDecoder', () => {
     ).toEqual({ test: LocalTime.of(1, 2, 3, 4000000) });
   });
 
-  it('decodes LocalTime values from number (decimal seconds)', async () => {
+  it('decodes LocalTime values from array (decimal seconds)', async () => {
     const decoder = CBORDecoder.fromPolicy(
       {
         numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
       },
     );
     expect(
-      decoder.decodeBuffer(decodeHex('A1 64 74657374 FB 40AD16020C49BA5E'),
-                     testSchema(decoder.runtime, LocalTimeSchema)),
+      decoder.decodeBuffer(encodeCbor({ test: [1, 2, 3, 4000000] }), testSchema(decoder.runtime, LocalTimeSchema)),
     ).toEqual({ test: LocalTime.of(1, 2, 3, 4000000) });
   });
 
-  it('decodes LocalTime values from number (milliseconds)', async () => {
+  it('decodes LocalTime values from array (milliseconds)', async () => {
     const decoder = CBORDecoder.fromPolicy(
       {
         numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH,
       },
     );
     expect(
-      decoder.decodeBuffer(decodeHex('A1 64 74657374 1A 0038CEFC'),
-                           testSchema(decoder.runtime, LocalTimeSchema)),
+      decoder.decodeBuffer(encodeCbor({ test: [1, 2, 3, 4] }), testSchema(decoder.runtime, LocalTimeSchema)),
     ).toEqual({ test: LocalTime.of(1, 2, 3, 4000000) });
   });
 
@@ -682,6 +757,15 @@ describe('CBORDecoder', () => {
     );
   });
 
+  it('fails to decode Date values from unsupported date tag', async () => {
+    expect(() =>
+      CBORDecoder.default.decodeBuffer(
+        encodeCbor({ test: new TaggedValue(0, 2) }),
+        testSchema(CBORDecoder.default.runtime, DateSchema),
+      ),
+    ).toThrow(/Invalid CBOR tag for temporal decoding/u);
+  });
+
   it('decodes ArrayBuffer values from base64 string', async () => {
     const decoder = CBORDecoder.fromPolicy(
       {
@@ -696,5 +780,45 @@ describe('CBORDecoder', () => {
       ),
       { test: new TextEncoder().encode('Hello CBOR!!').buffer },
     );
+  });
+
+  it('decodes ArrayBuffer values from padded and unpadded base64 tagged strings', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+        arrayBufferEncoding: ArrayBufferEncoding.BASE64,
+      },
+    );
+
+    expectEqual(
+      decoder.decodeBuffer(
+        decodeHex('A1 64 74657374 D8 22 64 41513D3D'),
+        testSchema(decoder.runtime, ArrayBufferSchema),
+      ),
+      { test: Uint8Array.from([1]).buffer },
+    );
+
+    expectEqual(
+      decoder.decodeBuffer(
+        decodeHex('A1 64 74657374 D8 22 62 4151'),
+        testSchema(decoder.runtime, ArrayBufferSchema),
+      ),
+      { test: Uint8Array.from([1]).buffer },
+    );
+  });
+
+  it('fails to decode ArrayBuffer values from unsupported binary text tag', async () => {
+    const decoder = CBORDecoder.fromPolicy(
+      {
+        numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+        arrayBufferEncoding: ArrayBufferEncoding.BASE64,
+      },
+    );
+    expect(() =>
+      decoder.decodeBuffer(
+        encodeCbor({ test: new TaggedValue('AQ', 99) }),
+        testSchema(decoder.runtime, ArrayBufferSchema),
+      ),
+    ).toThrow();
   });
 });

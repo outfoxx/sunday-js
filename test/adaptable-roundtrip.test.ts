@@ -48,6 +48,12 @@ import {
   SchemaRuntime,
   ZonedDateTimeSchema,
 } from '../src';
+import {
+  base64Tag,
+  base64UrlTag,
+  epochDateTimeTag,
+  isoDateTimeTag
+} from '../src/media-type-codecs/cbor-tags';
 import { expectEqual } from './expect-utils';
 
 type Nested<T> = {
@@ -59,16 +65,11 @@ type Nested<T> = {
 
 type TemporalCase = {
   name: string;
-  schema: SchemaLike<unknown>;
+  schema: SchemaLike;
   value: unknown;
   assertJsonWireShape: (wire: unknown, dateEncoding: DateEncoding) => void;
   assertCborWireShape: (wire: unknown, dateEncoding: DateEncoding) => void;
 };
-
-const ISO_DATE_TIME_TAG = 0;
-const EPOCH_DATE_TIME_TAG = 1;
-const BASE64URL_TAG = 33;
-const BASE64_TAG = 34;
 
 function nestedSchema<T>(runtime: SchemaRuntime, ref: SchemaLike<T>): z.ZodType<Nested<T>> {
   const resolved = runtime.resolveSchema(ref);
@@ -105,34 +106,35 @@ function assertNumber(value: unknown): void {
   expect(typeof value).toBe('number');
 }
 
-function assertTaggedString(value: unknown, tag: number): void {
-  expect(value).toBeInstanceOf(TaggedValue);
-  const tagged = value as TaggedValue;
-  expect(tagged.tag).toBe(tag);
-  expect(typeof tagged.value).toBe('string');
-}
-
-function assertTaggedNumber(value: unknown, tag: number): void {
-  expect(value).toBeInstanceOf(TaggedValue);
-  const tagged = value as TaggedValue;
-  expect(tagged.tag).toBe(tag);
-  expect(typeof tagged.value).toBe('number');
-}
-
-function assertNumericTuple(value: unknown, length: number): void {
+function assertNumberArray(value: unknown, length?: number): void {
   expect(Array.isArray(value)).toBe(true);
   const tuple = value as unknown[];
-  expect(tuple).toHaveLength(length);
-  expect(typeof tuple[0]).toBe('number');
+  if (length !== undefined) {
+    expect(tuple).toHaveLength(length);
+  }
+  for (const item of tuple) {
+    expect(typeof item).toBe('number');
+  }
+}
+
+function assertOffsetTimeArray(value: unknown): void {
+  expect(Array.isArray(value)).toBe(true);
+  const tuple = value as unknown[];
+  expect(tuple.length).toBeGreaterThanOrEqual(3);
+  expect(tuple.length).toBeLessThanOrEqual(5);
+  expect(typeof tuple.at(-1)).toBe('string');
+  for (const item of tuple.slice(0, -1)) {
+    expect(typeof item).toBe('number');
+  }
 }
 
 function base64String(value: ArrayBuffer, encoding: ArrayBufferEncoding): string {
   const bytes = new Uint8Array(value);
   switch (encoding) {
     case ArrayBufferEncoding.BASE64:
-      return bytes.toBase64({ alphabet: 'base64', omitPadding: false });
+      return bytes.toBase64({ alphabet: 'base64', omitPadding: true });
     case ArrayBufferEncoding.BASE64URL:
-      return bytes.toBase64({ alphabet: 'base64url', omitPadding: false });
+      return bytes.toBase64({ alphabet: 'base64url', omitPadding: true });
     default:
       throw new Error(`Unsupported text encoding: ${encoding}`);
   }
@@ -158,9 +160,7 @@ function assertCborArrayBufferWireShape(
   expect(wire).toBeInstanceOf(TaggedValue);
   const tagged = wire as TaggedValue;
   expect(tagged.tag).toBe(
-    arrayBufferEncoding === ArrayBufferEncoding.BASE64
-      ? BASE64_TAG
-      : BASE64URL_TAG,
+    arrayBufferEncoding === ArrayBufferEncoding.BASE64 ? base64Tag : base64UrlTag,
   );
   expect(typeof tagged.value).toBe('string');
   expect(tagged.value).toBe(base64String(original, arrayBufferEncoding));
@@ -180,9 +180,17 @@ const temporalCases: TemporalCase[] = [
     },
     assertCborWireShape: (wire, dateEncoding) => {
       if (dateEncoding === DateEncoding.ISO8601) {
-        assertTaggedString(wire, ISO_DATE_TIME_TAG);
+        expect(wire).toBeInstanceOf(TaggedValue);
+        const tagged = wire as TaggedValue;
+        expect(tagged.tag).toBe(isoDateTimeTag);
+        assertString(tagged.value);
+      } else if (dateEncoding === DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH) {
+        expect(wire).toBeInstanceOf(TaggedValue);
+        const tagged = wire as TaggedValue;
+        expect(tagged.tag).toBe(epochDateTimeTag);
+        assertNumber(tagged.value);
       } else {
-        assertTaggedNumber(wire, EPOCH_DATE_TIME_TAG);
+        assertNumber(wire);
       }
     },
   },
@@ -199,9 +207,17 @@ const temporalCases: TemporalCase[] = [
     },
     assertCborWireShape: (wire, dateEncoding) => {
       if (dateEncoding === DateEncoding.ISO8601) {
-        assertString(wire);
+        expect(wire).toBeInstanceOf(TaggedValue);
+        const tagged = wire as TaggedValue;
+        expect(tagged.tag).toBe(isoDateTimeTag);
+        assertString(tagged.value);
+      } else if (dateEncoding === DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH) {
+        expect(wire).toBeInstanceOf(TaggedValue);
+        const tagged = wire as TaggedValue;
+        expect(tagged.tag).toBe(epochDateTimeTag);
+        assertNumber(tagged.value);
       } else {
-        assertNumericTuple(wire, 3);
+        assertNumber(wire);
       }
     },
   },
@@ -218,9 +234,17 @@ const temporalCases: TemporalCase[] = [
     },
     assertCborWireShape: (wire, dateEncoding) => {
       if (dateEncoding === DateEncoding.ISO8601) {
-        assertTaggedString(wire, ISO_DATE_TIME_TAG);
+        expect(wire).toBeInstanceOf(TaggedValue);
+        const tagged = wire as TaggedValue;
+        expect(tagged.tag).toBe(isoDateTimeTag);
+        assertString(tagged.value);
+      } else if (dateEncoding === DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH) {
+        expect(wire).toBeInstanceOf(TaggedValue);
+        const tagged = wire as TaggedValue;
+        expect(tagged.tag).toBe(epochDateTimeTag);
+        assertNumber(tagged.value);
       } else {
-        assertNumericTuple(wire, 2);
+        assertNumber(wire);
       }
     },
   },
@@ -232,14 +256,14 @@ const temporalCases: TemporalCase[] = [
       if (dateEncoding === DateEncoding.ISO8601) {
         assertString(wire);
       } else {
-        assertNumber(wire);
+        assertOffsetTimeArray(wire);
       }
     },
     assertCborWireShape: (wire, dateEncoding) => {
       if (dateEncoding === DateEncoding.ISO8601) {
         assertString(wire);
       } else {
-        assertNumericTuple(wire, 2);
+        assertOffsetTimeArray(wire);
       }
     },
   },
@@ -251,14 +275,14 @@ const temporalCases: TemporalCase[] = [
       if (dateEncoding === DateEncoding.ISO8601) {
         assertString(wire);
       } else {
-        assertNumber(wire);
+        assertNumberArray(wire);
       }
     },
     assertCborWireShape: (wire, dateEncoding) => {
       if (dateEncoding === DateEncoding.ISO8601) {
         assertString(wire);
       } else {
-        assertNumber(wire);
+        assertNumberArray(wire);
       }
     },
   },
@@ -270,14 +294,14 @@ const temporalCases: TemporalCase[] = [
       if (dateEncoding === DateEncoding.ISO8601) {
         assertString(wire);
       } else {
-        assertNumber(wire);
+        assertNumberArray(wire, 3);
       }
     },
     assertCborWireShape: (wire, dateEncoding) => {
       if (dateEncoding === DateEncoding.ISO8601) {
         assertString(wire);
       } else {
-        assertNumber(wire);
+        assertNumberArray(wire, 3);
       }
     },
   },
@@ -289,14 +313,14 @@ const temporalCases: TemporalCase[] = [
       if (dateEncoding === DateEncoding.ISO8601) {
         assertString(wire);
       } else {
-        assertNumber(wire);
+        assertNumberArray(wire);
       }
     },
     assertCborWireShape: (wire, dateEncoding) => {
       if (dateEncoding === DateEncoding.ISO8601) {
         assertString(wire);
       } else {
-        assertNumber(wire);
+        assertNumberArray(wire);
       }
     },
   },
@@ -332,9 +356,17 @@ const temporalCases: TemporalCase[] = [
     },
     assertCborWireShape: (wire, dateEncoding) => {
       if (dateEncoding === DateEncoding.ISO8601) {
-        assertTaggedString(wire, ISO_DATE_TIME_TAG);
+        expect(wire).toBeInstanceOf(TaggedValue);
+        const tagged = wire as TaggedValue;
+        expect(tagged.tag).toBe(isoDateTimeTag);
+        assertString(tagged.value);
+      } else if (dateEncoding === DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH) {
+        expect(wire).toBeInstanceOf(TaggedValue);
+        const tagged = wire as TaggedValue;
+        expect(tagged.tag).toBe(epochDateTimeTag);
+        assertNumber(tagged.value);
       } else {
-        assertTaggedNumber(wire, EPOCH_DATE_TIME_TAG);
+        assertNumber(wire);
       }
     },
   },
@@ -519,21 +551,19 @@ describe('adaptable type roundtrip and policy-driven encoding', () => {
     it('CBOR uses decimal-seconds numeric payload for DECIMAL_SECONDS_SINCE_EPOCH', () => {
       const encoded = CBOREncoder.fromPolicy({ dateEncoding: DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH })
         .encode(value, OffsetDateTimeSchema);
-      const wire = CBOR.decode(encoded) as [number, string];
+      const wire = CBOR.decode(encoded) as TaggedValue;
 
-      expect(Array.isArray(wire)).toBe(true);
-      expect(wire[0]).toBe(981173106.007);
-      expect(wire[1]).toBe('Z');
+      expect(wire).toBeInstanceOf(TaggedValue);
+      expect(wire.tag).toBe(epochDateTimeTag);
+      expect(wire.value).toBe(981173106.007);
     });
 
     it('CBOR uses millisecond numeric payload for MILLISECONDS_SINCE_EPOCH', () => {
       const encoded = CBOREncoder.fromPolicy({ dateEncoding: DateEncoding.MILLISECONDS_SINCE_EPOCH })
         .encode(value, OffsetDateTimeSchema);
-      const wire = CBOR.decode(encoded) as [number, string];
+      const wire = CBOR.decode(encoded) as number;
 
-      expect(Array.isArray(wire)).toBe(true);
-      expect(wire[0]).toBe(981173106007);
-      expect(wire[1]).toBe('Z');
+      expect(wire).toBe(981173106007);
     });
   });
 
@@ -556,6 +586,46 @@ describe('adaptable type roundtrip and policy-driven encoding', () => {
         .decodeBuffer(encoded, OffsetDateTimeSchema);
 
       expect(decoded.toInstant().toEpochMilli()).not.toBe(value.toInstant().toEpochMilli());
+    });
+
+    it('CBOR tagged epoch-date-time decode takes precedence over numeric decoding policy', () => {
+      const encoded = CBOR.encode(new TaggedValue(12.345, epochDateTimeTag));
+      const decoded = CBORDecoder.fromPolicy({ numericDateDecoding: NumericDateDecoding.MILLISECONDS_SINCE_EPOCH })
+        .decodeBuffer(encoded, OffsetDateTimeSchema);
+
+      expect(decoded.toInstant().toEpochMilli()).toBe(12345);
+    });
+  });
+
+  describe('Legacy shape rejection', () => {
+    it('JSON rejects legacy scalar LocalDateTime timestamps', () => {
+      expect(() =>
+        JSONDecoder.default.decodeText('981173106.007', LocalDateTimeSchema),
+      ).toThrow();
+    });
+
+    it('JSON rejects legacy scalar OffsetTime timestamps', () => {
+      expect(() =>
+        JSONDecoder.default.decodeText('3723.004', OffsetTimeSchema),
+      ).toThrow();
+    });
+
+    it('CBOR rejects legacy tuple ZonedDateTime timestamps', () => {
+      expect(() =>
+        CBORDecoder.default.decodeBuffer(
+          CBOR.encode([981173106.007, 'Z', 'Z']),
+          ZonedDateTimeSchema,
+        ),
+      ).toThrow();
+    });
+
+    it('CBOR rejects legacy scalar LocalDate timestamps', () => {
+      expect(() =>
+        CBORDecoder.default.decodeBuffer(
+          CBOR.encode(981158400),
+          LocalDateSchema,
+        ),
+      ).toThrow();
     });
   });
 });

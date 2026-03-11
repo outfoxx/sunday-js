@@ -63,9 +63,7 @@ export class MediaType {
     parameter: MediaType.ParameterName | string,
     value: string,
   ): MediaType {
-    const parameters = Object.assign({}, this.parameters, {
-      [parameter]: value,
-    });
+    const parameters = { ...this.parameters, [parameter]: value };
     return this.with({ parameters });
   }
 
@@ -74,7 +72,7 @@ export class MediaType {
     const tree = this.tree;
     const suffix = this.suffix ? `+${this.suffix.toLowerCase()}` : '';
     const parameters = Object.keys(this.parameters)
-      .sort()
+      .sort((p1, p2) => p1.localeCompare(p2, 'und'))
       .map((key) => `;${key}=${this.parameters[key]}`)
       .join('');
     return `${type}/${tree}${this.subtype}${suffix}${parameters}`;

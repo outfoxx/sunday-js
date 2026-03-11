@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import {
-  ChronoField,
   DateTimeFormatter,
   DateTimeFormatterBuilder,
   Duration as JsJodaDuration,
@@ -32,10 +31,10 @@ import {
 } from '@js-joda/core';
 import { TaggedValue } from 'cbor-redux';
 import { z } from 'zod';
-import { epochDateTimeTag, isoDateTimeTag } from './media-type-codecs/cbor-tags.js';
+import { epochDateTag, epochDateTimeTag, isoDateTimeTag } from './media-type-codecs/cbor-tags.js';
 import { DateEncoding, NumericDateDecoding, type SchemaPolicy } from './schema-policy.js';
 import { defineSchema } from './schema-runtime.js';
-import { secondsToNumber } from './util/numbers.js';
+import { appendNumericTimeFields, secondsToNumber } from './util/numbers.js';
 
 export type Temporal = JsJodaTemporal;
 export type Instant = JsJodaInstant;
@@ -60,7 +59,7 @@ export const OffsetDateTime = JsJodaOffsetDateTime;
 export const ZonedDateTime = JsJodaZonedDateTime;
 export const Duration = JsJodaDuration;
 export const Period = JsJodaPeriod;
-export const ZoneId = JsJodaZoneId
+export const ZoneId = JsJodaZoneId;
 export const ZoneOffset = JsJodaZoneOffset;
 
 type CodecContext = {
@@ -70,6 +69,10 @@ type CodecContext = {
 type TaggedTemporalValue =
   | { tag: typeof isoDateTimeTag; value: string }
   | { tag: typeof epochDateTimeTag; value: number };
+type TaggedLocalDateValue = { tag: typeof epochDateTag; value: number };
+
+// For CBOR, tagged payloads are emitted only when tag semantics align with Jackson wire values.
+// Decoders still accept known tags and prioritize them when present.
 
 const TAGGED_VALUE_SCHEMA = z.instanceof(TaggedValue);
 
@@ -100,21 +103,23 @@ const DURATION_OUTPUT_SCHEMA = z.custom<JsJodaDuration>(
 const INSTANT_JSON_INPUT_SCHEMA = z.union([z.string(), z.number()]);
 const INSTANT_CBOR_INPUT_SCHEMA = z.union([z.string(), z.number(), TAGGED_VALUE_SCHEMA]);
 
-const ZONED_DATE_TIME_STRUCT_SCHEMA = z.tuple([z.number(), z.string(), z.string()]);
 const ZONED_DATE_TIME_JSON_INPUT_SCHEMA = z.union([z.string(), z.number()]);
-const ZONED_DATE_TIME_CBOR_INPUT_SCHEMA = z.union([z.string(), ZONED_DATE_TIME_STRUCT_SCHEMA, TAGGED_VALUE_SCHEMA]);
+const ZONED_DATE_TIME_CBOR_INPUT_SCHEMA = z.union([z.string(), z.number(), TAGGED_VALUE_SCHEMA]);
 
-const OFFSET_DATE_TIME_STRUCT_SCHEMA = z.tuple([z.number(), z.string()]);
 const OFFSET_DATE_TIME_JSON_INPUT_SCHEMA = z.union([z.string(), z.number()]);
-const OFFSET_DATE_TIME_CBOR_INPUT_SCHEMA = z.union([z.string(), OFFSET_DATE_TIME_STRUCT_SCHEMA, TAGGED_VALUE_SCHEMA]);
+const OFFSET_DATE_TIME_CBOR_INPUT_SCHEMA = z.union([z.string(), z.number(), TAGGED_VALUE_SCHEMA]);
 
-const OFFSET_TIME_STRUCT_SCHEMA = z.tuple([z.number(), z.string()]);
-const OFFSET_TIME_JSON_INPUT_SCHEMA = z.union([z.string(), z.number()]);
-const OFFSET_TIME_CBOR_INPUT_SCHEMA = z.union([z.string(), OFFSET_TIME_STRUCT_SCHEMA]);
+const LOCAL_DATE_TIME_ARRAY_INPUT_SCHEMA = z.array(z.number());
+const LOCAL_DATE_ARRAY_INPUT_SCHEMA = z.array(z.number());
+const LOCAL_TIME_ARRAY_INPUT_SCHEMA = z.array(z.number());
+const OFFSET_TIME_ARRAY_INPUT_SCHEMA = z.array(z.union([z.number(), z.string()]));
 
-const LOCAL_DATE_TIME_INPUT_SCHEMA = z.union([z.string(), z.number()]);
-const LOCAL_DATE_INPUT_SCHEMA = z.union([z.string(), z.number()]);
-const LOCAL_TIME_INPUT_SCHEMA = z.union([z.string(), z.number()]);
+const OFFSET_TIME_INPUT_SCHEMA = z.union([z.string(), OFFSET_TIME_ARRAY_INPUT_SCHEMA]);
+
+const LOCAL_DATE_TIME_INPUT_SCHEMA = z.union([z.string(), LOCAL_DATE_TIME_ARRAY_INPUT_SCHEMA]);
+const LOCAL_DATE_JSON_INPUT_SCHEMA = z.union([z.string(), LOCAL_DATE_ARRAY_INPUT_SCHEMA]);
+const LOCAL_DATE_CBOR_INPUT_SCHEMA = z.union([z.string(), LOCAL_DATE_ARRAY_INPUT_SCHEMA, TAGGED_VALUE_SCHEMA]);
+const LOCAL_TIME_INPUT_SCHEMA = z.union([z.string(), LOCAL_TIME_ARRAY_INPUT_SCHEMA]);
 const DURATION_JSON_INPUT_SCHEMA = z.union([z.string(), z.number()]);
 const DURATION_CBOR_INPUT_SCHEMA = z.union([z.string(), z.number()]);
 
@@ -185,28 +190,6 @@ function splitEpochSeconds(value: number): { seconds: number; nanos: number } {
   return { seconds, nanos };
 }
 
-function splitEpochMilliseconds(value: number): { seconds: number; nanos: number } {
-  let seconds = Math.trunc(value / 1000);
-  const millis = value - seconds * 1000;
-  let nanos = Math.round(millis * 1_000_000);
-  if (nanos >= 1_000_000_000) {
-    seconds += 1;
-    nanos = 0;
-  }
-  if (nanos < 0) {
-    seconds -= 1;
-    nanos += 1_000_000_000;
-  }
-  return { seconds, nanos };
-}
-
-function splitEpochByNumericPolicy(value: number, policy: SchemaPolicy): { seconds: number; nanos: number } {
-  if (policy.numericDateDecoding === NumericDateDecoding.MILLISECONDS_SINCE_EPOCH) {
-    return splitEpochMilliseconds(value);
-  }
-  return splitEpochSeconds(value);
-}
-
 function decodeInstantFromNumericPolicy(value: number, policy: SchemaPolicy): JsJodaInstant {
   if (policy.numericDateDecoding === NumericDateDecoding.MILLISECONDS_SINCE_EPOCH) {
     return Instant.ofEpochMilli(value);
@@ -220,39 +203,148 @@ function decodeInstantFromEpochSeconds(value: number): JsJodaInstant {
   return Instant.ofEpochSecond(seconds, nanos);
 }
 
-function decodeLocalDateTimeFromNumber(value: number, policy: SchemaPolicy): JsJodaLocalDateTime {
-  const { seconds, nanos } = splitEpochByNumericPolicy(value, policy);
-  return LocalDateTime.ofEpochSecond(seconds, nanos, ZoneOffset.UTC);
-}
-
-function decodeLocalTimeFromNumber(value: number, policy: SchemaPolicy): JsJodaLocalTime {
-  const { seconds, nanos } = splitEpochByNumericPolicy(value, policy);
-  const secondsInDay = ((seconds % 86400) + 86400) % 86400;
-  return LocalTime.ofNanoOfDay(secondsInDay * 1_000_000_000 + nanos);
-}
-
-function encodeLocalDateTimeNumber(value: JsJodaLocalDateTime, dateEncoding: DateEncoding): number {
-  const seconds = value.toEpochSecond(ZoneOffset.UTC);
-  if (dateEncoding === DateEncoding.MILLISECONDS_SINCE_EPOCH) {
-    return seconds * 1000 + value.get(ChronoField.MILLI_OF_SECOND);
+function decodeFractionToNanos(fraction: number, policy: SchemaPolicy): number {
+  if (!Number.isInteger(fraction) || fraction < 0) {
+    throw new Error('Fractional component must be a non-negative integer');
   }
-  return secondsToNumber(seconds, value.nano());
+  if (policy.numericDateDecoding === NumericDateDecoding.MILLISECONDS_SINCE_EPOCH) {
+    return fraction * 1_000_000;
+  }
+  return fraction;
 }
 
-function encodeLocalDateNumber(value: JsJodaLocalDate, dateEncoding: DateEncoding): number {
-  const seconds = value.atStartOfDay().toEpochSecond(ZoneOffset.UTC);
+function encodeFractionFromNanos(nanos: number, dateEncoding: DateEncoding): number {
   if (dateEncoding === DateEncoding.MILLISECONDS_SINCE_EPOCH) {
-    return seconds * 1000;
+    return Math.trunc(nanos / 1_000_000);
   }
-  return secondsToNumber(seconds, 0);
+  return nanos;
 }
 
-function encodeLocalTimeNumber(value: JsJodaLocalTime, dateEncoding: DateEncoding): number {
-  const seconds = value.hour() * 3600 + value.minute() * 60 + value.second();
-  if (dateEncoding === DateEncoding.MILLISECONDS_SINCE_EPOCH) {
-    return seconds * 1000 + value.get(ChronoField.MILLI_OF_SECOND);
+function encodeLocalDateTimeArray(value: JsJodaLocalDateTime, dateEncoding: DateEncoding): number[] {
+  return appendNumericTimeFields(
+    [value.year(), value.monthValue(), value.dayOfMonth(), value.hour(), value.minute()],
+    value.second(),
+    encodeFractionFromNanos(value.nano(), dateEncoding),
+  );
+}
+
+function encodeLocalDateArray(value: JsJodaLocalDate): number[] {
+  return [value.year(), value.monthValue(), value.dayOfMonth()];
+}
+
+function encodeLocalTimeArray(value: JsJodaLocalTime, dateEncoding: DateEncoding): number[] {
+  return appendNumericTimeFields(
+    [value.hour(), value.minute()],
+    value.second(),
+    encodeFractionFromNanos(value.nano(), dateEncoding),
+  );
+}
+
+function encodeOffsetTimeArray(value: JsJodaOffsetTime, dateEncoding: DateEncoding): Array<number | string> {
+  const local = encodeLocalTimeArray(value.toLocalTime(), dateEncoding);
+  return [...local, value.offset().toString()];
+}
+
+function parseLocalDateTimeArray(
+  value: number[],
+  policy: SchemaPolicy,
+  ctx: CodecContext,
+): JsJodaLocalDateTime | typeof z.NEVER {
+  if (value.length < 5 || value.length > 7) {
+    return pushIssue(
+      ctx,
+      'LocalDateTime numeric timestamps must be ' +
+        '[year,month,day,hour,minute,(second),(fraction)]',
+      value
+    );
   }
-  return secondsToNumber(seconds, value.nano());
+  try {
+    const year = value[0];
+    const month = value[1];
+    const day = value[2];
+    const hour = value[3];
+    const minute = value[4];
+    const second = value.length >= 6 ? value[5] : 0;
+    const nanos = value.length === 7 ? decodeFractionToNanos(value[6], policy) : 0;
+    return LocalDateTime.of(year, month, day, hour, minute, second, nanos);
+  }
+  catch (error) {
+    const details = error instanceof Error ? `: ${error.message}` : '';
+    return pushIssue(
+      ctx,
+      `Invalid LocalDateTime numeric timestamp array${details}`,
+      value,
+    );
+  }
+}
+
+function parseLocalDateArray(value: number[], ctx: CodecContext): JsJodaLocalDate | typeof z.NEVER {
+  if (value.length !== 3) {
+    return pushIssue(ctx, 'LocalDate numeric timestamps must be [year,month,day]', value);
+  }
+  try {
+    return LocalDate.of(value[0], value[1], value[2]);
+  }
+  catch {
+    return pushIssue(ctx, 'Invalid LocalDate numeric timestamp array', value);
+  }
+}
+
+function parseLocalTimeArray(
+  value: number[],
+  policy: SchemaPolicy,
+  ctx: CodecContext,
+): JsJodaLocalTime | typeof z.NEVER {
+  if (value.length < 2 || value.length > 4) {
+    return pushIssue(ctx, 'LocalTime numeric timestamps must be [hour,minute,(second),(fraction)]', value);
+  }
+  try {
+    const hour = value[0];
+    const minute = value[1];
+    const second = value.length >= 3 ? value[2] : 0;
+    const nanos = value.length === 4 ? decodeFractionToNanos(value[3], policy) : 0;
+    return LocalTime.of(hour, minute, second, nanos);
+  }
+  catch (error) {
+    const details = error instanceof Error ? `: ${error.message}` : '';
+    return pushIssue(
+      ctx,
+      `Invalid LocalTime numeric timestamp array${details}`,
+      value,
+    );
+  }
+}
+
+function parseOffsetTimeArray(
+  value: Array<number | string>,
+  policy: SchemaPolicy,
+  ctx: CodecContext,
+): JsJodaOffsetTime | typeof z.NEVER {
+  if (value.length < 3 || value.length > 5) {
+    return pushIssue(ctx, 'OffsetTime numeric timestamps must be [hour,minute,(second),(fraction),offset]', value);
+  }
+
+  const offset = value.at(-1);
+  if (typeof offset !== 'string') {
+    return pushIssue(ctx, 'OffsetTime numeric timestamps must end with an offset string', value);
+  }
+
+  const timeParts = value.slice(0, -1);
+  if (!timeParts.every((part): part is number => typeof part === 'number')) {
+    return pushIssue(ctx, 'OffsetTime numeric timestamps must contain number time fields', value);
+  }
+
+  const localTime = parseLocalTimeArray(timeParts, policy, ctx);
+  if (localTime === z.NEVER) {
+    return z.NEVER;
+  }
+
+  try {
+    return OffsetTime.of(localTime, ZoneOffset.of(offset));
+  }
+  catch {
+    return pushIssue(ctx, 'Invalid OffsetTime offset', value);
+  }
 }
 
 function parseIsoInstant(value: string, ctx: CodecContext): JsJodaInstant | typeof z.NEVER {
@@ -322,6 +414,39 @@ function decodeTaggedTemporal(tagged: TaggedValue, ctx: CodecContext): TaggedTem
   }
 }
 
+function decodeTaggedLocalDate(tagged: TaggedValue, ctx: CodecContext): TaggedLocalDateValue | typeof z.NEVER {
+  if (tagged.tag !== epochDateTag) {
+    ctx.issues.push({
+      code: 'invalid_value',
+      values: [epochDateTag],
+      input: tagged.tag,
+      message: 'Invalid CBOR tag for LocalDate decoding',
+    });
+    return z.NEVER;
+  }
+  if (typeof tagged.value !== 'number' || !Number.isInteger(tagged.value)) {
+    return pushIssue(ctx, 'CBOR tag 100 must contain an integer epoch-day', tagged.value);
+  }
+  return { tag: epochDateTag, value: tagged.value };
+}
+
+function taggedTemporalEncoder<T, U = T>(
+  dateEncoding: DateEncoding,
+  iso: (value: U) => string,
+  milliseconds: (value: T) => number,
+  decimalSeconds: (value: T) => number,
+  convert: (value: U) => T,
+): (value: U) => string | number | TaggedValue {
+  switch (dateEncoding) {
+    case DateEncoding.ISO8601:
+      return (value) => new TaggedValue(iso(value), isoDateTimeTag);
+    case DateEncoding.MILLISECONDS_SINCE_EPOCH:
+      return (value) => milliseconds(convert(value));
+    case DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH:
+      return (value) => new TaggedValue(decimalSeconds(convert(value)), epochDateTimeTag);
+  }
+}
+
 function createInstantSchema(policy: SchemaPolicy): z.ZodType<JsJodaInstant> {
   switch (policy.format) {
     case 'json':
@@ -364,12 +489,13 @@ function createInstantSchema(policy: SchemaPolicy): z.ZodType<JsJodaInstant> {
             }
           }
         },
-        encode: (value) => {
-          if (policy.dateEncoding === DateEncoding.ISO8601) {
-            return new TaggedValue(DateTimeFormatter.ISO_INSTANT.format(value), isoDateTimeTag);
-          }
-          return new TaggedValue(secondsToNumber(value.epochSecond(), value.nano()), epochDateTimeTag);
-        },
+        encode: taggedTemporalEncoder<Instant>(
+          policy.dateEncoding,
+          (instant) => DateTimeFormatter.ISO_INSTANT.format(instant),
+          (instant) => instant.toEpochMilli(),
+          (instant) => secondsToNumber(instant.epochSecond(), instant.nano()),
+          (instant) => instant,
+        ),
       });
   }
 }
@@ -391,8 +517,8 @@ function createZonedDateTimeSchema(policy: SchemaPolicy): z.ZodType<JsJodaZonedD
             case DateEncoding.MILLISECONDS_SINCE_EPOCH:
               return value.withZoneSameInstant(ZoneOffset.UTC).toInstant().toEpochMilli();
             case DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH: {
-              const instant = value.withZoneSameInstant(ZoneOffset.UTC).toInstant()
-              return secondsToNumber(instant.epochSecond(), value.nano());
+              const instant = value.withZoneSameInstant(ZoneOffset.UTC).toInstant();
+              return secondsToNumber(instant.epochSecond(), instant.nano());
             }
           }
         },
@@ -409,26 +535,18 @@ function createZonedDateTimeSchema(policy: SchemaPolicy): z.ZodType<JsJodaZonedD
               ? parseIsoZonedDateTime(tagged.value, ctx)
               : ZonedDateTime.ofInstant(decodeInstantFromEpochSeconds(tagged.value), ZoneId.UTC);
           }
-          if (typeof value === 'string') {
-            return parseIsoZonedDateTime(value, ctx);
+          if (typeof value === 'number') {
+            return ZonedDateTime.ofInstant(decodeInstantFromNumericPolicy(value, policy), ZoneId.UTC);
           }
-          const [localNumber, offset, zoneId] = value;
-          return ZonedDateTime.ofLocal(
-            decodeLocalDateTimeFromNumber(localNumber, policy),
-            ZoneId.of(zoneId),
-            ZoneOffset.of(offset),
-          );
+          return parseIsoZonedDateTime(value, ctx);
         },
-        encode: (value) => {
-          if (policy.dateEncoding === DateEncoding.ISO8601) {
-            return DateTimeFormatter.ISO_ZONED_DATE_TIME.format(value);
-          }
-          return [
-            encodeLocalDateTimeNumber(value.toLocalDateTime(), policy.dateEncoding),
-            value.offset().toString(),
-            value.zone().id(),
-          ] as [number, string, string];
-        },
+        encode: taggedTemporalEncoder<Instant, ZonedDateTime>(
+          policy.dateEncoding,
+          (zoned) => DateTimeFormatter.ISO_ZONED_DATE_TIME.format(zoned),
+          (instant) => instant.toEpochMilli(),
+          (instant) => secondsToNumber(instant.epochSecond(), instant.nano()),
+          (zoned) => zoned.toInstant(),
+        ),
       });
   }
 }
@@ -450,8 +568,8 @@ function createOffsetDateTimeSchema(policy: SchemaPolicy): z.ZodType<JsJodaOffse
             case DateEncoding.MILLISECONDS_SINCE_EPOCH:
               return value.withOffsetSameInstant(ZoneOffset.UTC).toInstant().toEpochMilli();
             case DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH: {
-              const instant = value.withOffsetSameInstant(ZoneOffset.UTC).toInstant()
-              return secondsToNumber(instant.epochSecond(), value.nano());
+              const instant = value.withOffsetSameInstant(ZoneOffset.UTC).toInstant();
+              return secondsToNumber(instant.epochSecond(), instant.nano());
             }
           }
         },
@@ -468,119 +586,114 @@ function createOffsetDateTimeSchema(policy: SchemaPolicy): z.ZodType<JsJodaOffse
               ? parseIsoOffsetDateTime(tagged.value, ctx)
               : OffsetDateTime.ofInstant(decodeInstantFromEpochSeconds(tagged.value), ZoneOffset.UTC);
           }
-          if (typeof value === 'string') {
-            return parseIsoOffsetDateTime(value, ctx);
+          if (typeof value === 'number') {
+            return OffsetDateTime.ofInstant(decodeInstantFromNumericPolicy(value, policy), ZoneOffset.UTC);
           }
-          const [localNumber, offset] = value;
-          return OffsetDateTime.of(
-            decodeLocalDateTimeFromNumber(localNumber, policy),
-            ZoneOffset.of(offset),
-          );
+          return parseIsoOffsetDateTime(value, ctx);
         },
-        encode: (value) => {
-          if (policy.dateEncoding === DateEncoding.ISO8601) {
-            return new TaggedValue(DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(value), isoDateTimeTag);
-          }
-          return [
-            encodeLocalDateTimeNumber(value.toLocalDateTime(), policy.dateEncoding),
-            value.offset().toString(),
-          ] as [number, string];
-        },
+        encode: taggedTemporalEncoder<Instant, OffsetDateTime>(
+          policy.dateEncoding,
+          (offset) => DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(offset),
+          (instant) => instant.toEpochMilli(),
+          (instant) => secondsToNumber(instant.epochSecond(), instant.nano()),
+          (offset) => offset.toInstant(),
+        ),
       });
   }
 }
 
 function createOffsetTimeSchema(policy: SchemaPolicy): z.ZodType<JsJodaOffsetTime> {
-  switch (policy.format) {
-    case 'json':
-      return z.codec(OFFSET_TIME_JSON_INPUT_SCHEMA, OFFSET_TIME_OUTPUT_SCHEMA, {
-        decode: (value) => {
-          if (typeof value === 'string') {
-            return OffsetTime.parse(value, offsetTimeFormatter);
-          }
-          return OffsetTime.of(decodeLocalTimeFromNumber(value, policy), ZoneOffset.UTC);
-        },
-        encode: (value) => {
-          if (policy.dateEncoding === DateEncoding.ISO8601) {
-            return offsetTimeFormatter.format(value);
-          }
-          const local = value.withOffsetSameInstant(ZoneOffset.UTC).toLocalTime()
-          return encodeLocalTimeNumber(local, policy.dateEncoding);
-        }
-      })
-    case 'cbor':
-      return z.codec(OFFSET_TIME_CBOR_INPUT_SCHEMA, OFFSET_TIME_OUTPUT_SCHEMA, {
-        decode: (value) => {
-          if (typeof value === 'string') {
-            return OffsetTime.parse(value, offsetTimeFormatter);
-          }
-          const [localNumber, offset] = value;
-          return OffsetTime.of(
-            decodeLocalTimeFromNumber(localNumber, policy),
-            ZoneOffset.of(offset),
-          );
-        },
-        encode: (value) => {
-          if (policy.dateEncoding === DateEncoding.ISO8601) {
-            return offsetTimeFormatter.format(value);
-          }
-          return [
-            encodeLocalTimeNumber(value.toLocalTime(), policy.dateEncoding),
-            value.offset().toString(),
-          ] as [number, string];
-        },
-      });
-  }
+  return z.codec(OFFSET_TIME_INPUT_SCHEMA, OFFSET_TIME_OUTPUT_SCHEMA, {
+    decode: (value, ctx) => {
+      if (typeof value === 'string') {
+        return OffsetTime.parse(value, offsetTimeFormatter);
+      }
+      return parseOffsetTimeArray(value, policy, ctx);
+    },
+    encode: (value) => {
+      if (policy.dateEncoding === DateEncoding.ISO8601) {
+        return offsetTimeFormatter.format(value);
+      }
+      return encodeOffsetTimeArray(value, policy.dateEncoding);
+    },
+  });
 }
 
 function createLocalDateTimeSchema(policy: SchemaPolicy): z.ZodType<JsJodaLocalDateTime> {
   return z.codec(LOCAL_DATE_TIME_INPUT_SCHEMA, LOCAL_DATE_TIME_OUTPUT_SCHEMA, {
-    decode: (value) => {
+    decode: (value, ctx) => {
       if (typeof value === 'string') {
         return LocalDateTime.parse(value);
       }
-      return decodeLocalDateTimeFromNumber(value, policy);
+      return parseLocalDateTimeArray(value, policy, ctx);
     },
     encode: (value) => {
       if (policy.dateEncoding === DateEncoding.ISO8601) {
         return DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(value);
       }
-      return encodeLocalDateTimeNumber(value, policy.dateEncoding);
+      // CBOR tag 100 (epoch-day) is accepted on decode for compatibility,
+      // but the encoder always emits [year, month, day] to match Jackson's
+      // array output.
+      return encodeLocalDateTimeArray(value, policy.dateEncoding);
     },
   });
 }
 
 function createLocalDateSchema(policy: SchemaPolicy): z.ZodType<JsJodaLocalDate> {
-  return z.codec(LOCAL_DATE_INPUT_SCHEMA, LOCAL_DATE_OUTPUT_SCHEMA, {
-    decode: (value) => {
-      if (typeof value === 'string') {
-        return LocalDate.parse(value);
-      }
-      const { seconds } = splitEpochByNumericPolicy(value, policy);
-      return LocalDate.ofEpochDay(Math.floor(seconds / 86400));
-    },
-    encode: (value) => {
-      if (policy.dateEncoding === DateEncoding.ISO8601) {
-        return DateTimeFormatter.ISO_LOCAL_DATE.format(value);
-      }
-      return encodeLocalDateNumber(value, policy.dateEncoding);
-    },
-  });
+  switch (policy.format) {
+    case 'json':
+      return z.codec(LOCAL_DATE_JSON_INPUT_SCHEMA, LOCAL_DATE_OUTPUT_SCHEMA, {
+        decode: (value, ctx) => {
+          if (typeof value === 'string') {
+            return LocalDate.parse(value);
+          }
+          return parseLocalDateArray(value, ctx);
+        },
+        encode: (value) => {
+          if (policy.dateEncoding === DateEncoding.ISO8601) {
+            return DateTimeFormatter.ISO_LOCAL_DATE.format(value);
+          }
+          return encodeLocalDateArray(value);
+        },
+      });
+    case 'cbor':
+      return z.codec(LOCAL_DATE_CBOR_INPUT_SCHEMA, LOCAL_DATE_OUTPUT_SCHEMA, {
+        decode: (value, ctx) => {
+          if (typeof value === 'string') {
+            return LocalDate.parse(value);
+          }
+          if (value instanceof TaggedValue) {
+            const tagged = decodeTaggedLocalDate(value, ctx);
+            if (tagged === z.NEVER) {
+              return z.NEVER;
+            }
+            return LocalDate.ofEpochDay(tagged.value);
+          }
+          return parseLocalDateArray(value, ctx);
+        },
+        encode: (value) => {
+          if (policy.dateEncoding === DateEncoding.ISO8601) {
+            return DateTimeFormatter.ISO_LOCAL_DATE.format(value);
+          }
+          return encodeLocalDateArray(value);
+        },
+      });
+  }
 }
 
 function createLocalTimeSchema(policy: SchemaPolicy): z.ZodType<JsJodaLocalTime> {
   return z.codec(LOCAL_TIME_INPUT_SCHEMA, LOCAL_TIME_OUTPUT_SCHEMA, {
-    decode: (value) => {
+    decode: (value, ctx) => {
       if (typeof value === 'string') {
         return LocalTime.parse(value);
       }
-      return decodeLocalTimeFromNumber(value, policy);
+      return parseLocalTimeArray(value, policy, ctx);
     },
     encode: (value) => {
       if (policy.dateEncoding === DateEncoding.ISO8601) {
         return DateTimeFormatter.ISO_LOCAL_TIME.format(value);
       }
-      return encodeLocalTimeNumber(value, policy.dateEncoding);
+      return encodeLocalTimeArray(value, policy.dateEncoding);
     },
   });
 }
@@ -680,12 +793,13 @@ function createDateSchema(policy: SchemaPolicy): z.ZodType<Date> {
             ? parseIsoDate(tagged.value, ctx)
             : new Date(tagged.value * 1000);
         },
-        encode: (value) => {
-          if (policy.dateEncoding === DateEncoding.ISO8601) {
-            return new TaggedValue(value.toISOString(), isoDateTimeTag);
-          }
-          return new TaggedValue(value.getTime() / 1000, epochDateTimeTag);
-        },
+        encode: taggedTemporalEncoder<Date>(
+          policy.dateEncoding,
+          (date) => date.toISOString(),
+          (date) => date.getTime(),
+          (date) => date.getTime() / 1000,
+          (date) => date,
+        ),
       });
   }
 }

@@ -75,7 +75,7 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
   encodeQueryString(parameters: Record<string, unknown>): string {
     const components: string[] = [];
 
-    for (const [key, value] of Object.entries(parameters).sort()) {
+    for (const [key, value] of Object.entries(parameters).sort(compareEntryKeys)) {
       components.push(...this.encodeQueryComponent(key, value));
     }
     return components.join('&');
@@ -92,24 +92,11 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
       //
       components.push(encodeURIComponent(key));
     } else if (Array.isArray(value) || value instanceof Set) {
-      // encode key according to `arrayEncoding`
-      for (const item of value) {
-        components.push(
-          ...this.encodeQueryComponent(
-            encodeArrayKey(key, this.arrayEncoding),
-            item,
-          ),
-        );
-      }
+      //
+      components.push(...this.encodeIterableQueryComponent(key, value));
     } else if (value instanceof Map) {
       //
-      for (const [nestedKey, nestedValue] of Array.from(
-        value.entries(),
-      ).sort()) {
-        components.push(
-          ...this.encodeQueryComponent(`${key}[${nestedKey}]`, nestedValue),
-        );
-      }
+      components.push(...this.encodeMapQueryComponent(key, value));
     } else if (value instanceof Date) {
       //
       components.push(
@@ -151,7 +138,7 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
       throw new TypeError('Encoding ArrayBuffer to form data is not supported');
     } else if (typeof value === 'object') {
       //
-      for (const [nestedKey, nestedValue] of Object.entries(value).sort((e1, e2) => e1[0].localeCompare(e2[0], 'und'))) {
+      for (const [nestedKey, nestedValue] of Object.entries(value).sort(compareEntryKeys)) {
         components.push(
           ...this.encodeQueryComponent(`${key}[${nestedKey}]`, nestedValue),
         );
@@ -163,6 +150,30 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
       throw new TypeError(`Unsupported value type: ${typeof value}`);
     }
 
+    return components;
+  }
+
+  private encodeMapQueryComponent(key: string, value: Map<string, unknown>): string[] {
+    const components: string[] = [];
+    const entries = Array.from(value.entries()).sort(compareEntryKeys);
+    for (const [nestedKey, nestedValue] of entries) {
+      components.push(
+        ...this.encodeQueryComponent(`${key}[${nestedKey}]`, nestedValue),
+      );
+    }
+    return components;
+  }
+
+  private encodeIterableQueryComponent(key: string, value: unknown[] | Set<unknown>): string[] {
+    const components: string[] = [];
+    for (const item of value) {
+      components.push(
+        ...this.encodeQueryComponent(
+          encodeArrayKey(key, this.arrayEncoding),
+          item,
+        ),
+      );
+    }
     return components;
   }
 }
@@ -362,4 +373,8 @@ export namespace WWWFormUrlEncoder {
 function isStringInterpolable(value: unknown): value is string | number | bigint | boolean {
   const type = typeof value;
   return type === 'string' || type === 'number' || type === 'bigint' || type === 'boolean';
+}
+
+function compareEntryKeys(e1: [string, unknown], e2: [string, unknown]): number {
+  return e1[0].localeCompare(e2[0], 'und');
 }

@@ -21,7 +21,7 @@ export class SundayError extends Error {
     public status: number,
     public statusText: string,
     public headers: Headers,
-    public body: unknown | undefined,
+    public body: unknown,
     public responseExample: string,
   ) {
     super(message);

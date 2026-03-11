@@ -121,7 +121,7 @@ export class Problem extends Error implements Problem {
     });
   }
 
-  private static parseURL(value: unknown | undefined | null): URL | undefined {
+  private static parseURL(value: unknown): URL | undefined {
     if (value == null) {
       return undefined;
     }

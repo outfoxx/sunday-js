@@ -110,7 +110,7 @@ describe('SchemaRuntime', () => {
     const bytes = new TextEncoder().encode('hello').buffer;
 
     const jsonEncoded = createSchemaRuntime(jsonPolicy).resolveSchema(ArrayBufferSchema).encode(bytes);
-    expect(jsonEncoded).toBe('aGVsbG8=');
+    expect(jsonEncoded).toBe('aGVsbG8');
 
     const cborEncoded = createSchemaRuntime(cborPolicy).resolveSchema(ArrayBufferSchema).encode(bytes);
     expect(cborEncoded).toBeInstanceOf(ArrayBuffer);

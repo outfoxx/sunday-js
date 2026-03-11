@@ -16,6 +16,47 @@ import {describe, it, expect} from 'bun:test';
 import { HeaderParameters } from '../src/header-parameters';
 
 describe('HeaderParameters', () => {
+  it('encodes symbol values', () => {
+    const value = Symbol.for('tester');
+    const headers = HeaderParameters.encode({ test: value });
+
+    expect(headers).toEqual([['test', 'Symbol(tester)']]);
+  });
+
+  it('encodes URL values', () => {
+    const headers = HeaderParameters.encode({ test: new URL('https://example.com/path') });
+
+    expect(headers).toEqual([['test', 'https://example.com/path']]);
+  });
+
+  it('encodes Date values as ISO-8601', () => {
+    const headers = HeaderParameters.encode({ test: new Date('2001-02-03T04:05:06.789Z') });
+
+    expect(headers).toEqual([['test', '2001-02-03T04:05:06.789Z']]);
+  });
+
+  it('encodes object values as JSON', () => {
+    const headers = HeaderParameters.encode({ test: { value: 5 } });
+
+    expect(headers).toEqual([['test', '{"value":5}']]);
+  });
+
+  it('ignores objects with a toJSON returning undefined', () => {
+    const headers = HeaderParameters.encode({
+      test: {
+        toJSON() {
+          return undefined;
+        },
+      },
+    });
+
+    expect(headers).toEqual([]);
+  });
+
+  it('fails for unsupported header parameter types', () => {
+    expect(() => HeaderParameters.encode({ test: () => 'value' })).toThrow(/Unsupported header parameter type: function/u);
+  });
+
   it('encodes array values as repeated headers', () => {
     const headers = HeaderParameters.encode({ test: ['a', 'b'] });
 

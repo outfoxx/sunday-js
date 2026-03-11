@@ -194,7 +194,7 @@ export class EventParser {
   }
 
   private static trimFieldValue(value: string): string {
-    if (value[0] != ' ') {
+    if (value[0] !== ' ') {
       return value;
     }
     return value.slice(1);
