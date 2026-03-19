@@ -83,14 +83,14 @@ describe('CBOREncoder', () => {
     ).toHaveBytes(decodeHex('A1 64 74657374 44 74657374'));
   });
 
-  it('encodes null/undefined ArrayBuffer values', () => {
+  it('encodes null ArrayBuffer values', () => {
     type Test = { test?: ArrayBuffer | null };
     const testSchemaObj = z.object({
       test: CBOREncoder.default.runtime.resolveSchema(ArrayBufferSchema).nullable().optional(),
     }) as z.ZodType<Test>;
 
     expect(CBOREncoder.default.encode({ test: null }, testSchemaObj)).toHaveBytes(
-      decodeHex('A0'),
+      decodeHex('A16474657374F6'),
     );
   });
 

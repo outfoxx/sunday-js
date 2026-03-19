@@ -33,7 +33,6 @@ export interface StructuredMediaTypeEncoder extends MediaTypeEncoder {
   encodeObject<T>(
     value: T,
     type?: SchemaLike<T>,
-    includeNulls?: boolean,
   ): Record<string, unknown>;
 }
 

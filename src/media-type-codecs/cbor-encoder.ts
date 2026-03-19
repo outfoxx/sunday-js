@@ -18,7 +18,6 @@ import {
   SchemaLike, SchemaPolicy,
   SchemaRuntime,
 } from '../schema-runtime.js';
-import { pruneNullObjectProperties } from '../util/objects.js';
 import { createCBORSchemaRuntime } from './default-policies.js';
 import { MediaTypeEncoder } from './media-type-encoder.js';
 
@@ -36,7 +35,7 @@ export class CBOREncoder implements MediaTypeEncoder {
     const serialized = type
       ? this.runtime.resolveSchema(type).encode(value)
       : value;
-    return CBOR.encode(pruneNullObjectProperties(serialized));
+    return CBOR.encode(serialized);
   }
 }
 

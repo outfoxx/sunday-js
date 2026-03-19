@@ -55,7 +55,7 @@ describe('JSON Merge Patching', () => {
         },
       };
 
-      const patchJSON = JSONEncoder.default.encode(patch, APatchSchema, true);
+      const patchJSON = JSONEncoder.default.encode(patch, APatchSchema);
       const patchDecoded = JSONDecoder.default.decodeText<APatch>(
         patchJSON,
         APatchSchema,
@@ -64,7 +64,7 @@ describe('JSON Merge Patching', () => {
       expect(patchDecoded.c).toBeUndefined();
       expect(patchDecoded.b?.sig).toBeNull();
       expectEqual(patchDecoded, patch);
-      expect(JSONEncoder.default.encode(patchDecoded, APatchSchema, true)).toEqual(
+      expect(JSONEncoder.default.encode(patchDecoded, APatchSchema)).toEqual(
         patchJSON,
       );
     });
@@ -79,7 +79,7 @@ describe('JSON Merge Patching', () => {
         },
       };
 
-      const patchJSON = JSONEncoder.default.encode(patch, APatchSchema, true);
+      const patchJSON = JSONEncoder.default.encode(patch, APatchSchema);
       const patchDecoded = JSONDecoder.default.decodeText<APatch>(
         patchJSON,
         APatchSchema,
@@ -87,7 +87,7 @@ describe('JSON Merge Patching', () => {
 
       expect(patchDecoded.c).toBeUndefined();
       expectEqual(patchDecoded, patch);
-      expect(JSONEncoder.default.encode(patchDecoded, APatchSchema, true)).toEqual(
+      expect(JSONEncoder.default.encode(patchDecoded, APatchSchema)).toEqual(
         patchJSON,
       );
     });
@@ -98,7 +98,7 @@ describe('JSON Merge Patching', () => {
         c: 'test',
       };
 
-      const patchJSON = JSONEncoder.default.encode(patch, APatchSchema, true);
+      const patchJSON = JSONEncoder.default.encode(patch, APatchSchema);
       const patchDecoded = JSONDecoder.default.decodeText<APatch>(
         patchJSON,
         APatchSchema,
@@ -106,7 +106,7 @@ describe('JSON Merge Patching', () => {
 
       expect(patchDecoded.b).toBeUndefined();
       expectEqual(patchDecoded, patch);
-      expect(JSONEncoder.default.encode(patchDecoded, APatchSchema, true)).toEqual(
+      expect(JSONEncoder.default.encode(patchDecoded, APatchSchema)).toEqual(
         patchJSON,
       );
     });
@@ -122,7 +122,7 @@ describe('JSON Merge Patching', () => {
         c: null,
       };
 
-      const patchJSON = JSONEncoder.default.encode(patch, APatchSchema, true);
+      const patchJSON = JSONEncoder.default.encode(patch, APatchSchema);
       const patchDecoded = JSONDecoder.default.decodeText<APatch>(
         patchJSON,
         APatchSchema,
@@ -130,7 +130,7 @@ describe('JSON Merge Patching', () => {
 
       expect(patchDecoded.c).toBeNull();
       expectEqual(patchDecoded, patch);
-      expect(JSONEncoder.default.encode(patchDecoded, APatchSchema, true)).toEqual(
+      expect(JSONEncoder.default.encode(patchDecoded, APatchSchema)).toEqual(
         patchJSON,
       );
     });
@@ -142,14 +142,14 @@ describe('JSON Merge Patching', () => {
         c: 'test',
       };
 
-      const patchJSON = JSONEncoder.default.encode(patch, APatchSchema, true);
+      const patchJSON = JSONEncoder.default.encode(patch, APatchSchema);
       const patchDecoded = JSONDecoder.default.decodeText<APatch>(
         patchJSON,
         APatchSchema,
       );
 
       expect(patchDecoded.b).toBeNull();
-      expect(JSONEncoder.default.encode(patchDecoded, APatchSchema, true)).toEqual(
+      expect(JSONEncoder.default.encode(patchDecoded, APatchSchema)).toEqual(
         patchJSON,
       );
     });

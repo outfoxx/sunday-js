@@ -18,7 +18,6 @@ import {
   SchemaPolicy,
   SchemaRuntime,
 } from '../schema-runtime.js';
-import { pruneNullObjectProperties } from '../util/objects.js';
 import { createJSONSchemaRuntime } from './default-policies.js';
 import { StructuredMediaTypeEncoder } from './media-type-encoder.js';
 import { z } from 'zod';
@@ -35,24 +34,21 @@ export class JSONEncoder implements StructuredMediaTypeEncoder {
   constructor(readonly runtime: SchemaRuntime = createJSONSchemaRuntime()) {
   }
 
-  encode<T>(value: T, type?: SchemaLike<T>, includeNulls?: boolean): string {
+  encode<T>(value: T, type?: SchemaLike<T>): string {
     const serialized = type
       ? this.runtime.resolveSchema(type).encode(value)
       : value;
-    const output = includeNulls ? serialized : pruneNullObjectProperties(serialized);
-    return JSON.stringify(output);
+    return JSON.stringify(serialized);
   }
 
   encodeObject<T>(
     value: T,
     type?: SchemaLike<T>,
-    includeNulls = false,
   ): Record<string, unknown> {
     const serialized = type
       ? this.runtime.resolveSchema(type).encode(value)
       : value;
-    const output = includeNulls ? serialized : pruneNullObjectProperties(serialized);
-    return JSON_OBJECT_SCHEMA.parse(output);
+    return JSON_OBJECT_SCHEMA.parse(serialized);
   }
 }
 
