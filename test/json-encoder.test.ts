@@ -475,7 +475,7 @@ describe('JSONEncoder', () => {
     ).toEqual('{"test":"AAAAAAA"}');
   });
 
-  it('excludes null & undefined values by default when encoding', () => {
+  it('keeps null values and omits undefined values when encoding', () => {
     type Test = { test?: ArrayBuffer | null };
     const testSchemaObj = z.object({
       test: JSONEncoder.default.runtime.resolveSchema(ArrayBufferSchema).nullable().optional(),
@@ -486,26 +486,24 @@ describe('JSONEncoder', () => {
     );
 
     expect(JSONEncoder.default.encode({ test: null }, testSchemaObj)).toEqual(
-      '{}',
+      '{"test":null}',
     );
   });
 
-  it('includes null values when encoding configured', () => {
+  it('keeps null values when encodingObject', () => {
     type Test = { test?: ArrayBuffer | null };
     const testSchemaObj = z.object({
       test: JSONEncoder.default.runtime.resolveSchema(ArrayBufferSchema).nullable().optional(),
     }) as z.ZodType<Test>;
 
-    expect(
-      JSONEncoder.default.encode({ test: undefined }, testSchemaObj, true),
-    ).toEqual('{}');
+    expect(JSONEncoder.default.encodeObject({ test: undefined }, testSchemaObj)).toEqual({});
 
-    expect(JSONEncoder.default.encode({ test: null }, testSchemaObj, true)).toEqual(
-      '{"test":null}',
+    expect(JSONEncoder.default.encodeObject({ test: null }, testSchemaObj)).toEqual(
+      { test: null },
     );
   });
 
-  it('prunes null object properties recursively but preserves null array elements', () => {
+  it('keeps null object properties recursively while preserving null array elements', () => {
     expect(
       JSONEncoder.default.encode({
         nested: {
@@ -514,6 +512,6 @@ describe('JSONEncoder', () => {
         },
         list: [null, { remove: null, keep: 'ok' }],
       }),
-    ).toEqual('{"nested":{"keep":1},"list":[null,{"keep":"ok"}]}');
+    ).toEqual('{"nested":{"remove":null,"keep":1},"list":[null,{"remove":null,"keep":"ok"}]}');
   });
 });
