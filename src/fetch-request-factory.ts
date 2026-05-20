@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { ZodError } from 'zod';
 import { SchemaLike } from './schema-runtime.js';
 import { mergeHeaders, validate } from './fetch.js';
 import { FetchEventSource } from './fetch-event-source.js';
@@ -344,7 +345,16 @@ export class FetchRequestFactory implements RequestFactory {
         push(decodedEvent);
       }
       catch (err) {
-        fail(err);
+        if (!isEventDecodingError(err)) {
+          fail(err);
+          return;
+        }
+
+        this.logger?.warn?.('skipping undecodable event stream event', {
+          error: err,
+          event: event.type,
+          id: event.lastEventId,
+        });
       }
     };
 
@@ -419,6 +429,10 @@ export class FetchRequestFactory implements RequestFactory {
       },
     };
   }
+}
+
+function isEventDecodingError(error: unknown): error is SyntaxError | ZodError {
+  return error instanceof SyntaxError || error instanceof ZodError;
 }
 
 function composeAbortSignals(

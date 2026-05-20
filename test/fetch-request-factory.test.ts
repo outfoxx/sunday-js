@@ -41,6 +41,10 @@ const TestSchema = z.object({
   sub: SubSchema,
 });
 
+const EventSchema = z.object({
+  target: z.string(),
+});
+
 const TestArraySchema = z.array(TestSchema);
 
 const TestSetSchema = z.codec(
@@ -388,6 +392,81 @@ describe('FetchRequestFactory', () => {
                                 target: 'world',
                               }),
     );
+  });
+
+  it('skips undecodable eventStream events and continues consuming', async () => {
+    const encodedEvents = new TextEncoder().encode(
+      [
+        'event: hello\nid: bad\ndata: {"target":5}\n\n',
+        'event: hello\nid: good\ndata: {"target":"world"}\n\n',
+      ].join(''),
+    ).buffer;
+
+    fetchMock.getOnce(
+      'http://example.com',
+      () =>
+        new Response(new Blob([encodedEvents]), {
+          headers: { 'content-type': MediaType.EventStream.toString() },
+        }),
+    );
+    fetchMock.getOnce(
+      'http://example.com',
+      () => new Promise((resolve) => setTimeout(resolve, 5000)),
+    );
+
+    const warnings: unknown[][] = [];
+    const fetchRequestFactory = new FetchRequestFactory('http://example.com', {
+      logger: {
+        warn: (...data) => warnings.push(data),
+      },
+    });
+
+    const eventStream = fetchRequestFactory.eventStream(
+      { method: 'GET', pathTemplate: '' },
+      (decoder, _event, _id, data) => decoder.decodeText(data, EventSchema),
+    );
+
+    const iterator = eventStream[Symbol.asyncIterator]();
+    const { value } = await iterator.next();
+    await iterator.return?.();
+
+    expect(value).toEqual(
+      expect.objectContaining({
+        target: 'world',
+      }),
+    );
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0][0]).toBe('skipping undecodable event stream event');
+  });
+
+  it('fails eventStream when decoder callbacks throw non-decoding errors', async () => {
+    const encodedEvent = new TextEncoder().encode(
+      'event: hello\nid: 12345\ndata: {"target":"world"}\n\n',
+    ).buffer;
+
+    fetchMock.getOnce(
+      'http://example.com',
+      () =>
+        new Response(new Blob([encodedEvent]), {
+          headers: { 'content-type': MediaType.EventStream.toString() },
+        }),
+    );
+
+    const fetchRequestFactory = new FetchRequestFactory('http://example.com', {
+      logger: {},
+    });
+
+    const eventStream = fetchRequestFactory.eventStream(
+      { method: 'GET', pathTemplate: '' },
+      () => {
+        throw new TypeError('decoder callback failed');
+      },
+    );
+
+    const iterator = eventStream[Symbol.asyncIterator]();
+
+    await expect(iterator.next()).rejects.toThrow('decoder callback failed');
+    await iterator.return?.();
   });
 
   it('aborts response with an AbortSignal', async () => {
