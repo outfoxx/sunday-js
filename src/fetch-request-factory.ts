@@ -344,7 +344,11 @@ export class FetchRequestFactory implements RequestFactory {
         push(decodedEvent);
       }
       catch (err) {
-        fail(err);
+        this.logger?.warn?.('skipping undecodable event stream event', {
+          error: err,
+          event: event.type,
+          id: event.lastEventId,
+        });
       }
     };
 
