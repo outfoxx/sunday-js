@@ -27,15 +27,15 @@ import { Problem } from './problem.js';
 import {
   ExtEventSource,
   RequestAdapter,
-  RequestFactory,
+  Transport,
   RequestSpec,
-} from './request-factory.js';
-import { ResultResponse } from './result-response.js';
+} from './transport.js';
+import { OperationResponse } from './operation-response.js';
 import { SundayError } from './sunday-error.js';
 import { URLTemplate } from './url-template.js';
 import { errorToMessage } from './util/errors.js';
 
-export class FetchRequestFactory implements RequestFactory {
+export class FetchTransport implements Transport {
   public baseUrl: URLTemplate;
   public adapter?: RequestAdapter;
   public mediaTypeEncoders: MediaTypeEncoders;
@@ -70,7 +70,7 @@ export class FetchRequestFactory implements RequestFactory {
     this.problemTypes.set(typeStr, problemType);
   }
 
-  async request(
+  async transportRequest(
     requestSpec: RequestSpec<unknown>,
   ): Promise<Request> {
     const url = this.baseUrl.complete(
@@ -145,35 +145,32 @@ export class FetchRequestFactory implements RequestFactory {
     return (await this.adapter?.adapt(this, request)) ?? request;
   }
 
-  async response(
+  async transportResponse(
     request: Request | RequestSpec<unknown>,
     dataExpected?: boolean,
   ): Promise<Response> {
     const req =
       request instanceof Request
         ? request
-        : await this.request(request);
+        : await this.transportRequest(request);
     const response = await fetch(req);
     return await validate(response, dataExpected ?? false, this.problemTypes, this.logger);
   }
 
-  async resultResponse<B, R>(
+  async response<B, R>(
     requestSpec: RequestSpec<B>,
     resultType: SchemaLike<R>,
-  ): Promise<ResultResponse<R>>;
-  async resultResponse<B>(
+  ): Promise<OperationResponse<R>>;
+  async response<B>(
     requestSpec: RequestSpec<B>,
-  ): Promise<ResultResponse<void>>;
-  async resultResponse(
+  ): Promise<OperationResponse<void>>;
+  async response(
     request: RequestSpec<unknown>,
     responseType?: SchemaLike,
-  ): Promise<ResultResponse<unknown>> {
-    const response = await this.response(request, !!responseType);
+  ): Promise<OperationResponse<unknown>> {
+    const response = await this.transportResponse(request, !!responseType);
     if (!responseType) {
-      return {
-        result: undefined,
-        response,
-      };
+      return new OperationResponse(undefined, response);
     }
 
     try {
@@ -183,10 +180,7 @@ export class FetchRequestFactory implements RequestFactory {
       );
       const decoder = this.mediaTypeDecoders.find(contentType);
       const result = await decoder.decode(response, responseType);
-      return {
-        result,
-        response,
-      };
+      return new OperationResponse(result, response);
     }
     catch (error) {
       throw await SundayError.fromResponse(
@@ -207,7 +201,7 @@ export class FetchRequestFactory implements RequestFactory {
     request: RequestSpec<unknown>,
     responseType?: SchemaLike,
   ): Promise<unknown> {
-    const response = await this.response(request, !!responseType);
+    const response = await this.transportResponse(request, !!responseType);
 
     if (!responseType) {
       return undefined;
@@ -236,7 +230,7 @@ export class FetchRequestFactory implements RequestFactory {
       requestInit: RequestInit,
     ): Promise<Request> => {
       const eventSourceSpec = { ...requestSpec, pathTemplate: url };
-      const request = await this.request(eventSourceSpec);
+      const request = await this.transportRequest(eventSourceSpec);
       return new Request(request, {
         ...requestInit,
         headers: mergeHeaders(request.headers, requestInit.headers),

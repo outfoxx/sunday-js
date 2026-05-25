@@ -22,8 +22,8 @@ export {
   UnknownSchema,
   URLSchema,
 } from './schema-builtins.js';
-export * from './request-factory.js';
-export * from './fetch-request-factory.js';
+export * from './transport.js';
+export * from './fetch-transport.js';
 export * from './fetch-event-source.js';
 export * from './url-template.js';
 export * from './media-type.js';
@@ -42,7 +42,8 @@ export * from './logger.js';
 export * from './sunday-error.js';
 export * from './problem.js';
 export * from './date-time-types.js';
-export * from './result-response.js';
+export * from './operation-response.js';
+export * from './operation.js';
 export * from './request-adapters.js';
 
 // Select exports from util

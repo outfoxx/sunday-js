@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { RequestAdapter, RequestFactory } from './request-factory.js';
+import { RequestAdapter, Transport } from './transport.js';
 
 export abstract class HeaderTokenAuthorizingAdapter implements RequestAdapter {
   header = 'Authorization';
@@ -28,7 +28,7 @@ export abstract class HeaderTokenAuthorizingAdapter implements RequestAdapter {
   }
 
   abstract adapt(
-    requestFactory: RequestFactory,
+    transport: Transport,
     request: Request,
   ): Promise<Request>;
 }
@@ -39,7 +39,7 @@ export class StaticHeaderTokenAuthorizingAdapter extends HeaderTokenAuthorizingA
   }
 
   async adapt(
-    _requestFactory: RequestFactory,
+    _transport: Transport,
     request: Request,
   ): Promise<Request> {
     return this.applyToken(request, this.accessToken);
@@ -56,7 +56,7 @@ export class RefreshingHeaderTokenAuthorizingAdapter extends HeaderTokenAuthoriz
 
   constructor(
     private readonly refresh: (
-      requestFactory: RequestFactory,
+      transport: Transport,
     ) => Promise<TokenAuthorization>,
   ) {
     super();
@@ -70,11 +70,11 @@ export class RefreshingHeaderTokenAuthorizingAdapter extends HeaderTokenAuthoriz
   }
 
   async adapt(
-    requestFactory: RequestFactory,
+    transport: Transport,
     request: Request,
   ): Promise<Request> {
     if (!this.authorization || this.shouldRefresh()) {
-      this.authorization = await this.refresh(requestFactory);
+      this.authorization = await this.refresh(transport);
     }
     return this.applyToken(request, this.authorization.token);
   }

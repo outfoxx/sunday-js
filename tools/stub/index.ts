@@ -2,8 +2,8 @@ import { MediaType } from '../../src/media-type.js';
 import { nullifyProblem } from '../../src/util/nullify.js';
 import { Problem, ProblemWireSchema, createProblemCodec } from '../../src/problem.js';
 import { defineSchema } from '../../src/schema-runtime.js';
-import { RequestFactory } from '../../src/request-factory.js';
-import { ResultResponse } from '../../src/result-response.js';
+import { Transport } from '../../src/transport.js';
+import { OperationResponse } from '../../src/operation-response.js';
 import {
   SchemaLike,
   SchemaRuntime,
@@ -48,8 +48,8 @@ export {
   ProblemWireSchema,
   createProblemCodec,
   defineSchema,
-  RequestFactory,
-  ResultResponse,
+  Transport,
+  OperationResponse,
   SchemaLike,
   SchemaRuntime,
   URLTemplate,

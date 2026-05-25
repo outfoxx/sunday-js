@@ -15,12 +15,12 @@
 import { MediaType } from './media-type.js';
 import { TextMediaTypeDecoder } from './media-type-codecs/media-type-decoder.js';
 import { Problem } from './problem.js';
-import { ResultResponse } from './result-response.js';
+import { OperationResponse } from './operation-response.js';
 import { SchemaLike } from './schema-runtime.js';
 import { URLTemplate } from './url-template.js';
 import { Logger } from './logger.js';
 
-export interface RequestFactory {
+export interface Transport<NativeRequest = Request> {
   readonly baseUrl: URLTemplate;
 
   registerProblem(
@@ -28,28 +28,28 @@ export interface RequestFactory {
     problemType: SchemaLike<Problem>,
   ): void;
 
-  request(
+  transportRequest(
     requestSpec: RequestSpec<unknown>,
-  ): Promise<Request>;
+  ): Promise<NativeRequest>;
 
-  response(
-    request: Request,
+  transportResponse(
+    request: NativeRequest,
     dataExpected?: boolean,
   ): Promise<Response>;
+
+  transportResponse<B>(
+    requestSpec: RequestSpec<B>,
+    dataExpected?: boolean,
+  ): Promise<Response>;
+
+  response<B, R>(
+    requestSpec: RequestSpec<B>,
+    resultType: SchemaLike<R>,
+  ): Promise<OperationResponse<R>>;
 
   response<B>(
     requestSpec: RequestSpec<B>,
-    dataExpected?: boolean,
-  ): Promise<Response>;
-
-  resultResponse<B, R>(
-    requestSpec: RequestSpec<B>,
-    resultType: SchemaLike<R>,
-  ): Promise<ResultResponse<R>>;
-
-  resultResponse<B>(
-    requestSpec: RequestSpec<B>,
-  ): Promise<ResultResponse<void>>;
+  ): Promise<OperationResponse<void>>;
 
   result<B, R>(requestSpec: RequestSpec<B>, resultType: SchemaLike<R>): Promise<R>;
 
@@ -96,5 +96,5 @@ export interface RequestSpec<B> {
 }
 
 export interface RequestAdapter {
-  adapt(requestFactory: RequestFactory, request: Request): Promise<Request>;
+  adapt(transport: Transport, request: Request): Promise<Request>;
 }

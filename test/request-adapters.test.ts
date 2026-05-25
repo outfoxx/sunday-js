@@ -15,7 +15,7 @@
 import { describe, it, expect, setSystemTime } from 'bun:test';
 import {
   RefreshingHeaderTokenAuthorizingAdapter,
-  RequestFactory,
+  Transport,
   StaticHeaderTokenAuthorizingAdapter,
 } from '../src';
 
@@ -35,14 +35,14 @@ describe('Request Adapters', () => {
         };
 
         const request = new Request('https://example.com');
-        const requestFactory = {} as RequestFactory;
+        const transport = {} as Transport;
         const adapter = new RefreshingHeaderTokenAuthorizingAdapter(refresher);
 
         expect(adapter.shouldRefresh()).toBe(true);
 
         const expectedRequest = new Request('https://example.com');
         expectedRequest.headers.set('Authorization', 'Bearer token-1');
-        const adaptedRequest = await adapter.adapt(requestFactory, request);
+        const adaptedRequest = await adapter.adapt(transport, request);
         expect(adaptedRequest).toEqual(expectedRequest);
 
         expect(adapter.shouldRefresh()).toBe(false);
@@ -55,7 +55,7 @@ describe('Request Adapters', () => {
 
         const expectedRequest2 = new Request('https://example.com');
         expectedRequest2.headers.set('Authorization', 'Bearer token-2');
-        const adaptedRequest2 = await adapter.adapt(requestFactory, request);
+        const adaptedRequest2 = await adapter.adapt(transport, request);
         expect(adaptedRequest2).toEqual(expectedRequest2);
 
         expect(adapter.shouldRefresh()).toBe(false);
@@ -69,12 +69,12 @@ describe('Request Adapters', () => {
   describe('StaticHeaderTokenAuthorizingAdapter', () => {
     it('should apply token', async () => {
       const request = new Request('https://example.com');
-      const requestFactory = {} as RequestFactory;
+      const transport = {} as Transport;
       const adapter = new StaticHeaderTokenAuthorizingAdapter('token-1');
 
       const expectedRequest = new Request('https://example.com');
       expectedRequest.headers.set('Authorization', 'Bearer token-1');
-      const adaptedRequest = await adapter.adapt(requestFactory, request);
+      const adaptedRequest = await adapter.adapt(transport, request);
       expect(adaptedRequest).toEqual(expectedRequest);
     });
   });

@@ -16,7 +16,7 @@ import { beforeEach, describe, it, expect } from 'bun:test';
 import fetchMock from 'fetch-mock';
 import { z } from 'zod';
 import {
-  FetchRequestFactory,
+  FetchTransport,
   MediaType,
   nullifyNotFound,
   nullifyProblem,
@@ -63,10 +63,10 @@ describe('Async Utils', () => {
       headers: { 'content-type': MediaType.Problem.value },
     });
 
-    const fetchRequestFactory = new FetchRequestFactory('http://example.com');
+    const fetchTransport = new FetchTransport('http://example.com');
 
     expect(
-      nullifyNotFound(fetchRequestFactory.result({ method: 'GET', pathTemplate: '' })),
+      nullifyNotFound(fetchTransport.result({ method: 'GET', pathTemplate: '' })),
     ).resolves.toBeNull();
   });
 
@@ -77,11 +77,11 @@ describe('Async Utils', () => {
       headers: { 'content-type': MediaType.Problem.value },
     });
 
-    const fetchRequestFactory = new FetchRequestFactory('http://example.com');
+    const fetchTransport = new FetchTransport('http://example.com');
 
     expect(
       nullifyProblem(
-        fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }),
+        fetchTransport.result({ method: 'GET', pathTemplate: '' }),
         [],
         [z.instanceof(TestProblem)],
       ),
@@ -95,11 +95,11 @@ describe('Async Utils', () => {
       headers: { 'content-type': MediaType.Problem.value },
     });
 
-    const fetchRequestFactory = new FetchRequestFactory('http://example.com');
+    const fetchTransport = new FetchTransport('http://example.com');
 
     expect(
       nullifyProblem(
-        fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }),
+        fetchTransport.result({ method: 'GET', pathTemplate: '' }),
         [404],
         [],
       ),
@@ -111,11 +111,11 @@ describe('Async Utils', () => {
       throws: Problem.fromStatus(400, 'Bad Request'),
     });
 
-    const fetchRequestFactory = new FetchRequestFactory('http://example.com');
+    const fetchTransport = new FetchTransport('http://example.com');
 
     expect(
       nullifyNotFound(
-        fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }),
+        fetchTransport.result({ method: 'GET', pathTemplate: '' }),
       ),
     ).rejects.toBeInstanceOf(Problem);
   });
@@ -125,11 +125,11 @@ describe('Async Utils', () => {
       throws: Error('Failed to send request'),
     });
 
-    const fetchRequestFactory = new FetchRequestFactory('http://example.com');
+    const fetchTransport = new FetchTransport('http://example.com');
 
     expect(
       nullifyNotFound(
-        fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }),
+        fetchTransport.result({ method: 'GET', pathTemplate: '' }),
       ),
     ).rejects.toThrow(/Failed to send request/i);
   });
@@ -139,11 +139,11 @@ describe('Async Utils', () => {
       throws: new AnotherProblem(),
     });
 
-    const fetchRequestFactory = new FetchRequestFactory('http://example.com');
+    const fetchTransport = new FetchTransport('http://example.com');
 
     expect(
       nullifyProblem(
-        fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }),
+        fetchTransport.result({ method: 'GET', pathTemplate: '' }),
         [],
         [z.instanceof(TestProblem)],
       ),
@@ -155,11 +155,11 @@ describe('Async Utils', () => {
       throws: Problem.fromStatus(400, 'Bad Request'),
     });
 
-    const fetchRequestFactory = new FetchRequestFactory('http://example.com');
+    const fetchTransport = new FetchTransport('http://example.com');
 
     expect(
       nullifyProblem(
-        fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }),
+        fetchTransport.result({ method: 'GET', pathTemplate: '' }),
         [404],
         [],
       ),
@@ -171,11 +171,11 @@ describe('Async Utils', () => {
       throws: Error('Failed to send request'),
     });
 
-    const fetchRequestFactory = new FetchRequestFactory('http://example.com');
+    const fetchTransport = new FetchTransport('http://example.com');
 
     expect(
       nullifyProblem(
-        fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }),
+        fetchTransport.result({ method: 'GET', pathTemplate: '' }),
         [405],
         [z.instanceof(TestProblem)],
       ),
@@ -189,11 +189,11 @@ describe('Async Utils', () => {
       headers: { 'content-type': MediaType.Problem.value },
     });
 
-    const fetchRequestFactory = new FetchRequestFactory('http://example.com');
+    const fetchTransport = new FetchTransport('http://example.com');
 
     expect(
       nullifyProblem(
-        fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }),
+        fetchTransport.result({ method: 'GET', pathTemplate: '' }),
         [],
         [(problem) => problem.type.toString() === TestProblem.TYPE],
       ),

@@ -38,10 +38,25 @@ export type SchemaDef<S extends AnySchema = AnySchema> = {
   readonly [SchemaDefType]: true;
 };
 
-export type SchemaLike<T = unknown> = z.ZodType<T> | SchemaDef<z.ZodType<T>>;
+/**
+ * A concrete Zod schema or deferred schema definition.
+ */
+export type SchemaLike<Output = unknown, Input = unknown> =
+  | z.ZodType<Output, Input>
+  | SchemaDef<z.ZodType<Output, Input>>;
 
 export type ResolvedSchema<S> =
-  S extends SchemaDef<infer TSchema> ? TSchema : S;
+  S extends SchemaDef<infer TSchema> ? TSchema : S extends AnySchema ? S : never;
+
+/**
+ * The wire/input type accepted by a schema during decoding.
+ */
+export type SchemaInput<S extends SchemaLike> = z.input<ResolvedSchema<S>>;
+
+/**
+ * The decoded/application type produced by a schema.
+ */
+export type SchemaOutput<S extends SchemaLike> = z.output<ResolvedSchema<S>>;
 
 export function isSchema(value: unknown): value is z.ZodType {
   const rec = value as Record<string, unknown>;
