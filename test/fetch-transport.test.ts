@@ -17,7 +17,7 @@ import fetchMock from 'fetch-mock';
 import { z } from 'zod';
 import {
   createProblemCodec,
-  FetchRequestFactory,
+  FetchTransport,
   MediaType,
   MediaTypeDecoders,
   MediaTypeEncoders,
@@ -56,12 +56,12 @@ const TestSetSchema = z.codec(
   },
 );
 
-describe('FetchRequestFactory', () => {
-  const fetchRequestFactory = new FetchRequestFactory('http://example.com');
+describe('FetchTransport', () => {
+  const fetchTransport = new FetchTransport('http://example.com');
 
   beforeEach(() => {
     fetchMock.hardReset().mockGlobal();
-    fetchRequestFactory.problemTypes.clear();
+    fetchTransport.problemTypes.clear();
   });
 
   class TestProblem extends Problem {
@@ -122,7 +122,7 @@ describe('FetchRequestFactory', () => {
     const specialEncoders = new MediaTypeEncoders.Builder().build();
     const quietLogger = {};
 
-    const fac = new FetchRequestFactory('https://example.com', {
+    const fac = new FetchTransport('https://example.com', {
       mediaTypeDecoders: specialDecoders,
       mediaTypeEncoders: specialEncoders,
       logger: quietLogger,
@@ -135,7 +135,7 @@ describe('FetchRequestFactory', () => {
 
   it('replaces path template parameters', async () => {
     expect(
-      fetchRequestFactory.request({
+      fetchTransport.transportRequest({
                                     method: 'GET',
                                     pathTemplate: '/api/{id}/contents',
                                     pathParameters: { id: '12345' },
@@ -147,7 +147,7 @@ describe('FetchRequestFactory', () => {
 
   it('adds encoded query parameters', async () => {
     expect(
-      fetchRequestFactory.request({
+      fetchTransport.transportRequest({
                                     method: 'GET',
                                     pathTemplate: '/api/{id}/contents',
                                     pathParameters: { id: '12345' },
@@ -166,12 +166,12 @@ describe('FetchRequestFactory', () => {
   it('fails when no query parameter encoder is registered', async () => {
     const specialEncoders = new MediaTypeEncoders.Builder().build();
 
-    const fetchRequestFactory = new FetchRequestFactory('https://example.com', {
+    const fetchTransport = new FetchTransport('https://example.com', {
       mediaTypeEncoders: specialEncoders,
     });
 
     expect(
-      fetchRequestFactory.request({
+      fetchTransport.transportRequest({
                                     method: 'GET',
                                     pathTemplate: '/api/{id}/contents',
                                     pathParameters: { id: '12345' },
@@ -183,7 +183,7 @@ describe('FetchRequestFactory', () => {
   });
 
   it('attaches encoded body based on content-type', async () => {
-    const request: Request = await fetchRequestFactory.request({
+    const request: Request = await fetchTransport.transportRequest({
                                                                  method: 'POST',
                                                                  pathTemplate: '/api/contents',
                                                                  body: { a: 5 },
@@ -196,7 +196,7 @@ describe('FetchRequestFactory', () => {
   });
 
   it('sets content-type when body is non-existent', async () => {
-    const request: Request = await fetchRequestFactory.request({
+    const request: Request = await fetchTransport.transportRequest({
                                                                  method: 'POST',
                                                                  pathTemplate: '/api/contents',
                                                                  contentTypes: [MediaType.JSON],
@@ -211,7 +211,7 @@ describe('FetchRequestFactory', () => {
     });
 
     expect(
-      fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }, TestSchema),
+      fetchTransport.result({ method: 'GET', pathTemplate: '' }, TestSchema),
     ).resolves.toEqual({ test: 'a', sub: { value: 5 } });
   });
 
@@ -222,7 +222,7 @@ describe('FetchRequestFactory', () => {
     });
 
     expect(
-      fetchRequestFactory.result(
+      fetchTransport.result(
         { method: 'GET', pathTemplate: '' },
         TestArraySchema,
       ),
@@ -236,79 +236,78 @@ describe('FetchRequestFactory', () => {
     });
 
     expect(
-      fetchRequestFactory.result(
+      fetchTransport.result(
         { method: 'GET', pathTemplate: '' },
         TestSetSchema,
       ),
     ).resolves.toEqual(new Set([{ test: 'a', sub: { value: 5 } }]));
   });
 
-  it('fetches typed result responses', async () => {
+  it('fetches typed operation responses', async () => {
+    fetchMock.getOnce('http://example.com', {
+      body: '{"test":"a","sub":{"value":5}}',
+      headers: { 'content-type': MediaType.JSON, 'x-trace-id': 'abc123' },
+    });
+
+    const response = await fetchTransport.response(
+      { method: 'GET', pathTemplate: '' },
+      TestSchema,
+    );
+
+    expect(response.result).toEqual({ test: 'a', sub: { value: 5 } });
+    expect(response.transportResponse).toEqual(expect.anything());
+    expect(response.contentType?.equals(MediaType.JSON)).toBeTrue();
+    expect(response.getHeader('x-trace-id')).toBe('abc123');
+    expect(response.getHeaders('x-trace-id')).toEqual(['abc123']);
+  });
+
+  it('fetches typed void operation responses', async () => {
     fetchMock.getOnce('http://example.com', {
       body: '{"test":"a","sub":{"value":5}}',
       headers: { 'content-type': MediaType.JSON },
     });
 
     expect(
-      fetchRequestFactory.resultResponse(
-        { method: 'GET', pathTemplate: '' },
-        TestSchema,
-      ),
+      fetchTransport.response({ method: 'GET', pathTemplate: '' }),
     ).resolves.toEqual(
-      expect.objectContaining({
-                                result: { test: 'a', sub: { value: 5 } },
-                                response: expect.anything(),
-                              }),
+      expect.objectContaining({ result: undefined, transportResponse: expect.anything() }),
     );
   });
 
-  it('fetches typed void result responses', async () => {
-    fetchMock.getOnce('http://example.com', {
-      body: '{"test":"a","sub":{"value":5}}',
-      headers: { 'content-type': MediaType.JSON },
-    });
-
-    expect(
-      fetchRequestFactory.resultResponse({ method: 'GET', pathTemplate: '' }),
-    ).resolves.toEqual(
-      expect.objectContaining({ result: undefined, response: expect.anything() }),
-    );
-  });
-
-  it('fetches typed array of result response', async () => {
+  it('fetches typed array of operation response', async () => {
     fetchMock.getOnce('http://example.com', {
       body: '[{"test":"a","sub":{"value":5}}]',
       headers: { 'content-type': MediaType.JSON },
     });
 
     expect(
-      fetchRequestFactory.resultResponse(
+      fetchTransport.response(
         { method: 'GET', pathTemplate: '' },
         TestArraySchema,
       ),
     ).resolves.toEqual(
       expect.objectContaining({
                                 result: [{ test: 'a', sub: { value: 5 } }],
-                                response: expect.anything(),
+                                transportResponse: expect.anything(),
                               }),
     );
   });
 
-  it('fetches typed set of result responses', async () => {
+  it('fetches typed set of operation responses', async () => {
     fetchMock.getOnce('http://example.com', {
       body: '[{"test":"a","sub":{"value":5}}]',
       headers: { 'content-type': MediaType.JSON },
     });
 
     expect(
-      fetchRequestFactory.resultResponse(
+      fetchTransport.response(
         { method: 'GET', pathTemplate: '' },
         TestSetSchema,
       ),
     ).resolves.toEqual(
       expect.objectContaining({
                                 result: new Set([{ test: 'a', sub: { value: 5 } }]),
-                                response: expect.anything(),
+                                transportResponse: expect.anything(),
                               }),
     );
   });
@@ -330,11 +329,11 @@ describe('FetchRequestFactory', () => {
       () => new Promise((resolve) => setTimeout(resolve, 5000)),
     );
 
-    const fetchRequestFactory = new FetchRequestFactory('http://example.com', {
+    const fetchTransport = new FetchTransport('http://example.com', {
       logger: {},
     });
 
-    const eventSource = fetchRequestFactory.eventSource({
+    const eventSource = fetchTransport.eventSource({
                                                           method: 'GET',
                                                           pathTemplate: '',
                                                         });
@@ -374,11 +373,11 @@ describe('FetchRequestFactory', () => {
       () => new Promise((resolve) => setTimeout(resolve, 5000)),
     );
 
-    const fetchRequestFactory = new FetchRequestFactory('http://example.com', {
+    const fetchTransport = new FetchTransport('http://example.com', {
       logger: {},
     });
 
-    const eventStream = fetchRequestFactory.eventStream(
+    const eventStream = fetchTransport.eventStream(
       { method: 'GET', pathTemplate: '' },
       (decoder, _event, _id, data) => decoder.decodeText(data, UnknownSchema),
     );
@@ -415,13 +414,13 @@ describe('FetchRequestFactory', () => {
     );
 
     const warnings: unknown[][] = [];
-    const fetchRequestFactory = new FetchRequestFactory('http://example.com', {
+    const fetchTransport = new FetchTransport('http://example.com', {
       logger: {
         warn: (...data) => warnings.push(data),
       },
     });
 
-    const eventStream = fetchRequestFactory.eventStream(
+    const eventStream = fetchTransport.eventStream(
       { method: 'GET', pathTemplate: '' },
       (decoder, _event, _id, data) => decoder.decodeText(data, EventSchema),
     );
@@ -452,11 +451,11 @@ describe('FetchRequestFactory', () => {
         }),
     );
 
-    const fetchRequestFactory = new FetchRequestFactory('http://example.com', {
+    const fetchTransport = new FetchTransport('http://example.com', {
       logger: {},
     });
 
-    const eventStream = fetchRequestFactory.eventStream(
+    const eventStream = fetchTransport.eventStream(
       { method: 'GET', pathTemplate: '' },
       () => {
         throw new TypeError('decoder callback failed');
@@ -475,7 +474,7 @@ describe('FetchRequestFactory', () => {
     );
 
     const abort = new AbortController();
-    const responsePromise = fetchRequestFactory.response(
+    const responsePromise = fetchTransport.transportResponse(
       { method: 'GET', pathTemplate: '', signal: abort.signal },
       true,
     );
@@ -498,7 +497,7 @@ describe('FetchRequestFactory', () => {
     );
 
     const abort = new AbortController();
-    const resultPromise = fetchRequestFactory.result(
+    const resultPromise = fetchTransport.result(
       { method: 'GET', pathTemplate: '', signal: abort.signal },
       UnknownSchema,
     );
@@ -519,7 +518,7 @@ describe('FetchRequestFactory', () => {
     );
 
     const abort = new AbortController();
-    const eventStream = fetchRequestFactory.eventStream(
+    const eventStream = fetchTransport.eventStream(
       { method: 'GET', pathTemplate: '', signal: abort.signal },
       (decoder, _event, _id, data) => decoder.decodeText(data, UnknownSchema),
     );
@@ -539,7 +538,7 @@ describe('FetchRequestFactory', () => {
     );
 
     const abort = new AbortController();
-    const eventSource = fetchRequestFactory.eventSource({
+    const eventSource = fetchTransport.eventSource({
       method: 'GET',
       pathTemplate: '',
       signal: abort.signal,
@@ -576,10 +575,10 @@ describe('FetchRequestFactory', () => {
       },
     );
 
-    const fetchRequestFactory = new FetchRequestFactory('http://example.com', {
+    const fetchTransport = new FetchTransport('http://example.com', {
       logger: {},
       adapter: {
-        adapt: async (_requestFactory, request) => {
+        adapt: async (_transport, request) => {
           resolveSignal(request.signal ?? undefined);
           return request;
         },
@@ -587,7 +586,7 @@ describe('FetchRequestFactory', () => {
     });
 
     const abort = new AbortController();
-    const eventSource = fetchRequestFactory.eventSource({
+    const eventSource = fetchTransport.eventSource({
       method: 'GET',
       pathTemplate: '',
       signal: abort.signal,
@@ -617,7 +616,7 @@ describe('FetchRequestFactory', () => {
   });
 
   it('throws typed problems for registered problem types', async () => {
-    fetchRequestFactory.registerProblem(TestProblem.TYPE, TestProblemSchema);
+    fetchTransport.registerProblem(TestProblem.TYPE, TestProblemSchema);
 
     const problemJSON = JSON.stringify({
                                          type: TestProblem.TYPE,
@@ -634,7 +633,7 @@ describe('FetchRequestFactory', () => {
     });
 
     expect(
-      fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }),
+      fetchTransport.result({ method: 'GET', pathTemplate: '' }),
     ).rejects.toBeInstanceOf(TestProblem);
   });
 
@@ -645,7 +644,7 @@ describe('FetchRequestFactory', () => {
         detail: z.string(),
       }),
     );
-    fetchRequestFactory.registerProblem(TestProblem.TYPE, TestProblemSchema);
+    fetchTransport.registerProblem(TestProblem.TYPE, TestProblemSchema);
 
     const problemJSON = JSON.stringify({
       type: TestProblem.TYPE,
@@ -662,7 +661,7 @@ describe('FetchRequestFactory', () => {
     });
 
     expect(
-      fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }),
+      fetchTransport.result({ method: 'GET', pathTemplate: '' }),
     ).rejects.toBeInstanceOf(TestProblem);
   });
 
@@ -684,7 +683,7 @@ describe('FetchRequestFactory', () => {
     });
 
     expect(
-      fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }),
+      fetchTransport.result({ method: 'GET', pathTemplate: '' }),
     ).rejects.toBeInstanceOf(Problem);
   });
 
@@ -695,7 +694,7 @@ describe('FetchRequestFactory', () => {
       headers: { 'content-type': MediaType.HTML.value },
     });
 
-    expect(fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }))
+    expect(fetchTransport.result({ method: 'GET', pathTemplate: '' }))
       .rejects
       .toThrow(Problem.fromStatus(400, 'Bad Request'));
   });
@@ -711,7 +710,7 @@ describe('FetchRequestFactory', () => {
     );
 
     expect(
-      fetchRequestFactory.result({ method: 'GET', pathTemplate: '' }, StringSchema),
+      fetchTransport.result({ method: 'GET', pathTemplate: '' }, StringSchema),
     ).rejects.toBeInstanceOf(SundayError);
   });
 });

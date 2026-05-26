@@ -16,7 +16,7 @@ import { beforeEach, describe, it, expect } from 'bun:test';
 import fetchMock from 'fetch-mock';
 import { z } from 'zod';
 import {
-  FetchRequestFactory,
+  FetchTransport,
   MediaType,
   Problem,
   defineSchema,
@@ -55,9 +55,9 @@ describe('Fetch API Utilities', () => {
       }),
     );
 
-    const requestFactory = new FetchRequestFactory('http://example.com');
+    const transport = new FetchTransport('http://example.com');
     expect(
-      requestFactory.response({ method: 'GET', pathTemplate: '/test' }, true),
+      transport.transportResponse({ method: 'GET', pathTemplate: '/test' }, true),
     ).rejects.toThrow(SundayError);
   });
 
@@ -71,9 +71,9 @@ describe('Fetch API Utilities', () => {
       }),
     );
 
-    const requestFactory = new FetchRequestFactory('http://example.com');
+    const transport = new FetchTransport('http://example.com');
     expect(
-      requestFactory.response({ method: 'GET', pathTemplate: '/test' }, true),
+      transport.transportResponse({ method: 'GET', pathTemplate: '/test' }, true),
     ).rejects.toThrow(Problem);
   });
 
@@ -94,9 +94,9 @@ describe('Fetch API Utilities', () => {
       }),
     );
 
-    const requestFactory = new FetchRequestFactory('http://example.com');
+    const transport = new FetchTransport('http://example.com');
     expect(
-      requestFactory.response({ method: 'GET', pathTemplate: '/test' }, true),
+      transport.transportResponse({ method: 'GET', pathTemplate: '/test' }, true),
     ).rejects.toThrow(Problem);
   });
 
@@ -115,11 +115,11 @@ describe('Fetch API Utilities', () => {
       }),
     );
 
-    const requestFactory = new FetchRequestFactory('http://example.com');
+    const transport = new FetchTransport('http://example.com');
 
     let thrownProblem: Problem | undefined;
     try {
-      await requestFactory.response({ method: 'GET', pathTemplate: '/test' }, true);
+      await transport.transportResponse({ method: 'GET', pathTemplate: '/test' }, true);
     }
     catch (error) {
       expect(error).toBeInstanceOf(Problem);
@@ -149,9 +149,9 @@ describe('Fetch API Utilities', () => {
       }),
     );
 
-    const requestFactory = new FetchRequestFactory('http://example.com');
+    const transport = new FetchTransport('http://example.com');
 
-    expect(requestFactory.response({ method: 'GET', pathTemplate: '/test' }, true))
+    expect(transport.transportResponse({ method: 'GET', pathTemplate: '/test' }, true))
       .rejects.toThrowError(SundayError);
   });
 
@@ -170,7 +170,7 @@ describe('Fetch API Utilities', () => {
       }),
     );
 
-    const requestFactory = new FetchRequestFactory('http://example.com', {
+    const transport = new FetchTransport('http://example.com', {
       logger: {
         warn: (...data: unknown[]) => warnings.push(data),
       },
@@ -178,7 +178,7 @@ describe('Fetch API Utilities', () => {
 
     let thrownProblem: Problem | undefined;
     try {
-      await requestFactory.response({ method: 'GET', pathTemplate: '/test' }, true);
+      await transport.transportResponse({ method: 'GET', pathTemplate: '/test' }, true);
     }
     catch (error) {
       expect(error).toBeInstanceOf(Problem);
@@ -212,7 +212,7 @@ describe('Fetch API Utilities', () => {
       }),
     );
 
-    const requestFactory = new FetchRequestFactory('http://example.com', {
+    const transport = new FetchTransport('http://example.com', {
       logger: {
         warn: (...data: unknown[]) => warnings.push(data),
       },
@@ -220,7 +220,7 @@ describe('Fetch API Utilities', () => {
 
     let thrownProblem: Problem | undefined;
     try {
-      await requestFactory.response({ method: 'GET', pathTemplate: '/test' }, true);
+      await transport.transportResponse({ method: 'GET', pathTemplate: '/test' }, true);
     }
     catch (error) {
       expect(error).toBeInstanceOf(Problem);
@@ -253,7 +253,7 @@ describe('Fetch API Utilities', () => {
       }),
     );
 
-    const requestFactory = new FetchRequestFactory('http://example.com', {
+    const transport = new FetchTransport('http://example.com', {
       logger: {
         warn: (...data: unknown[]) => warnings.push(data),
       },
@@ -261,7 +261,7 @@ describe('Fetch API Utilities', () => {
 
     let thrownProblem: Problem | undefined;
     try {
-      await requestFactory.response({ method: 'GET', pathTemplate: '/test' }, true);
+      await transport.transportResponse({ method: 'GET', pathTemplate: '/test' }, true);
     }
     catch (error) {
       expect(error).toBeInstanceOf(Problem);
@@ -294,10 +294,10 @@ describe('Fetch API Utilities', () => {
       }),
     );
 
-    const requestFactory = new FetchRequestFactory('http://example.com');
-    requestFactory.registerProblem(RegisteredProblem.TYPE, RegisteredProblemSchema);
+    const transport = new FetchTransport('http://example.com');
+    transport.registerProblem(RegisteredProblem.TYPE, RegisteredProblemSchema);
     expect(
-      requestFactory.response({ method: 'GET', pathTemplate: '/test' }, true),
+      transport.transportResponse({ method: 'GET', pathTemplate: '/test' }, true),
     ).rejects.toBeInstanceOf(RegisteredProblem);
   });
 
@@ -316,16 +316,16 @@ describe('Fetch API Utilities', () => {
       }),
     );
 
-    const requestFactory = new FetchRequestFactory('http://example.com', {
+    const transport = new FetchTransport('http://example.com', {
       logger: {
         warn: (...data: unknown[]) => warnings.push(data),
       },
     });
-    requestFactory.registerProblem(RegisteredProblem.TYPE, RegisteredProblemSchema);
+    transport.registerProblem(RegisteredProblem.TYPE, RegisteredProblemSchema);
 
     let thrownProblem: RegisteredProblem | undefined;
     try {
-      await requestFactory.response({ method: 'GET', pathTemplate: '/test' }, true);
+      await transport.transportResponse({ method: 'GET', pathTemplate: '/test' }, true);
     }
     catch (error) {
       expect(error).toBeInstanceOf(RegisteredProblem);
@@ -347,10 +347,10 @@ describe('Fetch API Utilities', () => {
       () => new Promise((resolve) => setTimeout(resolve, 5000)),
     );
 
-    const requestFactory = new FetchRequestFactory('http://example.com');
+    const transport = new FetchTransport('http://example.com');
     const controller = new AbortController();
 
-    const responsePromise = requestFactory.response(
+    const responsePromise = transport.transportResponse(
       { method: 'GET', pathTemplate: '/test', signal: controller.signal },
       true,
     );

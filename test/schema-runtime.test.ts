@@ -25,7 +25,10 @@ import {
   defineSchema,
   InstantSchema,
   NumericDateDecoding,
+  SchemaDef,
+  SchemaInput,
   SchemaLike,
+  SchemaOutput,
   SchemaPolicy,
   URLSchema,
 } from '../src';
@@ -171,5 +174,123 @@ describe('SchemaRuntime', () => {
       value: 'root',
       child: { value: 'leaf' },
     });
+  });
+
+  it('derives decoded and wire types from schema definitions', () => {
+    const StringDateSchema = z.codec(z.string(), z.date(), {
+      decode: (value) => new Date(value),
+      encode: (value) => value.toISOString(),
+    });
+
+    const EventSchema = defineSchema(
+      () =>
+        z.object({
+          id: z.string(),
+          occurredAt: StringDateSchema,
+        }),
+      { debugName: 'EventSchema' },
+    );
+
+    type Event = SchemaOutput<typeof EventSchema>;
+    type EventWire = SchemaInput<typeof EventSchema>;
+
+    const decodedValue: Event = {
+      id: 'event-1',
+      occurredAt: new Date('2024-01-02T03:04:05.000Z'),
+    };
+    const wireValue: EventWire = {
+      id: 'event-1',
+      occurredAt: '2024-01-02T03:04:05.000Z',
+    };
+
+    // @ts-expect-error decoded values use Date, not the wire string.
+    const _invalidDecodedValue: Event = wireValue;
+    // @ts-expect-error wire values use string, not the decoded Date.
+    const _invalidWireValue: EventWire = decodedValue;
+
+    const schema = createSchemaRuntime(jsonPolicy).resolveSchema(EventSchema);
+
+    expect(schema.decode(wireValue)).toEqual(decodedValue);
+    expect(schema.encode(decodedValue)).toEqual(wireValue);
+  });
+
+  it('supports zod-style schema values and model types with the same name', () => {
+    const SomeType = defineSchema(
+      () =>
+        z.object({
+          id: z.string(),
+          count: z.number(),
+        }),
+      { debugName: 'SomeType' },
+    );
+    type SomeType = SchemaOutput<typeof SomeType>;
+
+    const decodedValue: SomeType = {
+      id: 'some-id',
+      count: 3,
+    };
+
+    const _invalidDecodedValue: SomeType = {
+      id: 'some-id',
+      // @ts-expect-error derived types still reject incompatible property types.
+      count: '3',
+    };
+
+    const schema = createSchemaRuntime(jsonPolicy).resolveSchema(SomeType);
+
+    expect(schema.decode(decodedValue)).toEqual(decodedValue);
+    expect(schema.encode(decodedValue)).toEqual(decodedValue);
+  });
+
+  it('derives recursive decoded and wire types from schema definitions', () => {
+    type Node = {
+      value: Date;
+      child?: Node;
+    };
+
+    type NodeWire = {
+      value: string;
+      child?: NodeWire;
+    };
+
+    const StringDateSchema = z.codec(z.string(), z.date(), {
+      decode: (value) => new Date(value),
+      encode: (value) => value.toISOString(),
+    });
+
+    const NodeSchema: SchemaDef<z.ZodType<Node, NodeWire>> = defineSchema(
+      (runtime) =>
+        z.object({
+          value: StringDateSchema,
+          child: z.lazy(() => runtime.resolveSchema(NodeSchema)).optional(),
+        }) as z.ZodType<Node, NodeWire>,
+      { debugName: 'TypedNodeSchema' },
+    );
+
+    type DecodedNode = SchemaOutput<typeof NodeSchema>;
+    type WireNode = SchemaInput<typeof NodeSchema>;
+
+    const decodedValue: DecodedNode = {
+      value: new Date('2024-01-02T03:04:05.000Z'),
+      child: {
+        value: new Date('2024-01-03T03:04:05.000Z'),
+      },
+    };
+    const wireValue: WireNode = {
+      value: '2024-01-02T03:04:05.000Z',
+      child: {
+        value: '2024-01-03T03:04:05.000Z',
+      },
+    };
+
+    // @ts-expect-error recursive decoded values use Date at every level.
+    const _invalidDecodedNode: DecodedNode = wireValue;
+    // @ts-expect-error recursive wire values use string at every level.
+    const _invalidWireNode: WireNode = decodedValue;
+
+    const schema = createSchemaRuntime(jsonPolicy).resolveSchema(NodeSchema);
+
+    expect(schema.decode(wireValue)).toEqual(decodedValue);
+    expect(schema.encode(decodedValue)).toEqual(wireValue);
   });
 });

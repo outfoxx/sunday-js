@@ -16,7 +16,7 @@ import { EventInfo, EventParser } from './event-parser.js';
 import { validate } from './fetch.js';
 import { levelLogger, Logger, LogLevel } from './logger.js';
 import { MediaType } from './media-type.js';
-import { ExtEventSource } from './request-factory.js';
+import { ExtEventSource } from './transport.js';
 import { unknownSet } from './util/unknowns.js';
 
 export interface FetchEventSource {

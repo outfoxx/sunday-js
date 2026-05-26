@@ -16,7 +16,7 @@ import { beforeEach, describe, expect, it } from 'bun:test';
 import fetchMock from 'fetch-mock';
 import { z } from 'zod';
 import {
-  FetchRequestFactory,
+  FetchTransport,
   MediaType,
 } from '../src';
 import { subscribe } from '../src/util/async-iterables';
@@ -272,7 +272,7 @@ describe('subscribe to async iterable', () => {
     expect(finalized).toBeTrue();
   });
 
-  it('consumes FetchRequestFactory eventStream and unsubscribes cleanly', async () => {
+  it('consumes FetchTransport eventStream and unsubscribes cleanly', async () => {
     const encodedEvent = new TextEncoder().encode(
       'event: hello\nid: 12345\ndata: {"target":"world"}\n\n',
     ).buffer;
@@ -289,11 +289,11 @@ describe('subscribe to async iterable', () => {
       () => new Promise((resolve) => setTimeout(resolve, 5000)),
     );
 
-    const fetchRequestFactory = new FetchRequestFactory('http://example.com', {
+    const fetchTransport = new FetchTransport('http://example.com', {
       logger: {},
     });
 
-    const stream = fetchRequestFactory.eventStream(
+    const stream = fetchTransport.eventStream(
       { method: 'GET', pathTemplate: '' },
       (decoder, _event, _id, data) => decoder.decodeText(data, z.unknown()),
     );
