@@ -15,8 +15,7 @@
 import { Transport, RequestSpec } from './transport.js';
 import { OperationResponse } from './operation-response.js';
 import { SchemaLike } from './schema-runtime.js';
-import { nullifyProblem } from './util/nullify.js';
-import type { ProblemMatcher } from './util/nullify.js';
+import { nullifyProblem, type ProblemMatcher } from './util/nullify.js';
 
 /** Extracts the native request type from a transport. */
 export type TransportRequest<Factory> =
@@ -80,6 +79,8 @@ export interface NullableOperation<
   readonly nullify: NullifySpec;
 
   executeOrNull(options?: ExecuteOptions): Promise<ResponseBody | null>;
+
+  responseOrNull(options?: ExecuteOptions): Promise<OperationResponse<ResponseBody> | null>;
 }
 
 /** Creates an operation with a decoded response body. */
@@ -180,6 +181,14 @@ class TransportNullableOperation<RequestBody, ResponseBody, Factory extends Tran
   async executeOrNull(options?: ExecuteOptions): Promise<ResponseBody | null> {
     return nullifyProblem(
       this.operation.execute(options),
+      [...this.nullify.statuses],
+      [...this.nullify.problemTypes],
+    );
+  }
+
+  async responseOrNull(options?: ExecuteOptions): Promise<OperationResponse<ResponseBody> | null> {
+    return nullifyProblem(
+      this.operation.response(options),
       [...this.nullify.statuses],
       [...this.nullify.problemTypes],
     );

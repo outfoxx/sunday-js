@@ -14,6 +14,21 @@
 
 import { MediaType } from './media-type.js';
 
+const commaSeparatedResponseHeaders = new Set([
+  'accept-ranges',
+  'access-control-allow-headers',
+  'access-control-allow-methods',
+  'access-control-expose-headers',
+  'allow',
+  'cache-control',
+  'connection',
+  'content-encoding',
+  'link',
+  'transfer-encoding',
+  'upgrade',
+  'vary',
+]);
+
 /** A single HTTP response header entry. */
 export interface ResponseHeaderEntry {
   readonly name: string;
@@ -31,9 +46,22 @@ export class ResponseHeaders {
   /** Creates response headers from a Fetch API `Headers` value. */
   static from(headers: Headers): ResponseHeaders {
     const entries: ResponseHeaderEntry[] = [];
+    const setCookies = headers.getSetCookie?.() ?? [];
+
     headers.forEach((value, name) => {
-      entries.push({ name, value });
+      if (name.toLowerCase() === 'set-cookie' && setCookies.length > 0) {
+        return;
+      }
+
+      splitHeaderValue(name, value).forEach((value) => {
+        entries.push({ name, value });
+      });
     });
+
+    setCookies.forEach((value) => {
+      entries.push({ name: 'set-cookie', value });
+    });
+
     return new ResponseHeaders(entries);
   }
 
@@ -62,6 +90,55 @@ export class ResponseHeaders {
       return undefined;
     }
   }
+}
+
+function splitHeaderValue(name: string, value: string): readonly string[] {
+  if (!commaSeparatedResponseHeaders.has(name.toLowerCase())) {
+    return [value];
+  }
+
+  const values: string[] = [];
+  let start = 0;
+  let inQuotes = false;
+  let inAngleBrackets = false;
+  let escaping = false;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+
+    if (escaping) {
+      escaping = false;
+      continue;
+    }
+
+    if (char === '\\' && inQuotes) {
+      escaping = true;
+      continue;
+    }
+
+    if (char === '"' && !inAngleBrackets) {
+      inQuotes = !inQuotes;
+      continue;
+    }
+
+    if (char === '<' && !inQuotes) {
+      inAngleBrackets = true;
+      continue;
+    }
+
+    if (char === '>' && !inQuotes) {
+      inAngleBrackets = false;
+      continue;
+    }
+
+    if (char === ',' && !inQuotes && !inAngleBrackets) {
+      values.push(value.slice(start, index).trim());
+      start = index + 1;
+    }
+  }
+
+  values.push(value.slice(start).trim());
+  return values.filter((value) => value.length > 0);
 }
 
 /** A decoded operation result with HTTP response metadata. */

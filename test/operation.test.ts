@@ -149,6 +149,37 @@ describe('Operation', () => {
 
     await expect(operation.executeOrNull()).resolves.toBeNull();
   });
+
+  it('returns nullable operation responses normally when no matching problem is thrown', async () => {
+    const transport = new TestTransport({ id: '123' });
+    const operation = createNullableOperation(
+      transport,
+      {
+        request: { method: 'GET', pathTemplate: '/users/{id}', pathParameters: { id: '123' } },
+        responseType: TestSchema,
+      },
+      { statuses: [404], problemTypes: [] },
+    );
+
+    const response = await operation.responseOrNull();
+
+    expect(response?.result).toEqual({ id: '123' });
+    expect(response?.transportResponse.status).toBe(200);
+  });
+
+  it('returns null operation responses when a matching problem is thrown', async () => {
+    const transport = new TestTransport(undefined, Problem.fromStatus(404, 'Not Found'));
+    const operation = createNullableOperation(
+      transport,
+      {
+        request: { method: 'GET', pathTemplate: '/users/{id}', pathParameters: { id: '123' } },
+        responseType: TestSchema,
+      },
+      { statuses: [404], problemTypes: [] },
+    );
+
+    await expect(operation.responseOrNull()).resolves.toBeNull();
+  });
 });
 
 class TestTransport implements Transport {
@@ -196,6 +227,9 @@ class TestTransport implements Transport {
     resultType?: SchemaLike<unknown>,
   ): Promise<OperationResponse<unknown>> {
     this.responseCalls.push({ request, resultType });
+    if (this.resultError !== undefined) {
+      throw this.resultError;
+    }
     return new OperationResponse(this.resultValue, new Response(null, { status: 200 }));
   }
 
@@ -211,7 +245,7 @@ class TestTransport implements Transport {
     resultType?: SchemaLike<unknown>,
   ): Promise<unknown> {
     this.resultCalls.push({ request, resultType });
-    if (this.resultError) {
+    if (this.resultError !== undefined) {
       throw this.resultError;
     }
     return this.resultValue;
