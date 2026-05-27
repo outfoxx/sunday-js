@@ -3,9 +3,22 @@ import { nullifyProblem } from '../../src/util/nullify.js';
 import { Problem, ProblemWireSchema, createProblemCodec } from '../../src/problem.js';
 import { defineSchema } from '../../src/schema-runtime.js';
 import { Transport } from '../../src/transport.js';
-import { OperationResponse } from '../../src/operation-response.js';
 import {
+  createNullableOperation,
+  createOperation,
+  NullableOperation,
+  Operation,
+  TransportRequest,
+} from '../../src/operation.js';
+import {
+  OperationResponse,
+  ResponseHeaderEntry,
+  ResponseHeaders,
+} from '../../src/operation-response.js';
+import {
+  SchemaInput,
   SchemaLike,
+  SchemaOutput,
   SchemaRuntime,
 } from '../../src/schema-runtime.js';
 import { URLTemplate } from '../../src/url-template.js';
@@ -49,8 +62,17 @@ export {
   createProblemCodec,
   defineSchema,
   Transport,
+  createNullableOperation,
+  createOperation,
+  NullableOperation,
+  Operation,
+  TransportRequest,
   OperationResponse,
+  ResponseHeaderEntry,
+  ResponseHeaders,
+  SchemaInput,
   SchemaLike,
+  SchemaOutput,
   SchemaRuntime,
   URLTemplate,
   ArrayBufferSchema,
