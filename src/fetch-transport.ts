@@ -32,6 +32,7 @@ import {
 } from './transport.js';
 import { OperationResponse } from './operation-response.js';
 import { SundayError } from './sunday-error.js';
+import { isStreamingBody } from './streaming-body.js';
 import { URLTemplate } from './url-template.js';
 import { errorToMessage } from './util/errors.js';
 
@@ -110,36 +111,47 @@ export class FetchTransport implements Transport {
     }
 
     // Determine content type
+    const streamingBody = isStreamingBody(requestSpec.body)
+      ? requestSpec.body
+      : undefined;
     const contentType = requestSpec.contentTypes?.find((type) =>
-                                                         this.mediaTypeEncoders.supports(type),
+      streamingBody !== undefined || this.mediaTypeEncoders.supports(type),
     );
 
     // If matched, add the content type (even if the body is nil,
     // to match any expected server requirements)
-    if (contentType) {
+    if (contentType && !headers.has('content-type')) {
       headers.set('content-type', contentType.toString());
     }
 
     // Encode & add body data
     let body: BodyInit | undefined;
-    if (requestSpec.body) {
-      if (!contentType) {
-        throw new Error(
-          'None of the provided content types has a registered encoder',
-        );
+    if (requestSpec.body !== undefined) {
+      if (streamingBody !== undefined) {
+        body = streamingBody.toBodyInit();
       }
+      else {
+        if (!contentType) {
+          throw new Error(
+            'None of the provided content types has a registered encoder',
+          );
+        }
 
-      body = this.mediaTypeEncoders
-                 .find(contentType)
-                 .encode(requestSpec.body, requestSpec.bodyType);
+        body = this.mediaTypeEncoders
+                   .find(contentType)
+                   .encode(requestSpec.body, requestSpec.bodyType);
+      }
     }
 
-    const init: RequestInit = {
+    const init: RequestInit & { duplex?: 'half' } = {
       headers,
       body,
       method: requestSpec.method,
       signal: requestSpec.signal,
     };
+    if (body instanceof ReadableStream) {
+      init.duplex = 'half';
+    }
 
     const request = new Request(url.toString(), init);
     return (await this.adapter?.adapt(this, request)) ?? request;

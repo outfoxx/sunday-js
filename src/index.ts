@@ -42,6 +42,7 @@ export * from './logger.js';
 export * from './sunday-error.js';
 export * from './problem.js';
 export * from './date-time-types.js';
+export * from './streaming-body.js';
 export * from './operation-response.js';
 export * from './operation.js';
 export * from './request-adapters.js';
