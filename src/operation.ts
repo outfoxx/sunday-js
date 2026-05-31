@@ -15,6 +15,7 @@
 import { Transport, RequestSpec } from './transport.js';
 import { OperationResponse } from './operation-response.js';
 import { SchemaLike } from './schema-runtime.js';
+import { StreamingBody } from './streaming-body.js';
 import { nullifyProblem, type ProblemMatcher } from './util/nullify.js';
 
 /** Extracts the native request type from a transport. */
@@ -70,6 +71,13 @@ export interface Operation<
   transportResponse(options?: ExecuteOptions): Promise<Response>;
 }
 
+/** A generated streaming upload operation. */
+export interface StreamingOperation<
+  ResponseBody,
+  Factory extends Transport<unknown> = Transport,
+> extends Operation<StreamingBody, ResponseBody, Factory> {
+}
+
 /** A generated operation that can execute select problems as null responses. */
 export interface NullableOperation<
   RequestBody,
@@ -99,6 +107,25 @@ export function createOperation<RequestBody, ResponseBody, Factory extends Trans
   transport: Factory,
   spec: OperationSpec<RequestBody, ResponseBody>,
 ): Operation<RequestBody, ResponseBody, Factory> {
+  return new TransportOperation(transport, spec);
+}
+
+/** Creates a streaming upload operation with a decoded response body. */
+export function createStreamingOperation<ResponseBody = void, Factory extends Transport<unknown> = Transport>(
+  transport: Factory,
+  spec: TypedOperationSpec<StreamingBody, ResponseBody>,
+): StreamingOperation<ResponseBody, Factory>;
+
+/** Creates a streaming upload operation with no decoded response body. */
+export function createStreamingOperation<Factory extends Transport<unknown> = Transport>(
+  transport: Factory,
+  spec: VoidOperationSpec<StreamingBody>,
+): StreamingOperation<void, Factory>;
+
+export function createStreamingOperation<ResponseBody, Factory extends Transport<unknown>>(
+  transport: Factory,
+  spec: OperationSpec<StreamingBody, ResponseBody>,
+): StreamingOperation<ResponseBody, Factory> {
   return new TransportOperation(transport, spec);
 }
 

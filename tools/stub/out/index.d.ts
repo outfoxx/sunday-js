@@ -187,6 +187,27 @@ export declare class Problem extends Error implements Problem {
 export declare function createProblemCodec<TProblem extends Problem, TWire extends z.infer<typeof ProblemWireSchema>>(problemType: new (spec: TWire) => TProblem, wireSchema: z.ZodType<TWire>): z.ZodType<TProblem>;
 export type ProblemMatcher = z.ZodType<Problem> | ((problem: Problem) => boolean);
 export declare function nullifyProblem<T>(promise: Promise<T>, statuses: number[], problemTypes: ProblemMatcher[]): Promise<T | null>;
+/** Binary chunk values supported by streaming request bodies. */
+export type StreamingBodyChunk = ArrayBuffer | Uint8Array;
+/** Creates a fresh async byte sequence for a streaming request body. */
+export type StreamingBodyBytesFactory = () => AsyncIterable<StreamingBodyChunk>;
+/** Creates a fresh web readable stream for a streaming request body. */
+export type StreamingBodyStreamFactory = () => ReadableStream<Uint8Array>;
+/** A lazily-created request body for streaming uploads. */
+export declare class StreamingBody {
+	private readonly createBody;
+	private constructor();
+	/** Creates a streaming body from a reusable web platform `Blob`. */
+	static blob(blob: Blob): StreamingBody;
+	/** Creates a streaming body from a fresh web `ReadableStream` factory. */
+	static stream(factory: StreamingBodyStreamFactory): StreamingBody;
+	/** Creates a streaming body from a fresh async byte iterable factory. */
+	static bytes(factory: StreamingBodyBytesFactory): StreamingBody;
+	/** Creates the web platform body value consumed by `fetch`. */
+	toBodyInit(): BodyInit;
+}
+/** Returns true when a value is a Sunday streaming request body. */
+export declare function isStreamingBody(value: unknown): value is StreamingBody;
 export interface MediaTypeDecoder {
 	decode<T>(response: Response, type: SchemaLike<T>): Promise<T>;
 }
@@ -304,6 +325,9 @@ export interface Operation<RequestBody, ResponseBody, Factory extends Transport<
 	transportRequest(options?: BuildRequestOptions): Promise<TransportRequest<Factory>>;
 	transportResponse(options?: ExecuteOptions): Promise<Response>;
 }
+/** A generated streaming upload operation. */
+export interface StreamingOperation<ResponseBody, Factory extends Transport<unknown> = Transport> extends Operation<StreamingBody, ResponseBody, Factory> {
+}
 /** A generated operation that can execute select problems as null responses. */
 export interface NullableOperation<RequestBody, ResponseBody, Factory extends Transport<unknown> = Transport> extends Operation<RequestBody, ResponseBody, Factory> {
 	readonly nullify: NullifySpec;
@@ -314,6 +338,10 @@ export interface NullableOperation<RequestBody, ResponseBody, Factory extends Tr
 export declare function createOperation<RequestBody = void, ResponseBody = void, Factory extends Transport<unknown> = Transport>(transport: Factory, spec: TypedOperationSpec<RequestBody, ResponseBody>): Operation<RequestBody, ResponseBody, Factory>;
 /** Creates an operation with no decoded response body. */
 export declare function createOperation<RequestBody = void, Factory extends Transport<unknown> = Transport>(transport: Factory, spec: VoidOperationSpec<RequestBody>): Operation<RequestBody, void, Factory>;
+/** Creates a streaming upload operation with a decoded response body. */
+export declare function createStreamingOperation<ResponseBody = void, Factory extends Transport<unknown> = Transport>(transport: Factory, spec: TypedOperationSpec<StreamingBody, ResponseBody>): StreamingOperation<ResponseBody, Factory>;
+/** Creates a streaming upload operation with no decoded response body. */
+export declare function createStreamingOperation<Factory extends Transport<unknown> = Transport>(transport: Factory, spec: VoidOperationSpec<StreamingBody>): StreamingOperation<void, Factory>;
 /** Creates a nullable operation with a decoded response body. */
 export declare function createNullableOperation<RequestBody = void, ResponseBody = void, Factory extends Transport<unknown> = Transport>(transport: Factory, spec: TypedOperationSpec<RequestBody, ResponseBody>, nullify: NullifySpec): NullableOperation<RequestBody, ResponseBody, Factory>;
 /** Creates a nullable operation with no decoded response body. */

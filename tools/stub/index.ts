@@ -2,12 +2,15 @@ import { MediaType } from '../../src/media-type.js';
 import { nullifyProblem } from '../../src/util/nullify.js';
 import { Problem, ProblemWireSchema, createProblemCodec } from '../../src/problem.js';
 import { defineSchema } from '../../src/schema-runtime.js';
+import { StreamingBody, isStreamingBody } from '../../src/streaming-body.js';
 import { Transport } from '../../src/transport.js';
 import {
   createNullableOperation,
   createOperation,
+  createStreamingOperation,
   NullableOperation,
   Operation,
+  StreamingOperation,
   TransportRequest,
 } from '../../src/operation.js';
 import {
@@ -61,11 +64,15 @@ export {
   ProblemWireSchema,
   createProblemCodec,
   defineSchema,
+  StreamingBody,
+  isStreamingBody,
   Transport,
   createNullableOperation,
   createOperation,
+  createStreamingOperation,
   NullableOperation,
   Operation,
+  StreamingOperation,
   TransportRequest,
   OperationResponse,
   ResponseHeaderEntry,

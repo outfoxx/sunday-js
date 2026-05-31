@@ -21,10 +21,12 @@ import {
   Transport,
   RequestSpec,
   SchemaLike,
+  StreamingBody,
   TextMediaTypeDecoder,
   URLTemplate,
   createOperation,
   createNullableOperation,
+  createStreamingOperation,
 } from '../src';
 import { OperationResponse } from '../src/operation-response';
 
@@ -120,6 +122,26 @@ describe('Operation', () => {
     const operation = createOperation(transport, spec);
 
     expect(operation.spec).toBe(spec);
+  });
+
+  it('creates streaming operations over streaming request bodies', async () => {
+    const transport = new TestTransport({ id: '123' });
+    const body = StreamingBody.bytes(async function* () {
+      yield new TextEncoder().encode('body');
+    });
+    const operation = createStreamingOperation(transport, {
+      request: { method: 'PUT', pathTemplate: '/archive', body },
+      responseType: TestSchema,
+    });
+
+    await expect(operation.execute()).resolves.toEqual({ id: '123' });
+
+    expect(transport.resultCalls).toEqual([
+      {
+        request: { method: 'PUT', pathTemplate: '/archive', body },
+        resultType: TestSchema,
+      },
+    ]);
   });
 
   it('executes nullable operations normally when no matching problem is thrown', async () => {
