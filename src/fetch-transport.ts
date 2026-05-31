@@ -120,7 +120,7 @@ export class FetchTransport implements Transport {
 
     // If matched, add the content type (even if the body is nil,
     // to match any expected server requirements)
-    if (contentType && !headers.has('content-type')) {
+    if (contentType && (streamingBody === undefined || !headers.has('content-type'))) {
       headers.set('content-type', contentType.toString());
     }
 

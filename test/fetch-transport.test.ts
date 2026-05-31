@@ -196,6 +196,20 @@ describe('FetchTransport', () => {
     expect(request.headers.get('Content-Type')).toBe(MediaType.JSON.value);
   });
 
+  it('uses encoded content-type over explicit non-streaming body headers', async () => {
+    const request: Request = await fetchTransport.transportRequest({
+                                                                 method: 'POST',
+                                                                 pathTemplate: '/api/contents',
+                                                                 body: { a: 5 },
+                                                                 bodyType: UnknownSchema,
+                                                                 contentTypes: [MediaType.JSON],
+                                                                 headers: { 'Content-Type': 'text/plain' },
+                                                               });
+
+    expect(await request.text()).toBe('{"a":5}');
+    expect(request.headers.get('Content-Type')).toBe(MediaType.JSON.value);
+  });
+
   it('attaches streaming byte bodies lazily', async () => {
     let calls = 0;
     const body = StreamingBody.bytes(async function* () {
@@ -235,6 +249,39 @@ describe('FetchTransport', () => {
     });
 
     expect(await request.text()).toBe('blob-data');
+  });
+
+  it('attaches streaming stream bodies with fresh streams', async () => {
+    let calls = 0;
+    const body = StreamingBody.stream(() => {
+      calls += 1;
+      return new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode(`stream-${calls}`));
+          controller.close();
+        },
+      });
+    });
+
+    expect(calls).toBe(0);
+
+    const firstRequest = await fetchTransport.transportRequest({
+      method: 'POST',
+      pathTemplate: '/api/archive',
+      body,
+      contentTypes: [MediaType.OctetStream],
+    });
+    expect(await firstRequest.text()).toBe('stream-1');
+    expect(calls).toBe(1);
+
+    const secondRequest = await fetchTransport.transportRequest({
+      method: 'POST',
+      pathTemplate: '/api/archive',
+      body,
+      contentTypes: [MediaType.OctetStream],
+    });
+    expect(await secondRequest.text()).toBe('stream-2');
+    expect(calls).toBe(2);
   });
 
   it('preserves explicit streaming content-type headers', async () => {

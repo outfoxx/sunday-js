@@ -206,6 +206,8 @@ export declare class StreamingBody {
 	/** Creates the web platform body value consumed by `fetch`. */
 	toBodyInit(): BodyInit;
 }
+/** Returns true when a value is a Sunday streaming request body. */
+export declare function isStreamingBody(value: unknown): value is StreamingBody;
 export interface MediaTypeDecoder {
 	decode<T>(response: Response, type: SchemaLike<T>): Promise<T>;
 }
