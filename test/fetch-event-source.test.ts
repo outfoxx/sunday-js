@@ -119,9 +119,230 @@ describe('FetchEventSource', () => {
     });
   });
 
+  it('uses the aligned exponential retry policy', () => {
+    const eventSource = new FetchEventSource('http://example.com');
+    const calculateRetryTime = unknownGet<
+      (retryAttempt: number, retryTime: number, retryMax: number) => number
+    >(FetchEventSource, 'calculateRetryTime');
+
+    expect(eventSource.retryTime).toBe(500);
+    expect(
+      Array.from({ length: 7 }, (_, retryAttempt) =>
+        calculateRetryTime(retryAttempt, eventSource.retryTime, 15000),
+      ),
+    ).toEqual([500, 1000, 2000, 4000, 8000, 15000, 15000]);
+  });
+
+  it('resets retry escalation after a successful connection', () => {
+    const eventSource = new FetchEventSource('http://example.com');
+    const timeoutSet = spyOn(globalThis, 'setTimeout');
+    const receivedHeaders = unknownGet<(response: Response) => void>(
+      eventSource,
+      'receivedHeaders',
+    ).bind(eventSource);
+    const receivedComplete = unknownGet<() => void>(
+      eventSource,
+      'receivedComplete',
+    ).bind(eventSource);
+
+    unknownSet(eventSource, 'retryAttempt', 5);
+    eventSource.readyState = eventSource.CONNECTING;
+    receivedHeaders(new Response());
+    receivedComplete();
+
+    expect(timeoutSet).toHaveBeenCalledWith(expect.any(Function), 500);
+    eventSource.close();
+    timeoutSet.mockRestore();
+  });
+
+  it('escalates retry delays across consecutive connection failures', () => {
+    const eventSource = new FetchEventSource('http://example.com');
+    const timeoutSet = spyOn(globalThis, 'setTimeout');
+    const receivedError = unknownGet<(error: unknown) => void>(
+      eventSource,
+      'receivedError',
+    ).bind(eventSource);
+
+    eventSource.readyState = eventSource.CONNECTING;
+    receivedError(new TypeError('Network failure'));
+    receivedError(new TypeError('Network failure'));
+
+    expect(timeoutSet).toHaveBeenNthCalledWith(1, expect.any(Function), 500);
+    expect(timeoutSet).toHaveBeenNthCalledWith(2, expect.any(Function), 1000);
+    eventSource.close();
+    timeoutSet.mockRestore();
+  });
+
+  it('accepts server reconnect and keepalive controls', () => {
+    const eventSource = new FetchEventSource('http://example.com');
+    const dispatchParsedEvent = unknownGet<(eventInfo: object) => void>(
+      eventSource,
+      'dispatchParsedEvent',
+    ).bind(eventSource);
+
+    eventSource.readyState = eventSource.OPEN;
+    dispatchParsedEvent({
+      retry: '250',
+      'retry-max': '2000',
+      keepalive: '2000',
+    });
+
+    expect(eventSource.retryTime).toBe(250);
+    expect(unknownGet<number>(eventSource, 'internalRetryMax')).toBe(2000);
+    expect(unknownGet<number>(eventSource, 'eventTimeout')).toBe(6000);
+    expect(unknownGet(eventSource, 'eventTimeoutCheckHandle')).toBeDefined();
+
+    dispatchParsedEvent({ 'retry-max': '0' });
+    expect(unknownGet<number>(eventSource, 'internalRetryMax')).toBe(2000);
+
+    eventSource.close();
+  });
+
+  it('applies a minimum keepalive timeout', () => {
+    const eventSource = new FetchEventSource('http://example.com');
+    const intervalSet = spyOn(globalThis, 'setInterval');
+    const dispatchParsedEvent = unknownGet<(eventInfo: object) => void>(
+      eventSource,
+      'dispatchParsedEvent',
+    ).bind(eventSource);
+
+    eventSource.readyState = eventSource.OPEN;
+    dispatchParsedEvent({ keepalive: '100' });
+
+    expect(unknownGet<number>(eventSource, 'eventTimeout')).toBe(1000);
+    expect(intervalSet).toHaveBeenCalledWith(expect.any(Function), 1000);
+
+    eventSource.close();
+    intervalSet.mockRestore();
+  });
+
+  it('does not retain server keepalive timeouts across connections', () => {
+    const eventSource = new FetchEventSource('http://example.com');
+    const dispatchParsedEvent = unknownGet<(eventInfo: object) => void>(
+      eventSource,
+      'dispatchParsedEvent',
+    ).bind(eventSource);
+    const receivedHeaders = unknownGet<(response: Response) => void>(
+      eventSource,
+      'receivedHeaders',
+    ).bind(eventSource);
+
+    eventSource.readyState = eventSource.OPEN;
+    dispatchParsedEvent({ keepalive: '2000' });
+
+    expect(unknownGet<number>(eventSource, 'eventTimeout')).toBe(6000);
+    expect(unknownGet(eventSource, 'eventTimeoutCheckHandle')).toBeDefined();
+
+    eventSource.readyState = eventSource.CONNECTING;
+    receivedHeaders(new Response());
+
+    expect(unknownGet(eventSource, 'eventTimeout')).toBeUndefined();
+    expect(unknownGet(eventSource, 'eventTimeoutCheckHandle')).toBeUndefined();
+
+    eventSource.close();
+  });
+
+  it('prefers an explicit event timeout over keepalive controls', () => {
+    const eventSource = new FetchEventSource('http://example.com', {
+      eventTimeout: 750,
+    });
+    const dispatchParsedEvent = unknownGet<(eventInfo: object) => void>(
+      eventSource,
+      'dispatchParsedEvent',
+    ).bind(eventSource);
+    const receivedHeaders = unknownGet<(response: Response) => void>(
+      eventSource,
+      'receivedHeaders',
+    ).bind(eventSource);
+
+    eventSource.readyState = eventSource.CONNECTING;
+    receivedHeaders(new Response());
+    dispatchParsedEvent({ keepalive: '2000' });
+
+    expect(unknownGet<number>(eventSource, 'eventTimeout')).toBe(750);
+    expect(unknownGet(eventSource, 'eventTimeoutCheckHandle')).toBeDefined();
+
+    eventSource.close();
+  });
+
+  it('ignores invalid reconnect and keepalive controls', () => {
+    const eventSource = new FetchEventSource('http://example.com');
+    const dispatchParsedEvent = unknownGet<(eventInfo: object) => void>(
+      eventSource,
+      'dispatchParsedEvent',
+    ).bind(eventSource);
+
+    dispatchParsedEvent({
+      retry: '250ms',
+      'retry-max': '0',
+      keepalive: '0',
+    });
+
+    expect(eventSource.retryTime).toBe(500);
+    expect(unknownGet(eventSource, 'internalRetryMax')).toBeUndefined();
+    expect(unknownGet(eventSource, 'eventTimeout')).toBeUndefined();
+  });
+
+  it('does not enable event timeouts without a server promise', () => {
+    const eventSource = new FetchEventSource('http://example.com');
+    const receivedHeaders = unknownGet<(response: Response) => void>(
+      eventSource,
+      'receivedHeaders',
+    ).bind(eventSource);
+
+    receivedHeaders(new Response());
+
+    expect(unknownGet(eventSource, 'eventTimeoutCheckHandle')).toBeUndefined();
+
+    eventSource.close();
+  });
+
+  it('fails non-successful responses without reconnecting', async () => {
+    fetchMock.get('http://example.com', { status: 400 });
+
+    const eventSource = new FetchEventSource('http://example.com');
+
+    await waitForEvent((resolve, reject) => {
+      eventSource.onerror = (event) => {
+        try {
+          expect(unknownGet(event, 'error')).toBeInstanceOf(Problem);
+          expect(eventSource.readyState).toBe(eventSource.CLOSED);
+          expect(
+            unknownGet(eventSource, 'reconnectTimeoutHandle'),
+          ).toBeUndefined();
+          resolve();
+        } catch (error) {
+          reject(error as Error);
+        }
+      };
+      eventSource.connect();
+    });
+  });
+
+  it('stops reconnecting after a 204 response', async () => {
+    fetchMock.get('http://example.com', { status: 204 });
+
+    const eventSource = new FetchEventSource('http://example.com');
+
+    await waitForEvent((resolve, reject) => {
+      eventSource.onerror = () => {
+        try {
+          expect(eventSource.readyState).toBe(eventSource.CLOSED);
+          expect(
+            unknownGet(eventSource, 'reconnectTimeoutHandle'),
+          ).toBeUndefined();
+          resolve();
+        } catch (error) {
+          reject(error as Error);
+        }
+      };
+      eventSource.connect();
+    });
+  });
+
   it('reconnects with last-event-id', async () => {
     const eventStream = new TextEncoder().encode(
-      'event: hello\nid: 12345\ndata: Hello World!\n\n',
+      'retry: 10\nevent: hello\nid: 12345\ndata: Hello World!\n\n',
     ).buffer;
 
     fetchMock.getOnce(
@@ -131,40 +352,28 @@ describe('FetchEventSource', () => {
           headers: { 'content-type': MediaType.EventStream.toString() },
         }),
     );
-    fetchMock.get('http://example.com', (callLog) => {
-      expect(callLog.options.headers ?? {}).toEqual(
-        expect.objectContaining({ 'last-event-id': '12345' }),
-      );
-
-      return {
-        status: 503,
-      };
-    });
-
-    let connectErrors = 0;
-
     const eventSource = new FetchEventSource('http://example.com');
-    await waitForEvent((resolve, _reject) => {
-      eventSource.onerror = (ev) => {
-        const error = unknownGet(ev, 'error');
-        if (error instanceof Problem && error.status == 503) {
-          connectErrors += 1;
-        }
-        if (connectErrors >= 2) {
-          eventSource.close();
+    await waitForEvent((resolve, reject) => {
+      fetchMock.get('http://example.com', (callLog) => {
+        try {
+          expect(callLog.options.headers ?? {}).toEqual(
+            expect.objectContaining({ 'last-event-id': '12345' }),
+          );
           resolve();
+        } catch (error) {
+          reject(error as Error);
         }
-      };
-      eventSource.onmessage = () => {
-        // Ignore the initial message; reconnect behavior is asserted via errors.
-      };
+
+        return { status: 204 };
+      });
       eventSource.connect();
     });
+    eventSource.close();
   });
 
   it('reconnects with last-event-id ignoring invalid ids', async () => {
     const eventStream = new TextEncoder().encode(
-      'event: hello\nid: 12345\ndata: Hello World!\n\n' +
+      'retry: 10\nevent: hello\nid: 12345\ndata: Hello World!\n\n' +
         'event: hello\nid: a\0c\ndata: Hello World!\n\n',
     ).buffer;
 
@@ -175,35 +384,23 @@ describe('FetchEventSource', () => {
           headers: { 'content-type': MediaType.EventStream.toString() },
         }),
     );
-    fetchMock.get('http://example.com', (callLog) => {
-      expect(callLog.options.headers ?? {}).toEqual(
-        expect.objectContaining({ 'last-event-id': '12345' }),
-      );
-
-      return {
-        status: 503,
-      };
-    });
-
-    let connectErrors = 0;
-
     const eventSource = new FetchEventSource('http://example.com');
-    await waitForEvent((resolve, _reject) => {
-      eventSource.onerror = (ev) => {
-        const error = unknownGet(ev, 'error');
-        if (error instanceof Problem && error.status == 503) {
-          connectErrors += 1;
-        }
-        if (connectErrors >= 2) {
-          eventSource.close();
+    await waitForEvent((resolve, reject) => {
+      fetchMock.get('http://example.com', (callLog) => {
+        try {
+          expect(callLog.options.headers ?? {}).toEqual(
+            expect.objectContaining({ 'last-event-id': '12345' }),
+          );
           resolve();
+        } catch (error) {
+          reject(error as Error);
         }
-      };
-      eventSource.onmessage = () => {
-        // Ignore the initial message; reconnect behavior is asserted via errors.
-      };
+
+        return { status: 204 };
+      });
       eventSource.connect();
     });
+    eventSource.close();
   });
 
   it('dispatches events', async () => {
@@ -237,7 +434,7 @@ describe('FetchEventSource', () => {
     });
   });
 
-  it('handles close aborts gracefully', async () => {
+  it('stops reconnecting after explicit cancellation', async () => {
     const abortController = new AbortController();
 
     fetchMock.get('http://example.com', () =>
@@ -249,21 +446,27 @@ describe('FetchEventSource', () => {
     });
 
     await waitForEvent((resolve, reject) => {
-      eventSource.onerror = (ev) => {
-        const error = unknownGet(ev, 'error');
-        if (error instanceof DOMException && error.name === 'AbortError') {
-          eventSource.close();
-          resolve();
-          return;
-        }
-        eventSource.close();
-        reject(new Error(`Unexpected event source error: ${String(error)}`));
+      let errorReceived = false;
+      eventSource.onerror = () => {
+        errorReceived = true;
       };
       eventSource.connect();
 
       setTimeout(() => {
         abortController.abort();
-      }, 250);
+      }, 10);
+      setTimeout(() => {
+        try {
+          expect(errorReceived).toBeFalse();
+          expect(eventSource.readyState).toBe(eventSource.CLOSED);
+          expect(
+            unknownGet(eventSource, 'reconnectTimeoutHandle'),
+          ).toBeUndefined();
+          resolve();
+        } catch (error) {
+          reject(error as Error);
+        }
+      }, 50);
     });
   });
 
@@ -328,7 +531,7 @@ describe('FetchEventSource', () => {
 
         if (ev.type === 'hello') {
           expect(dispatchEventSpy).toHaveBeenCalledTimes(1);
-          expect(lastEventReceivedTimeSet).toHaveBeenCalledTimes(4);
+          expect(lastEventReceivedTimeSet).toHaveBeenCalledTimes(3);
           resolve();
         }
       };

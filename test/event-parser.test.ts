@@ -171,6 +171,25 @@ describe('EventParser', () => {
     expect(events[0].data).toBe('');
   });
 
+  it('parses server reconnect control fields', () => {
+    const eventBuffer = text.encode(
+      'retry: 500\nretry-max: 15000\nkeepalive: 10000\n\n',
+    ).buffer;
+
+    const parser = new EventParser();
+
+    const events: EventInfo[] = [];
+    parser.process(eventBuffer, (ei) => events.push(ei));
+
+    expect(events).toEqual([
+      {
+        retry: '500',
+        'retry-max': '15000',
+        keepalive: '10000',
+      },
+    ]);
+  });
+
   it('allows empty values for fields (without colons)', () => {
     const eventBuffer = text.encode('retry\nevent\nid\ndata\n\n').buffer;
 

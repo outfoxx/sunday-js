@@ -17,6 +17,8 @@ export interface EventInfo {
   event?: string;
   data?: string;
   retry?: string;
+  keepalive?: string;
+  'retry-max'?: string;
 }
 
 export class EventParser {
