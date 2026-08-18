@@ -37,9 +37,10 @@ export interface FetchEventSource {
 
 export class FetchEventSource extends EventTarget implements ExtEventSource {
   private static readonly LAST_EVENT_ID_HEADER = 'Last-Event-ID';
-  private static readonly MAX_RETRY_TIME_MULTIPLIER = 12;
-  private static readonly RETRY_EXPONENT = 2.6;
-  private static readonly EVENT_TIMEOUT_DEFAULT = 120 * 1000;
+  private static readonly RETRY_TIME_DEFAULT = 500;
+  private static readonly RETRY_MAX_MULTIPLIER_DEFAULT = 30;
+  private static readonly KEEPALIVE_TIMEOUT_MULTIPLIER = 3;
+  private static readonly KEEPALIVE_TIMEOUT_MINIMUM = 1000;
   private static readonly EVENT_TIMEOUT_CHECK_INTERVAL_DEFAULT = 2 * 1000;
 
   readonly CONNECTING = 0;
@@ -66,14 +67,15 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   private connectionReader?: ReadableStreamDefaultReader<Uint8Array>;
   private externalAbortSignal?: AbortSignal;
   private externalAbortHandler?: () => void;
-  private internalRetryTime = 100;
+  private internalRetryTime = FetchEventSource.RETRY_TIME_DEFAULT;
+  private internalRetryMax?: number;
   private retryAttempt = 0;
-  private connectionAttemptTime: number | undefined;
   private connectionOrigin?: string;
   private reconnectTimeoutHandle?: ReturnType<typeof setTimeout>;
   private lastEventId?: string;
   private readonly logger?: Logger;
-  private readonly eventTimeout?: number;
+  private eventTimeout?: number;
+  private readonly eventTimeoutConfigured: boolean;
   private readonly eventTimeoutCheckInterval: number;
   private eventTimeoutCheckHandle?: ReturnType<typeof setInterval>;
   private lastEventReceivedTime = 0;
@@ -95,8 +97,8 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       eventSourceInit?.adapter ??
       ((_url, requestInit) => Promise.resolve(new Request(_url, requestInit)));
     this.signal = eventSourceInit?.signal;
-    this.eventTimeout =
-      eventSourceInit?.eventTimeout ?? FetchEventSource.EVENT_TIMEOUT_DEFAULT;
+    this.eventTimeout = eventSourceInit?.eventTimeout;
+    this.eventTimeoutConfigured = eventSourceInit?.eventTimeout !== undefined;
     this.eventTimeoutCheckInterval =
       eventSourceInit?.eventTimeoutCheckInterval ??
       FetchEventSource.EVENT_TIMEOUT_CHECK_INTERVAL_DEFAULT;
@@ -113,6 +115,12 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       return;
     }
 
+    if (this.signal?.aborted) {
+      this.logger?.trace?.('skipping connect with aborted signal');
+      return;
+    }
+
+    this.startExternalAbortListener();
     this.internalConnect();
   }
 
@@ -133,15 +141,6 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     const connectionAbortController = new AbortController();
     this.connectionAbortController = connectionAbortController;
 
-    const externalSignal = this.signal;
-    if (externalSignal instanceof AbortSignal) {
-      this.externalAbortSignal = externalSignal;
-      this.externalAbortHandler = () => {
-        this.connectionAbortController?.abort();
-      };
-      externalSignal.addEventListener('abort', this.externalAbortHandler);
-    }
-
     const requestInit: RequestInit = {
       headers,
       cache: 'no-store',
@@ -149,15 +148,24 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       signal: connectionAbortController.signal,
     };
 
-    this.connectionAttemptTime = Date.now();
-
     void this.adapter(this.url, requestInit)
       .then(async (request) => {
         const response = await fetch(request, {
           signal: connectionAbortController.signal,
         });
 
-        const validatedResponse = await validate(response, true, undefined, this.logger);
+        let validatedResponse: Response;
+        try {
+          validatedResponse = await validate(
+            response,
+            true,
+            undefined,
+            this.logger,
+          );
+        } catch (error) {
+          this.receivedFatalError(error);
+          return;
+        }
 
         this.receivedHeaders(validatedResponse);
 
@@ -209,6 +217,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     this.readyState = this.CLOSED;
 
     this.internalClose();
+    this.stopExternalAbortListener();
   }
 
   private internalClose() {
@@ -240,7 +249,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
     this.eventTimeoutCheckHandle = setInterval(
       () => this.checkEventTimeout(),
-      this.eventTimeoutCheckInterval,
+      Math.min(this.eventTimeoutCheckInterval, this.eventTimeout),
     );
   }
 
@@ -349,6 +358,18 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     }
   }
 
+  private receivedFatalError(error: unknown) {
+    if (this.readyState === this.CLOSED) {
+      return;
+    }
+
+    this.logger?.debug?.('received fatal error', { error });
+    this.readyState = this.CLOSED;
+    this.internalClose();
+    this.stopExternalAbortListener();
+    this.fireErrorEvent(error);
+  }
+
   private receivedComplete() {
     if (this.readyState == this.CLOSED) {
       return;
@@ -366,14 +387,14 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   private scheduleReconnect() {
     this.internalClose();
 
-    const lastConnectionTime = this.connectionAttemptTime
-      ? Date.now() - this.connectionAttemptTime
-      : 0;
-
     const retryDelay = FetchEventSource.calculateRetryTime(
       this.retryAttempt,
       this.retryTime,
-      lastConnectionTime,
+      Math.max(
+        this.retryTime,
+        this.internalRetryMax ??
+          this.retryTime * FetchEventSource.RETRY_MAX_MULTIPLIER_DEFAULT,
+      ),
     );
 
     this.retryAttempt++;
@@ -390,27 +411,9 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   private static calculateRetryTime(
     retryAttempt: number,
     retryTime: number,
-    lastConnectTime: number,
+    retryMax: number,
   ): number {
-    const retryMultiplier = Math.min(
-      retryAttempt,
-      this.MAX_RETRY_TIME_MULTIPLIER,
-    );
-
-    // calculate total delay
-    let retryDelay = Math.pow(retryMultiplier, this.RETRY_EXPONENT) * retryTime;
-
-    // Adjust delay by the amount of time the last connection
-    // cycle took, except on the first attempt
-    if (retryAttempt > 0) {
-      retryDelay -= lastConnectTime;
-
-      // Ensure the delay is at least as large as
-      // the minimum retry time interval
-      retryDelay = Math.max(retryDelay, retryTime);
-    }
-
-    return retryDelay;
+    return Math.min(retryTime * Math.pow(2, retryAttempt), retryMax);
   }
 
   private clearReconnect() {
@@ -427,10 +430,10 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   private readonly dispatchParsedEvent = (eventInfo: EventInfo) => {
     this.updateLastEventReceived();
 
-    if (eventInfo.retry) {
-      const retryTime = Number.parseInt(eventInfo.retry, 10);
+    if (eventInfo.retry != null) {
+      const retryTime = FetchEventSource.parseMilliseconds(eventInfo.retry);
 
-      if (Number.isSafeInteger(retryTime)) {
+      if (retryTime != null) {
         this.logger?.debug?.('updating retry timeout', { retryTime });
 
         this.internalRetryTime = retryTime;
@@ -438,6 +441,47 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
         this.logger?.warn?.('ignoring invalid retry timeout event', {
           eventInfo,
         });
+      }
+    }
+
+    if (eventInfo['retry-max'] != null) {
+      const retryMax = FetchEventSource.parseMilliseconds(
+        eventInfo['retry-max'],
+      );
+
+      if (retryMax != null && retryMax > 0) {
+        this.logger?.debug?.('updating maximum retry timeout', { retryMax });
+
+        this.internalRetryMax = retryMax;
+      } else {
+        this.logger?.warn?.('ignoring invalid maximum retry timeout event', {
+          eventInfo,
+        });
+      }
+    }
+
+    if (eventInfo.keepalive != null) {
+      const keepalive = FetchEventSource.parseMilliseconds(eventInfo.keepalive);
+      const keepaliveTimeout =
+        keepalive == null || keepalive === 0
+          ? undefined
+          : Math.max(
+              keepalive * FetchEventSource.KEEPALIVE_TIMEOUT_MULTIPLIER,
+              FetchEventSource.KEEPALIVE_TIMEOUT_MINIMUM,
+            );
+
+      if (keepaliveTimeout != null && Number.isSafeInteger(keepaliveTimeout)) {
+        this.logger?.debug?.('updating keepalive timeout', {
+          keepalive,
+          eventTimeout: keepaliveTimeout,
+        });
+
+        if (!this.eventTimeoutConfigured) {
+          this.eventTimeout = keepaliveTimeout;
+          this.startEventTimeoutCheck(this.lastEventReceivedTime);
+        }
+      } else {
+        this.logger?.warn?.('ignoring invalid keepalive event', { eventInfo });
       }
     }
 
@@ -475,6 +519,15 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     this.dispatchEvent(event);
   };
 
+  private static parseMilliseconds(value: string): number | undefined {
+    if (!/^\d+$/.test(value)) {
+      return undefined;
+    }
+
+    const milliseconds = Number.parseInt(value, 10);
+    return Number.isSafeInteger(milliseconds) ? milliseconds : undefined;
+  }
+
   fireErrorEvent(error: unknown): void {
     const event = new Event('error');
     unknownSet(event, 'error', error);
@@ -498,7 +551,24 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
       }
     }
     this.connectionReader = undefined;
+  }
 
+  private startExternalAbortListener() {
+    const externalSignal = this.signal;
+    if (!(externalSignal instanceof AbortSignal)) {
+      return;
+    }
+
+    this.stopExternalAbortListener();
+
+    this.externalAbortSignal = externalSignal;
+    this.externalAbortHandler = () => this.close();
+    externalSignal.addEventListener('abort', this.externalAbortHandler, {
+      once: true,
+    });
+  }
+
+  private stopExternalAbortListener() {
     if (this.externalAbortSignal && this.externalAbortHandler) {
       this.externalAbortSignal.removeEventListener(
         'abort',

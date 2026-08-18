@@ -633,7 +633,7 @@ describe('FetchTransport', () => {
     await iterator.return?.();
   });
 
-  it('aborts eventSource when signal is aborted', async () => {
+  it('stops eventSource when signal is aborted', async () => {
     fetchMock.getOnce('http://example.com', () =>
       delayedResponse({ status: 200 }, 100_000),
     );
@@ -645,23 +645,18 @@ describe('FetchTransport', () => {
       signal: abort.signal,
     });
 
-    const errorPromise = new Promise<void>((resolve, reject) => {
-      eventSource.onerror = (ev) => {
-        const error = unknownGet(ev, 'error');
-        if (error instanceof DOMException && error.name === 'AbortError') {
-          eventSource.close();
-          resolve();
-          return;
-        }
-        eventSource.close();
-        reject(new Error(`Unexpected event source error: ${String(error)}`));
-      };
-      eventSource.connect();
-    });
+    let errorReceived = false;
+    eventSource.onerror = () => {
+      errorReceived = true;
+    };
+    eventSource.connect();
 
     abort.abort();
+    await Promise.resolve();
 
-    expect(errorPromise).resolves.toBeUndefined();
+    expect(errorReceived).toBeFalse();
+    expect(eventSource.readyState).toBe(eventSource.CLOSED);
+    expect(unknownGet(eventSource, 'reconnectTimeoutHandle')).toBeUndefined();
   });
 
   it('passes an abortable signal to adapter requests for eventSource', async () => {
@@ -693,26 +688,20 @@ describe('FetchTransport', () => {
       signal: abort.signal,
     });
 
-    const errorPromise = new Promise<void>((resolve, reject) => {
-      eventSource.onerror = (ev) => {
-        const error = unknownGet(ev, 'error');
-        if (error instanceof DOMException && error.name === 'AbortError') {
-          eventSource.close();
-          resolve();
-          return;
-        }
-        eventSource.close();
-        reject(new Error(`Unexpected event source error: ${String(error)}`));
-      };
-      eventSource.connect();
-    });
+    let errorReceived = false;
+    eventSource.onerror = () => {
+      errorReceived = true;
+    };
+    eventSource.connect();
 
     const adapterSignal = await adapterSignalPromise;
     expect(adapterSignal).toBeDefined();
 
     abort.abort();
+    await Promise.resolve();
 
-    expect(errorPromise).resolves.toBeUndefined();
+    expect(errorReceived).toBeFalse();
+    expect(eventSource.readyState).toBe(eventSource.CLOSED);
     expect(adapterSignal?.aborted).toBeTrue();
   });
 
