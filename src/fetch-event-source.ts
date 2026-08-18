@@ -488,8 +488,9 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     this.connectionAbortController = undefined;
 
     if (this.connectionReader) {
-      void this.connectionReader.cancel()
-               .catch(() => this.logger?.warn?.('failed to cancel connection reader'));
+      void this.connectionReader.cancel().catch((error: unknown) =>
+        this.logger?.warn?.('failed to cancel connection reader', { error }),
+      );
       try {
         this.connectionReader.releaseLock();
       } catch {

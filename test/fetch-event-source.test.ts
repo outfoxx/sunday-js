@@ -15,7 +15,7 @@
 import { beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import fetchMock from 'fetch-mock';
 import { FetchEventSource, MediaType, Problem } from '../src';
-import { unknownGet } from '../src/util/unknowns';
+import { unknownGet, unknownSet } from '../src/util/unknowns';
 import { delayedResponse } from './fetch-mock-utils';
 
 const waitForEvent = (
@@ -265,6 +265,34 @@ describe('FetchEventSource', () => {
         abortController.abort();
       }, 250);
     });
+  });
+
+  it('logs connection reader cancellation failures', async () => {
+    const cancelError = new Error('Failed to cancel stream');
+    const warnings: unknown[][] = [];
+
+    await waitForEvent((resolve, _reject) => {
+      const eventSource = new FetchEventSource('http://example.com', {
+        logger: {
+          warn: (...data: unknown[]) => {
+            warnings.push(data);
+            resolve();
+          },
+        },
+      });
+      const connectionReader = {
+        cancel: () => Promise.reject(cancelError),
+        releaseLock: () => {},
+      } as unknown as ReadableStreamDefaultReader<Uint8Array>;
+
+      unknownSet(eventSource, 'connectionReader', connectionReader);
+      eventSource.readyState = eventSource.OPEN;
+      eventSource.close();
+    });
+
+    expect(warnings).toEqual([
+      ['failed to cancel connection reader', { error: cancelError }],
+    ]);
   });
 
   it('counts comment only pings as events but does not dispatch', async () => {
