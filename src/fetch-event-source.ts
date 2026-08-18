@@ -305,6 +305,10 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     this.retryAttempt = 0;
     this.readyState = this.OPEN;
 
+    if (!this.eventTimeoutConfigured) {
+      this.eventTimeout = undefined;
+    }
+
     // Start event timeout check, treating this connection
     // as the last time we received an event
     this.startEventTimeoutCheck(Date.now());

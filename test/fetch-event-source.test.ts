@@ -216,6 +216,32 @@ describe('FetchEventSource', () => {
     intervalSet.mockRestore();
   });
 
+  it('does not retain server keepalive timeouts across connections', () => {
+    const eventSource = new FetchEventSource('http://example.com');
+    const dispatchParsedEvent = unknownGet<(eventInfo: object) => void>(
+      eventSource,
+      'dispatchParsedEvent',
+    ).bind(eventSource);
+    const receivedHeaders = unknownGet<(response: Response) => void>(
+      eventSource,
+      'receivedHeaders',
+    ).bind(eventSource);
+
+    eventSource.readyState = eventSource.OPEN;
+    dispatchParsedEvent({ keepalive: '2000' });
+
+    expect(unknownGet<number>(eventSource, 'eventTimeout')).toBe(6000);
+    expect(unknownGet(eventSource, 'eventTimeoutCheckHandle')).toBeDefined();
+
+    eventSource.readyState = eventSource.CONNECTING;
+    receivedHeaders(new Response());
+
+    expect(unknownGet(eventSource, 'eventTimeout')).toBeUndefined();
+    expect(unknownGet(eventSource, 'eventTimeoutCheckHandle')).toBeUndefined();
+
+    eventSource.close();
+  });
+
   it('prefers an explicit event timeout over keepalive controls', () => {
     const eventSource = new FetchEventSource('http://example.com', {
       eventTimeout: 750,
@@ -224,10 +250,19 @@ describe('FetchEventSource', () => {
       eventSource,
       'dispatchParsedEvent',
     ).bind(eventSource);
+    const receivedHeaders = unknownGet<(response: Response) => void>(
+      eventSource,
+      'receivedHeaders',
+    ).bind(eventSource);
 
+    eventSource.readyState = eventSource.CONNECTING;
+    receivedHeaders(new Response());
     dispatchParsedEvent({ keepalive: '2000' });
 
     expect(unknownGet<number>(eventSource, 'eventTimeout')).toBe(750);
+    expect(unknownGet(eventSource, 'eventTimeoutCheckHandle')).toBeDefined();
+
+    eventSource.close();
   });
 
   it('ignores invalid reconnect and keepalive controls', () => {
