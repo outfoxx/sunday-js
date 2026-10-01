@@ -62,7 +62,9 @@ Cache keys include provider/client identity, grant identity, profile, flow, reso
 audience, and resource. Change provider identity with credential configuration and grant identity with
 session/grant inputs. The manager defaults to 30 seconds of expiry skew, coalesces concurrent renewal,
 and accepts application-owned `TokenStore` storage. Canceling one waiter preserves others; canceling the
-last signals acquisition cancellation. Completed token rotation is saved even after callers cancel.
+last signals acquisition cancellation. Once persistence starts, saving a rotated token finishes even if
+callers cancel. A provider result arriving after cancellation cannot start persistence; if an identity
+server already consumed that refresh token despite cancellation, interactive clients must authorize again.
 
 The transport attaches complete AND credential sets and checks them on every execution. Bodyless
 GET/HEAD/OPTIONS requests may recover one explicit bearer `invalid_token` challenge; POST, streamed bodies,

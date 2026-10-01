@@ -265,3 +265,54 @@ it('does not persist late acquisition from a provider ignoring cancellation', as
   expect((await manager.credentials(binding)).tokens.accessToken).toBe('fresh');
   expect(provider.acquired).toHaveLength(2);
 });
+
+it('rejects a canceled late refresh before persistence and requires fresh interactive authorization', async () => {
+  const started = deferred<void>();
+  const finish = deferred<TokenSet>();
+  const provider = new Provider();
+  provider.refresh = async (_request, token) => {
+    provider.refreshed.push(token);
+    if (provider.refreshed.length === 1) { started.resolve(); return finish.promise; }
+    throw new AuthorizationRequiredError();
+  };
+  const manager = new TokenManager({ identity: provider }, { now: () => 0 });
+  const interactive = { ...binding, flow: 'authorizationCode' as const };
+  await manager.invalidate(await manager.credentials(interactive));
+  const controller = new AbortController();
+  const caller = manager.credentials(interactive, controller.signal);
+  await started.promise;
+  controller.abort();
+  await expect(caller).rejects.toMatchObject({ name: 'AbortError' });
+  finish.resolve({ accessToken: 'late', refreshToken: 'rotated' });
+  await expect(manager.credentials(interactive)).rejects.toBeInstanceOf(AuthorizationRequiredError);
+  expect(provider.refreshed).toEqual(['refresh-first', 'refresh-first']);
+  expect(provider.acquired).toHaveLength(1);
+});
+
+it('preserves refresh rotation when the last waiter cancels after persistence starts', async () => {
+  const saving = deferred<void>();
+  const finish = deferred<void>();
+  const values = new Map<string, TokenSet>();
+  const store: TokenStore = {
+    load: async key => values.get(key),
+    save: async (key, tokens) => {
+      if (tokens.accessToken === 'rotated') { saving.resolve(); await finish.promise; }
+      values.set(key, tokens);
+    },
+    remove: async key => { values.delete(key); },
+  };
+  const provider = new Provider();
+  const manager = new TokenManager({ identity: provider }, { store, now: () => 0 });
+  await manager.invalidate(await manager.credentials(binding));
+  provider.next = { accessToken: 'rotated', refreshToken: 'refresh-next' };
+  const controller = new AbortController();
+  const caller = manager.credentials(binding, controller.signal);
+  await saving.promise;
+  controller.abort();
+  await expect(caller).rejects.toMatchObject({ name: 'AbortError' });
+  finish.resolve();
+  const lease = await manager.credentials(binding);
+  expect(lease.tokens).toEqual(provider.next);
+  expect(values.get(lease.key)).toEqual(provider.next);
+  expect(provider.refreshed).toEqual(['refresh-first']);
+});
