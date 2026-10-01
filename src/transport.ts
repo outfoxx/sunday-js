@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { SecurityBinding } from './security-binding.js';
 import { MediaType } from './media-type.js';
 import { TextMediaTypeDecoder } from './media-type-codecs/media-type-decoder.js';
 import { Problem } from './problem.js';
@@ -93,6 +94,8 @@ export interface RequestSpec<B> {
   acceptTypes?: MediaType[];
   headers?: Record<string, unknown>;
   signal?: AbortSignal;
+  /** Complete, explicitly selected credential bindings for this operation. */
+  security?: readonly SecurityBinding[];
 }
 
 export interface RequestAdapter {

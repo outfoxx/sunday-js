@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { AuthorizationRequiredError, TokenProviderError } from './token-provider.js';
 import { EventInfo, EventParser } from './event-parser.js';
 import { validate } from './fetch.js';
 import { levelLogger, Logger, LogLevel } from './logger.js';
@@ -62,6 +63,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     url: string,
     requestInit: RequestInit,
   ) => Promise<Request>;
+  private readonly fetchRequest: (request: Request, signal: AbortSignal) => Promise<Response>;
   private readonly signal?: AbortSignal;
   private connectionAbortController?: AbortController;
   private connectionReader?: ReadableStreamDefaultReader<Uint8Array>;
@@ -85,6 +87,8 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     url: string,
     eventSourceInit?: EventSourceInit & {
       adapter?: (url: string, requestInit: RequestInit) => Promise<Request>;
+      /** Executes one connection using a subscription-owned authentication recovery budget. */
+      fetch?: (request: Request, signal: AbortSignal) => Promise<Response>;
       signal?: AbortSignal;
       eventTimeout?: number;
       eventTimeoutCheckInterval?: number;
@@ -96,6 +100,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     this.adapter =
       eventSourceInit?.adapter ??
       ((_url, requestInit) => Promise.resolve(new Request(_url, requestInit)));
+    this.fetchRequest = eventSourceInit?.fetch ?? ((request, signal) => fetch(request, { signal }));
     this.signal = eventSourceInit?.signal;
     this.eventTimeout = eventSourceInit?.eventTimeout;
     this.eventTimeoutConfigured = eventSourceInit?.eventTimeout !== undefined;
@@ -150,9 +155,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
 
     void this.adapter(this.url, requestInit)
       .then(async (request) => {
-        const response = await fetch(request, {
-          signal: connectionAbortController.signal,
-        });
+        const response = await this.fetchRequest(request, connectionAbortController.signal);
 
         let validatedResponse: Response;
         try {
@@ -189,7 +192,11 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
         this.receivedComplete();
       })
       .catch((error: unknown) => {
-        this.receivedError(error);
+        if (error instanceof TokenProviderError || error instanceof AuthorizationRequiredError) {
+          this.receivedFatalError(error);
+        } else {
+          this.receivedError(error);
+        }
       })
       .finally(() => {
         if (this.connectionReader) {

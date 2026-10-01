@@ -17,6 +17,7 @@ import {
   SchemaLike,
   SchemaPolicy,
   SchemaRuntime,
+  ModelMode,
 } from '../schema-runtime.js';
 import { createJSONSchemaRuntime } from './default-policies.js';
 import { StructuredMediaTypeEncoder } from './media-type-encoder.js';
@@ -34,9 +35,9 @@ export class JSONEncoder implements StructuredMediaTypeEncoder {
   constructor(readonly runtime: SchemaRuntime = createJSONSchemaRuntime()) {
   }
 
-  encode<T>(value: T, type?: SchemaLike<T>): string {
+  encode<T>(value: T, type?: SchemaLike<T>, mode: ModelMode = 'response'): string {
     const serialized = type
-      ? this.runtime.resolveSchema(type).encode(value)
+      ? this.runtime.forMode(mode).resolveSchema(type).encode(value)
       : value;
     return JSON.stringify(serialized);
   }
@@ -44,9 +45,10 @@ export class JSONEncoder implements StructuredMediaTypeEncoder {
   encodeObject<T>(
     value: T,
     type?: SchemaLike<T>,
+    mode: ModelMode = 'response',
   ): Record<string, unknown> {
     const serialized = type
-      ? this.runtime.resolveSchema(type).encode(value)
+      ? this.runtime.forMode(mode).resolveSchema(type).encode(value)
       : value;
     return JSON_OBJECT_SCHEMA.parse(serialized);
   }

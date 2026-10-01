@@ -86,8 +86,16 @@ export function defineSchema<S extends AnySchema>(
   };
 }
 
+/** Payload direction, independent of whether this application is a client or server. */
+export type ModelMode = 'request' | 'response';
+
+/** Resolves the native Zod schema for a payload direction and wire policy. */
 export interface SchemaRuntime {
   readonly policy: SchemaPolicy;
+  readonly mode: ModelMode;
+
+  /** Reuses schema definitions in another direction without sharing direction-specific schemas. */
+  forMode(mode: ModelMode): SchemaRuntime;
 
   resolveSchema<S extends SchemaLike>(ref: S): ResolvedSchema<S>;
 }
@@ -96,7 +104,17 @@ class DefaultSchemaRuntime implements SchemaRuntime {
   private readonly schemas = new Map<symbol, AnySchema>();
   private readonly resolving = new Set<symbol>();
 
-  constructor(readonly policy: SchemaPolicy) {}
+  constructor(
+    readonly policy: SchemaPolicy,
+    readonly mode: ModelMode,
+    private readonly modes = new Map<ModelMode, SchemaRuntime>(),
+  ) {
+    modes.set(mode, this);
+  }
+
+  forMode(mode: ModelMode): SchemaRuntime {
+    return this.modes.get(mode) ?? new DefaultSchemaRuntime(this.policy, mode, this.modes);
+  }
 
   resolveSchema<S extends SchemaLike>(ref: S): ResolvedSchema<S> {
     if (isSchema(ref)) {
@@ -132,6 +150,7 @@ class DefaultSchemaRuntime implements SchemaRuntime {
   }
 }
 
-export function createSchemaRuntime(policy: SchemaPolicy): SchemaRuntime {
-  return new DefaultSchemaRuntime(policy);
+/** Creates a response-mode runtime by default for standalone model codecs. */
+export function createSchemaRuntime(policy: SchemaPolicy, mode: ModelMode = 'response'): SchemaRuntime {
+  return new DefaultSchemaRuntime(policy, mode);
 }

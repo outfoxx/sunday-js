@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { TokenManager } from './token-manager.js';
+import { AuthorizedRequest, authorizeRequest, canRecoverAuthentication, redactSecurityResponse, rejectedBearerLeases } from './request-security.js';
 import { ZodError } from 'zod';
 import { SchemaLike } from './schema-runtime.js';
 import { mergeHeaders, validate } from './fetch.js';
@@ -39,6 +41,8 @@ import { errorToMessage } from './util/errors.js';
 export class FetchTransport implements Transport {
   public baseUrl: URLTemplate;
   public adapter?: RequestAdapter;
+  public tokenManager?: TokenManager;
+  private readonly authorizedRequests = new WeakMap<Request, AuthorizedRequest>();
   public mediaTypeEncoders: MediaTypeEncoders;
   public mediaTypeDecoders: MediaTypeDecoders;
   public problemTypes = new Map<string, SchemaLike<Problem>>();
@@ -48,6 +52,7 @@ export class FetchTransport implements Transport {
     baseUrl: string | URLTemplate,
     options?: {
       adapter?: RequestAdapter;
+      tokenManager?: TokenManager;
       mediaTypeEncoders?: MediaTypeEncoders;
       mediaTypeDecoders?: MediaTypeDecoders;
       logger?: Logger;
@@ -56,6 +61,7 @@ export class FetchTransport implements Transport {
     this.baseUrl =
       typeof baseUrl === 'string' ? new URLTemplate(baseUrl) : baseUrl;
     this.adapter = options?.adapter;
+    this.tokenManager = options?.tokenManager;
     this.mediaTypeEncoders =
       options?.mediaTypeEncoders ?? MediaTypeEncoders.DEFAULT;
     this.mediaTypeDecoders =
@@ -139,7 +145,7 @@ export class FetchTransport implements Transport {
 
         body = this.mediaTypeEncoders
                    .find(contentType)
-                   .encode(requestSpec.body, requestSpec.bodyType);
+                   .encode(requestSpec.body, requestSpec.bodyType, 'request');
       }
     }
 
@@ -148,25 +154,47 @@ export class FetchTransport implements Transport {
       body,
       method: requestSpec.method,
       signal: requestSpec.signal,
+      redirect: requestSpec.security?.length ? 'manual' : undefined,
     };
     if (body instanceof ReadableStream) {
       init.duplex = 'half';
     }
 
     const request = new Request(url.toString(), init);
-    return (await this.adapter?.adapt(this, request)) ?? request;
+    const adapted = (await this.adapter?.adapt(this, request)) ?? request;
+    if (!requestSpec.security?.length) return adapted;
+    const authorized = await authorizeRequest(adapted, requestSpec.security, this.tokenManager);
+    this.authorizedRequests.set(authorized.request, authorized);
+    return authorized.request;
   }
 
   async transportResponse(
     request: Request | RequestSpec<unknown>,
     dataExpected?: boolean,
   ): Promise<Response> {
-    const req =
-      request instanceof Request
-        ? request
-        : await this.transportRequest(request);
-    const response = await fetch(req);
+    const req = request instanceof Request ? request : await this.transportRequest(request);
+    const response = await this.sendAuthorized(req, { recovered: false });
     return await validate(response, dataExpected ?? false, this.problemTypes, this.logger);
+  }
+
+  private async sendAuthorized(request: Request, budget: { recovered: boolean }): Promise<Response> {
+    let req = request;
+    let authorized = this.authorizedRequests.get(req);
+    if (authorized) {
+      authorized = await authorizeRequest(req, authorized.bindings, this.tokenManager, authorized);
+      req = authorized.request;
+      this.authorizedRequests.set(req, authorized);
+    }
+    let response = await fetch(req);
+    if (authorized && this.tokenManager && !budget.recovered && canRecoverAuthentication(authorized, response)) {
+      budget.recovered = true;
+      await response.body?.cancel();
+      await Promise.all(rejectedBearerLeases(authorized).map(lease => this.tokenManager!.invalidate(lease)));
+      authorized = await authorizeRequest(req, authorized.bindings, this.tokenManager, authorized);
+      this.authorizedRequests.set(authorized.request, authorized);
+      response = await fetch(authorized.request);
+    }
+    return authorized ? redactSecurityResponse(response, authorized.bindings) : response;
   }
 
   async response<B, R>(
@@ -236,6 +264,7 @@ export class FetchTransport implements Transport {
   }
 
   eventSource(requestSpec: RequestSpec<void>): ExtEventSource {
+    const budget = { recovered: false };
     //
     const adapter = async (
       url: string,
@@ -243,18 +272,23 @@ export class FetchTransport implements Transport {
     ): Promise<Request> => {
       const eventSourceSpec = { ...requestSpec, pathTemplate: url };
       const request = await this.transportRequest(eventSourceSpec);
-      return new Request(request, {
+      const authorized = this.authorizedRequests.get(request);
+      const adapted = new Request(request, {
         ...requestInit,
+        redirect: authorized ? 'manual' : requestInit.redirect,
         headers: mergeHeaders(request.headers, requestInit.headers),
         signal: composeAbortSignals(
           eventSourceSpec.signal,
           requestInit.signal ?? undefined),
       });
+      if (authorized) this.authorizedRequests.set(adapted, { ...authorized, request: adapted });
+      return adapted;
     };
 
     return new FetchEventSource(requestSpec.pathTemplate, {
       logger: this.logger,
       adapter,
+      fetch: request => this.sendAuthorized(request, budget),
       signal: requestSpec.signal,
     });
   }

@@ -33,6 +33,7 @@ import {
   NumericDateDecoding,
   SchemaLike,
   SchemaRuntime,
+  ModelMode,
 } from '../schema-runtime.js';
 import { appendNumericTimeFields, secondsToNumber } from '../util/numbers.js';
 import { URLQueryParamsEncoder } from './media-type-encoder.js';
@@ -64,9 +65,9 @@ export class WWWFormUrlEncoder implements URLQueryParamsEncoder {
     });
   }
 
-  encode<T = unknown>(value: T, type?: SchemaLike<T>): BodyInit {
+  encode<T = unknown>(value: T, type?: SchemaLike<T>, mode: ModelMode = 'response'): BodyInit {
     const parameters = type
-      ? this.runtime.resolveSchema(type).encode(value)
+      ? this.runtime.forMode(mode).resolveSchema(type).encode(value)
       : value;
 
     return this.encoder.encode(this.encodeQueryString(FORM_OBJECT_SCHEMA.parse(parameters)));
