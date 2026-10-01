@@ -13,6 +13,9 @@
 // limitations under the License.
 
 export * from './schema-runtime.js';
+export * from './model-schema.js';
+export * from './model-construction.js';
+export * from './unknown-variant.js';
 export {
   ArrayBufferSchema,
   BooleanSchema,
@@ -50,3 +53,9 @@ export * from './request-adapters.js';
 // Select exports from util
 export * from './util/errors.js';
 export * from './util/nullify.js';
+
+export * from './security-binding.js';
+export * from './token-provider.js';
+export * from './token-manager.js';
+
+export * from './fetch-oauth-token-provider.js';

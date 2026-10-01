@@ -17,6 +17,7 @@ import {
   DateEncoding as SchemaDateEncoding,
   SchemaLike, SchemaPolicy,
   SchemaRuntime,
+  ModelMode,
 } from '../schema-runtime.js';
 import { createCBORSchemaRuntime } from './default-policies.js';
 import { MediaTypeEncoder } from './media-type-encoder.js';
@@ -31,9 +32,9 @@ export class CBOREncoder implements MediaTypeEncoder {
   constructor(readonly runtime: SchemaRuntime = createCBORSchemaRuntime()) {
   }
 
-  encode<T>(value: T, type?: SchemaLike<T>): ArrayBuffer {
+  encode<T>(value: T, type?: SchemaLike<T>, mode: ModelMode = 'response'): ArrayBuffer {
     const serialized = type
-      ? this.runtime.resolveSchema(type).encode(value)
+      ? this.runtime.forMode(mode).resolveSchema(type).encode(value)
       : value;
     return CBOR.encode(serialized);
   }

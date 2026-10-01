@@ -294,3 +294,49 @@ describe('SchemaRuntime', () => {
     expect(schema.encode(decodedValue)).toEqual(wireValue);
   });
 });
+
+
+describe('directional validation', () => {
+  it('keeps request and response schemas separate and revalidates mutable values', () => {
+    let builds = 0;
+    const schema = defineSchema((runtime) => {
+      builds++;
+      return z.object({ state: z.string().refine(
+        (value) => runtime.mode === 'response' || value === 'active',
+        { message: 'Unknown request enum value', params: { reason: 'unknown_enum' } },
+      ) });
+    });
+    const response = createSchemaRuntime(jsonPolicy);
+    const request = response.forMode('request');
+    const value = response.resolveSchema(schema).parse({ state: 'future' });
+    expect(request.resolveSchema(schema).safeEncode(value).success).toBe(false);
+    value.state = 'active';
+    expect(request.resolveSchema(schema).safeEncode(value).success).toBe(true);
+    value.state = 'future';
+    expect(request.resolveSchema(schema).safeEncode(value).success).toBe(false);
+    expect(response.resolveSchema(schema).safeEncode(value).success).toBe(true);
+    expect(request.forMode('response')).toBe(response);
+    expect(response.forMode('request')).toBe(request);
+    expect(builds).toBe(2);
+  });
+});
+
+it('standalone encoders default to response while request encoding selects request rules', async () => {
+  const { JSONEncoder, CBOREncoder, WWWFormUrlEncoder, FetchTransport, MediaType } = await import('../src');
+  let validations = 0;
+  const schema = defineSchema((runtime) => z.object({ state: z.string().refine((value) => {
+    validations++;
+    return runtime.mode === 'response' || value === 'active';
+  }) }));
+  for (const encoder of [JSONEncoder.default, CBOREncoder.default, WWWFormUrlEncoder.default]) {
+    expect(() => encoder.encode({ state: 'future' }, schema)).not.toThrow();
+    expect(() => encoder.encode({ state: 'future' }, schema, 'request')).toThrow(z.ZodError);
+  }
+  const value = { state: 'active' };
+  const request = { method: 'PUT' as const, pathTemplate: '/items', body: value, bodyType: schema, contentTypes: [MediaType.JSON] };
+  const transport = new FetchTransport('https://example.com');
+  await transport.transportRequest(request);
+  value.state = 'future';
+  await expect(transport.transportRequest(request)).rejects.toBeInstanceOf(z.ZodError);
+  expect(validations).toBe(8);
+});

@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { SchemaLike } from '../schema-runtime.js';
+import { ModelMode, SchemaLike } from '../schema-runtime.js';
 
 export interface MediaTypeEncoder {
-  encode<T>(value: T, type?: SchemaLike<T>): BodyInit;
+  encode<T>(value: T, type?: SchemaLike<T>, mode?: ModelMode): BodyInit;
 }
 
 export interface URLQueryParamsEncoder extends MediaTypeEncoder {
@@ -33,6 +33,7 @@ export interface StructuredMediaTypeEncoder extends MediaTypeEncoder {
   encodeObject<T>(
     value: T,
     type?: SchemaLike<T>,
+    mode?: ModelMode,
   ): Record<string, unknown>;
 }
 

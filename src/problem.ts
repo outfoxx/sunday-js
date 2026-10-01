@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { constructValidatedModel } from './model-construction.js';
 import { z } from 'zod';
 import { ResponseExample } from './fetch.js';
 import {
@@ -148,7 +149,7 @@ export function createProblemCodec<
   wireSchema: z.ZodType<TWire>,
 ): z.ZodType<TProblem> {
   return z.codec(wireSchema, z.instanceof(problemType), {
-    decode: (value) => new problemType(value),
+    decode: (value) => constructValidatedModel(problemType, value),
     encode: (value) => ({
       type: value.type?.toString() ?? Problem.BLANK_URL.toString(),
       title: value.title,
