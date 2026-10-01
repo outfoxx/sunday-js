@@ -78,11 +78,11 @@ export class TokenManager {
       refreshUrl: configuration.endpoints?.refreshUrl ?? binding.refreshUrl,
       clientIdentity: configuration.clientIdentity,
       grantIdentity: configuration.grantIdentity,
-      scopes: Object.freeze([...new Set(binding.scopes)].sort()),
+      scopes: Object.freeze([...new Set(binding.scopes)].sort(compareScopes)),
       transport: Object.freeze({ ...binding.transport }),
     });
     const key = JSON.stringify([
-      binding.provider, provider.identity, request.clientIdentity, request.grantIdentity,
+      request.scheme, binding.provider, provider.identity, request.clientIdentity, request.grantIdentity,
       request.profile, request.flow, request.discoveryUrl, request.authorizationUrl, request.tokenUrl,
       request.refreshUrl, request.scopes, request.audience, request.resource,
     ]);
@@ -136,31 +136,46 @@ export class TokenManager {
       if (stored && (stored.expiresAt === undefined || stored.expiresAt > this.now() + this.skew)) {
         return { key, tokens: Object.freeze({ ...stored }) };
       }
-      let tokens: TokenSet;
-      if (stored?.refreshToken && provider.refresh) {
-        const refreshed = await provider.refresh(request, stored.refreshToken, signal);
-        tokens = { ...refreshed, refreshToken: refreshed.refreshToken ?? stored.refreshToken };
-      }
-      else if (request.flow === 'authorizationCode' && (stored || this.authorizationAttempts.has(key))) {
-        throw new AuthorizationRequiredError();
-      }
-      else {
-        if (request.flow === 'authorizationCode') this.authorizationAttempts.add(key);
-        tokens = await provider.acquire(request, signal);
-      }
+      const tokens = await this.acquireOrRefresh(key, stored, provider, request, signal);
       if (!tokens.accessToken || (tokens.expiresAt !== undefined &&
         (!Number.isFinite(tokens.expiresAt) || tokens.expiresAt <= this.now()))) throw new TokenProviderError();
       const snapshot = Object.freeze({ ...tokens });
-      // A completed refresh may rotate the token even if callers canceled while the provider completed.
+      signal.throwIfAborted();
       const renewal = this.renewals.get(key);
-      if (renewal?.controller.signal === signal) renewal.committing = true;
+      if (renewal?.controller.signal !== signal) throw new DOMException('Renewal expired', 'AbortError');
+      // Once persistence begins, cancellation must not discard a rotated refresh token.
+      renewal.committing = true;
       await this.store.save(key, snapshot);
       return { key, tokens: snapshot };
     }
     catch (error) {
       if (signal.aborted) throw signal.reason;
-      if (error instanceof AuthorizationRequiredError) throw error;
+      if (error instanceof AuthorizationRequiredError || error instanceof TokenProviderError) throw error;
       throw new TokenProviderError();
+    }
+  }
+
+  private async acquireOrRefresh(
+    key: string, stored: TokenSet | undefined, provider: TokenProvider, request: TokenRequest, signal: AbortSignal,
+  ): Promise<TokenSet> {
+    if (stored?.refreshToken && provider.refresh) {
+      try {
+        const refreshed = await provider.refresh(request, stored.refreshToken, signal);
+        return { ...refreshed, refreshToken: refreshed.refreshToken ?? stored.refreshToken };
+      }
+      catch (error) {
+        if (!(error instanceof TokenProviderError) || error.reason !== 'invalidGrant' || request.flow !== 'clientCredentials') throw error;
+        signal.throwIfAborted();
+        await this.store.remove(key);
+        return provider.acquire(request, signal);
+      }
+    }
+    else if (request.flow === 'authorizationCode' && (stored || this.authorizationAttempts.has(key))) {
+      throw new AuthorizationRequiredError();
+    }
+    else {
+      if (request.flow === 'authorizationCode') this.authorizationAttempts.add(key);
+      return provider.acquire(request, signal);
     }
   }
 
@@ -186,7 +201,13 @@ export class TokenManager {
 
 class MemoryTokenStore implements TokenStore {
   private readonly tokens = new Map<string, TokenSet>();
-  async load(key: string): Promise<TokenSet | undefined> { return this.tokens.get(key); }
-  async save(key: string, tokens: TokenSet): Promise<void> { this.tokens.set(key, tokens); }
-  async remove(key: string): Promise<void> { this.tokens.delete(key); }
+  load(key: string): Promise<TokenSet | undefined> { return Promise.resolve(this.tokens.get(key)); }
+  save(key: string, tokens: TokenSet): Promise<void> { this.tokens.set(key, tokens); return Promise.resolve(); }
+  remove(key: string): Promise<void> { this.tokens.delete(key); return Promise.resolve(); }
+}
+
+function compareScopes(left: string, right: string): number {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
 }

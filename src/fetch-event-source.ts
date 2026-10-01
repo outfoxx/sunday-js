@@ -192,7 +192,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
         this.receivedComplete();
       })
       .catch((error: unknown) => {
-        if (error instanceof TokenProviderError || error instanceof AuthorizationRequiredError) {
+        if ((error instanceof TokenProviderError && error.reason !== 'temporary') || error instanceof AuthorizationRequiredError) {
           this.receivedFatalError(error);
         } else {
           this.receivedError(error);

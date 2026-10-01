@@ -104,13 +104,13 @@ describe('OAuth exchange', () => {
     const discovered = { ...binding, tokenUrl: undefined, discoveryUrl: 'https://metadata.example/document' };
     await manager.credentials(discovered);
     await manager.credentials({ ...discovered, scopes: ['read'] });
-    expect(fetchMock.callHistory.calls('https://metadata.example/document').length).toBe(1);
-    expect(fetchMock.callHistory.calls('https://deployment.example/token').length).toBe(2);
+    expect(fetchMock.callHistory.calls('https://metadata.example/document')).toHaveLength(2);
+    expect(fetchMock.callHistory.calls('https://deployment.example/token')).toHaveLength(2);
     const wrong = new FetchOAuthTokenProvider({
       identity: 'wrong', clientId: 'client', clientSecret: 'secret', authentication: 'client_secret_basic', issuer: 'https://other.example',
     });
     await expect(new TokenManager({ identity: wrong }).credentials(discovered)).rejects.toBeInstanceOf(TokenProviderError);
-    expect(fetchMock.callHistory.calls('https://deployment.example/token').length).toBe(2);
+    expect(fetchMock.callHistory.calls('https://deployment.example/token')).toHaveLength(2);
   });
 
   it('rejects redirects and invalid responses without exposing provider details', async () => {
@@ -127,7 +127,7 @@ describe('OAuth exchange', () => {
         identity: 'app', clientId: 'client', clientSecret: 'secret', authentication: 'client_secret_post',
       });
       await expect(new TokenManager({ identity: provider }).credentials(binding)).rejects.toThrow('could not supply usable credentials');
-      expect(fetchMock.callHistory.calls().length).toBe(1);
+      expect(fetchMock.callHistory.calls()).toHaveLength(1);
     }
   });
 
@@ -138,6 +138,57 @@ describe('OAuth exchange', () => {
     for (const tokenUrl of ['http://remote.example/token', 'https://user:secret@example.test/token', 'file:///token']) {
       await expect(new TokenManager({ identity: provider }).credentials({ ...binding, tokenUrl })).rejects.toBeInstanceOf(TokenProviderError);
     }
-    expect(fetchMock.callHistory.calls().length).toBe(0);
+    expect(fetchMock.callHistory.calls()).toHaveLength(0);
   });
+  it('refreshes discovery when endpoints and supported authentication change', async () => {
+    let discoveries = 0;
+    fetchMock.get('https://identity.example/discovery', () => ({
+      issuer: 'https://identity.example', token_endpoint: `https://identity.example/token-${++discoveries}`,
+      token_endpoint_auth_methods_supported: discoveries < 3 ? ['client_secret_basic'] : ['none'],
+    }));
+    for (const index of [1, 2]) fetchMock.post(`https://identity.example/token-${index}`, { access_token: `token-${index}`, token_type: 'bearer' });
+    const provider = new FetchOAuthTokenProvider({
+      identity: 'app', clientId: 'client', clientSecret: 'secret', authentication: 'client_secret_basic', issuer: 'https://identity.example',
+    });
+    const manager = new TokenManager({ identity: provider });
+    const discovered = { ...binding, tokenUrl: undefined, discoveryUrl: 'https://identity.example/discovery' };
+    const first = await manager.credentials(discovered);
+    expect(first.tokens.accessToken).toBe('token-1');
+    await manager.invalidate(first);
+    const second = await manager.credentials(discovered);
+    expect(second.tokens.accessToken).toBe('token-2');
+    await manager.invalidate(second);
+    await expect(manager.credentials(discovered)).rejects.toBeInstanceOf(TokenProviderError);
+    expect(discoveries).toBe(3);
+    expect(fetchMock.callHistory.calls()).toHaveLength(5);
+  });
+
+  it('bounds consumed grants without making old authorization codes reusable', async () => {
+    let grants = 0;
+    fetchMock.post('https://identity.example/token', { access_token: 'token', token_type: 'bearer' });
+    const provider = new FetchOAuthTokenProvider({
+      identity: 'app', clientId: 'public', grantIdentity: 'session',
+      authorization: () => Promise.resolve({ code: `code-${++grants}`, redirectUri: 'https://app.example/callback', codeVerifier: 'v'.repeat(43) }),
+    });
+    const request = { ...binding, flow: 'authorizationCode' as const, clientIdentity: 'public' };
+    for (let index = 0; index < 1024; index++) await provider.acquire(request, new AbortController().signal);
+    await expect(provider.acquire(request, new AbortController().signal)).rejects.toBeInstanceOf(AuthorizationRequiredError);
+    expect(grants).toBe(1024);
+    expect(fetchMock.callHistory.calls()).toHaveLength(1024);
+  });
+
+  it('classifies temporary outages and invalid grants without leaking response details', async () => {
+    for (const [status, body, reason] of [
+      [503, 'SECRET outage', 'temporary'], [429, 'SECRET rate limit', 'temporary'],
+      [400, { error: 'temporarily_unavailable' }, 'temporary'],
+      [400, { error: 'invalid_grant' }, 'invalidGrant'],
+      [400, { error: 'invalid_client' }, 'unavailable'],
+    ] as const) {
+      fetchMock.hardReset().mockGlobal();
+      fetchMock.post('https://identity.example/token', { status, body });
+      const provider = new FetchOAuthTokenProvider({ identity: 'app', clientId: 'client', clientSecret: 'secret', authentication: 'client_secret_post' });
+      await expect(new TokenManager({ identity: provider }).credentials(binding)).rejects.toMatchObject({ reason });
+    }
+  });
+
 });

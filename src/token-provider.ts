@@ -62,7 +62,8 @@ export class AuthorizationRequiredError extends Error {
 
 /** Safe provider failure without a provider's potentially credential-bearing error message. */
 export class TokenProviderError extends Error {
-  constructor() {
+  /** Safe recovery classification; provider messages and credentials are never retained. */
+  constructor(readonly reason: 'unavailable' | 'temporary' | 'invalidGrant' = 'unavailable') {
     super('The credential provider could not supply usable credentials');
     this.name = 'TokenProviderError';
   }

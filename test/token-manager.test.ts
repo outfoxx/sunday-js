@@ -53,7 +53,7 @@ describe('token lifecycle', () => {
     expect((await manager.credentials(binding)).tokens.accessToken).toBe('first');
     now = 1_899;
     expect((await manager.credentials(binding)).tokens.accessToken).toBe('first');
-    expect(provider.acquired.length).toBe(1);
+    expect(provider.acquired).toHaveLength(1);
     provider.next = { accessToken: 'second', expiresAt: 3_000, refreshToken: 'refresh-second' };
     now = 1_900;
     expect((await manager.credentials(binding)).tokens.accessToken).toBe('second');
@@ -76,10 +76,10 @@ describe('token lifecycle', () => {
     provider.next = { accessToken: 'next', expiresAt: 3_000 };
     await manager.credentials(binding);
     await expect(manager.credentials(interactive)).rejects.toBeInstanceOf(AuthorizationRequiredError);
-    expect(provider.acquired.length).toBe(3);
+    expect(provider.acquired).toHaveLength(3);
     provider.configuration = { clientIdentity: 'client', grantIdentity: 'fresh-session' };
     expect((await manager.credentials(interactive)).tokens.accessToken).toBe('next');
-    expect(provider.acquired.length).toBe(4);
+    expect(provider.acquired).toHaveLength(4);
   });
 
   it('requires fresh authorization after a failed initial exchange', async () => {
@@ -106,7 +106,7 @@ describe('token lifecycle', () => {
     await manager.invalidate(initial);
     expect((await manager.credentials(binding)).tokens).toEqual(renewed.tokens);
     expect(provider.refreshed).toEqual(['refresh-first']);
-    expect(provider.acquired.length).toBe(1);
+    expect(provider.acquired).toHaveLength(1);
   });
 
   it('invalidated interactive credentials without refresh cannot acquire the old authorization again', async () => {
@@ -117,7 +117,7 @@ describe('token lifecycle', () => {
     const initial = await manager.credentials(interactive);
     await manager.invalidate(initial);
     await expect(manager.credentials(interactive)).rejects.toBeInstanceOf(AuthorizationRequiredError);
-    expect(provider.acquired.length).toBe(1);
+    expect(provider.acquired).toHaveLength(1);
   });
 
   it('isolates every applicability input while treating scope order as irrelevant', async () => {
@@ -125,7 +125,7 @@ describe('token lifecycle', () => {
     const manager = new TokenManager({ identity: provider }, { now: () => 1_000, expirySkewMs: 0 });
     const baseline = await manager.credentials(binding);
     for (const change of [
-      { profile: 'internal' }, { tokenUrl: 'https://internal.example/token' },
+      { scheme: 'another-scheme' }, { profile: 'internal' }, { tokenUrl: 'https://internal.example/token' },
       { refreshUrl: 'https://identity.example/refresh' }, { discoveryUrl: 'https://identity.example/discovery' },
       { authorizationUrl: 'https://identity.example/authorize' }, { scopes: ['write'] },
       { audience: 'other' }, { resource: 'other' }, { flow: 'external' as const },
@@ -222,7 +222,46 @@ describe('token lifecycle', () => {
     provider.next = { accessToken: 'changed', expiresAt: 3_000 };
     const second = await new TokenManager({ identity: provider }, options).credentials(binding);
     expect(second.tokens).toEqual(first.tokens);
-    expect(provider.acquired.length).toBe(1);
+    expect(provider.acquired).toHaveLength(1);
     expect(Object.isFrozen(first.tokens)).toBe(true);
   });
+});
+
+
+it('only reacquires client credentials for rejected refresh grants', async () => {
+  for (const reason of ['unavailable', 'temporary', 'invalidGrant'] as const) {
+    const provider = new Provider();
+    provider.refresh = async () => { throw new TokenProviderError(reason); };
+    const manager = new TokenManager({ identity: provider }, { now: () => 0 });
+    await manager.invalidate(await manager.credentials(binding));
+    provider.next = { accessToken: 'replacement' };
+    if (reason === 'invalidGrant') {
+      expect((await manager.credentials(binding)).tokens.accessToken).toBe('replacement');
+      expect(provider.acquired).toHaveLength(2);
+    }
+    else {
+      await expect(manager.credentials(binding)).rejects.toMatchObject({ reason });
+      expect(provider.acquired).toHaveLength(1);
+    }
+  }
+});
+
+it('does not persist late acquisition from a provider ignoring cancellation', async () => {
+  const started = deferred<void>();
+  const finish = deferred<TokenSet>();
+  const provider = new Provider();
+  provider.acquire = async request => {
+    provider.acquired.push(request);
+    if (provider.acquired.length === 1) { started.resolve(); return finish.promise; }
+    return { accessToken: 'fresh' };
+  };
+  const manager = new TokenManager({ identity: provider });
+  const controller = new AbortController();
+  const caller = manager.credentials(binding, controller.signal);
+  await started.promise;
+  controller.abort();
+  await expect(caller).rejects.toMatchObject({ name: 'AbortError' });
+  finish.resolve({ accessToken: 'late' });
+  expect((await manager.credentials(binding)).tokens.accessToken).toBe('fresh');
+  expect(provider.acquired).toHaveLength(2);
 });

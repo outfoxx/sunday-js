@@ -192,4 +192,46 @@ describe('operation security', () => {
     expect(fetchMock.callHistory.calls()).toHaveLength(0);
   });
 
+  it('closing events cancels initial credential acquisition before any fetch', async () => {
+    let started!: () => void;
+    let cancelled!: () => void;
+    const acquiring = new Promise<void>(resolve => { started = resolve; });
+    const stopped = new Promise<void>(resolve => { cancelled = resolve; });
+    const provider: TokenProvider = {
+      identity: 'cancellable', configure: () => ({ clientIdentity: 'client' }),
+      acquire: (_request, signal) => new Promise((_resolve, reject) => {
+        started();
+        signal.addEventListener('abort', () => { cancelled(); reject(signal.reason); }, { once: true });
+      }),
+    };
+    const client = new FetchTransport('https://api.example', { tokenManager: new TokenManager({ identity: provider }) });
+    const source = client.eventSource({ method: 'GET', pathTemplate: '/events', security: [binding] });
+    source.connect();
+    await acquiring;
+    source.close();
+    await stopped;
+    expect(source.readyState).toBe(source.CLOSED);
+    expect(fetchMock.callHistory.calls()).toHaveLength(0);
+  });
+
+  it('reconnects events after a temporary credential outage', async () => {
+    let attempts = 0;
+    const provider: TokenProvider = {
+      identity: 'intermittent', configure: () => ({ clientIdentity: 'client' }),
+      acquire: () => {
+        if (++attempts === 1) return Promise.reject(new TokenProviderError('temporary'));
+        return Promise.resolve({ accessToken: 'recovered' });
+      },
+    };
+    fetchMock.get('https://api.example/events', { status: 200, headers: { 'Content-Type': 'text/event-stream' }, body: 'data: recovered\n\n' });
+    const client = new FetchTransport('https://api.example', { tokenManager: new TokenManager({ identity: provider }) });
+    const source = client.eventSource({ method: 'GET', pathTemplate: '/events', security: [binding] });
+    await new Promise<void>(resolve => {
+      source.onmessage = event => { expect(event.data).toBe('recovered'); source.close(); resolve(); };
+      source.connect();
+    });
+    expect(attempts).toBe(2);
+    expect(fetchMock.callHistory.calls()).toHaveLength(1);
+  });
+
 });

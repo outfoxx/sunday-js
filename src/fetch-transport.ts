@@ -270,7 +270,10 @@ export class FetchTransport implements Transport {
       url: string,
       requestInit: RequestInit,
     ): Promise<Request> => {
-      const eventSourceSpec = { ...requestSpec, pathTemplate: url };
+      const eventSourceSpec = {
+        ...requestSpec, pathTemplate: url,
+        signal: composeAbortSignals(requestSpec.signal, requestInit.signal ?? undefined),
+      };
       const request = await this.transportRequest(eventSourceSpec);
       const authorized = this.authorizedRequests.get(request);
       const adapted = new Request(request, {

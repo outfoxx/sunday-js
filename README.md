@@ -69,3 +69,11 @@ GET/HEAD/OPTIONS requests may recover one explicit bearer `invalid_token` challe
 and 403 responses are never automatically replayed. Managed credential requests use manual redirect
 handling, and query credentials are redacted from response diagnostics. Providers never receive secrets
 from generated metadata, and provider failures use safe runtime diagnostics.
+
+Credentials are isolated by logical security scheme as well as provider and acquisition inputs.
+Discovery metadata is fetched and verified on each acquisition or renewal. Temporary provider outages
+allow event connections to reconnect; a rejected refresh grant triggers fresh client credentials only
+for the client-credentials flow. Interactive sessions require fresh application authorization.
+Built-in OAuth providers retain at most 1,024 consumed authorization-code hashes per provider instance.
+After this limit, create a provider for a newly authorized application session; old hashes are never
+evicted to allow code reuse. Refresh exchanges do not consume this history.

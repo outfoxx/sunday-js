@@ -46,7 +46,6 @@ export class FetchOAuthTokenProvider implements TokenProvider {
   readonly identity: string;
   private readonly options: OAuthProviderOptions;
   private readonly authentication: NonNullable<OAuthProviderOptions['authentication']>;
-  private readonly discovery = new Map<string, Record<string, unknown>>();
   private readonly consumedCodes = new Set<string>();
   private readonly fetch: typeof fetch;
   private readonly now: () => number;
@@ -79,12 +78,12 @@ export class FetchOAuthTokenProvider implements TokenProvider {
         form = new URLSearchParams({ grant_type: 'client_credentials' });
       }
       else if (request.flow === 'authorizationCode') {
-        if (!this.options.authorization) throw new AuthorizationRequiredError();
+        if (!this.options.authorization || this.consumedCodes.size >= 1024) throw new AuthorizationRequiredError();
         const grant = await this.options.authorization(request, signal);
         if (!grant.code || !grant.redirectUri || !/^[A-Za-z0-9._~-]{43,128}$/.test(grant.codeVerifier)) throw new AuthorizationRequiredError();
         const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(grant.code)));
         const codeKey = Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('');
-        if (this.consumedCodes.has(codeKey)) throw new AuthorizationRequiredError();
+        if (this.consumedCodes.size >= 1024 || this.consumedCodes.has(codeKey)) throw new AuthorizationRequiredError();
         this.consumedCodes.add(codeKey);
         form = new URLSearchParams({ grant_type: 'authorization_code', code: grant.code, redirect_uri: grant.redirectUri, code_verifier: grant.codeVerifier });
       }
@@ -93,7 +92,7 @@ export class FetchOAuthTokenProvider implements TokenProvider {
     }
     catch (error) {
       signal.throwIfAborted();
-      if (error instanceof AuthorizationRequiredError) throw error;
+      if (error instanceof AuthorizationRequiredError || error instanceof TokenProviderError) throw error;
       throw new TokenProviderError();
     }
   }
@@ -107,7 +106,7 @@ export class FetchOAuthTokenProvider implements TokenProvider {
     }
     catch (error) {
       signal.throwIfAborted();
-      if (error instanceof AuthorizationRequiredError) throw error;
+      if (error instanceof AuthorizationRequiredError || error instanceof TokenProviderError) throw error;
       throw new TokenProviderError();
     }
   }
@@ -115,22 +114,31 @@ export class FetchOAuthTokenProvider implements TokenProvider {
   private async resolveEndpoints(request: TokenRequest, signal: AbortSignal): Promise<TokenRequest> {
     if (!request.discoveryUrl) return request;
     if (!this.options.issuer) throw new TokenProviderError();
-    let document = this.discovery.get(request.discoveryUrl);
-    if (!document) {
-      const response = await this.fetch(endpoint(request.discoveryUrl), {
-        headers: { Accept: 'application/json' }, credentials: 'omit', redirect: 'manual', signal,
-      });
-      const value: unknown = await response.json();
-      if (response.status !== 200 || !isObject(value) || value.issuer !== this.options.issuer) throw new TokenProviderError();
-      const methods = value.token_endpoint_auth_methods_supported ?? ['client_secret_basic'];
-      if (!Array.isArray(methods) || !methods.includes(this.authentication)) throw new TokenProviderError();
-      document = value;
-      this.discovery.set(request.discoveryUrl, document);
-    }
+    const response = await this.fetchResponse(endpoint(request.discoveryUrl), {
+      headers: { Accept: 'application/json' }, credentials: 'omit', redirect: 'manual', signal,
+    });
+    const document: unknown = await response.json();
+    if (response.status !== 200 || !isObject(document) || document.issuer !== this.options.issuer) throw new TokenProviderError();
+    const methods = document.token_endpoint_auth_methods_supported ?? ['client_secret_basic'];
+    if (!Array.isArray(methods) || !methods.includes(this.authentication)) throw new TokenProviderError();
     const tokenUrl = request.tokenUrl ?? document.token_endpoint;
     const authorizationUrl = request.authorizationUrl ?? document.authorization_endpoint;
     if (typeof tokenUrl !== 'string' || (authorizationUrl !== undefined && typeof authorizationUrl !== 'string')) throw new TokenProviderError();
     return { ...request, tokenUrl, authorizationUrl };
+  }
+
+  private async fetchResponse(url: string, init: RequestInit): Promise<Response> {
+    let response: Response;
+    try { response = await this.fetch(url, init); }
+    catch {
+      init.signal?.throwIfAborted();
+      throw new TokenProviderError('temporary');
+    }
+    if (response.status === 408 || response.status === 429 || response.status >= 500 && response.status <= 599) {
+      await response.body?.cancel();
+      throw new TokenProviderError('temporary');
+    }
+    return response;
   }
 
   private async exchange(request: TokenRequest, tokenUrl: string | undefined, form: URLSearchParams, signal: AbortSignal): Promise<TokenSet> {
@@ -139,19 +147,21 @@ export class FetchOAuthTokenProvider implements TokenProvider {
     if (request.resource !== undefined) form.set('resource', request.resource);
     const headers = new Headers({ Accept: 'application/json' });
     if (this.authentication === 'client_secret_basic') {
-      headers.set('Authorization', `Basic ${btoa(`${formEncode(this.options.clientId)}:${formEncode(this.options.clientSecret!)}`)}`);
+      const credential = `${formEncode(this.options.clientId)}:${formEncode(this.options.clientSecret!)}`;
+      headers.set('Authorization', `Basic ${btoa(credential)}`);
     }
     else {
       form.set('client_id', this.options.clientId);
       if (this.authentication === 'client_secret_post') form.set('client_secret', this.options.clientSecret!);
     }
-    const response = await this.fetch(endpoint(tokenUrl), { method: 'POST', headers, body: form, credentials: 'omit', redirect: 'manual', signal });
+    const response = await this.fetchResponse(endpoint(tokenUrl), { method: 'POST', headers, body: form, credentials: 'omit', redirect: 'manual', signal });
     const data: unknown = await response.json();
     if (!isObject(data)) throw new TokenProviderError();
-    if (response.status !== 200) {
-      if (data.error === 'invalid_grant' && request.flow === 'authorizationCode') throw new AuthorizationRequiredError();
-      throw new TokenProviderError();
-    }
+    checkTokenResponse(response.status, data, request);
+    return this.parseTokens(data, request);
+  }
+
+  private parseTokens(data: Record<string, unknown>, request: TokenRequest): TokenSet {
     if (typeof data.access_token !== 'string' || !data.access_token || typeof data.token_type !== 'string' || data.token_type.toLowerCase() !== 'bearer') throw new TokenProviderError();
     let expiresAt: number | undefined;
     if (data.expires_in !== undefined) {
@@ -179,4 +189,15 @@ function formEncode(value: string): string {
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function checkTokenResponse(status: number, data: Record<string, unknown>, request: TokenRequest): void {
+  if (status !== 200) {
+    if (data.error === 'invalid_grant') {
+      if (request.flow === 'authorizationCode') throw new AuthorizationRequiredError();
+      throw new TokenProviderError('invalidGrant');
+    }
+    if (data.error === 'temporarily_unavailable' || data.error === 'server_error') throw new TokenProviderError('temporary');
+    throw new TokenProviderError();
+  }
 }

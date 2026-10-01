@@ -31,41 +31,12 @@ export async function authorizeRequest(
   previous?: AuthorizedRequest,
 ): Promise<AuthorizedRequest> {
   if (!manager) throw new TokenProviderError();
-  const names = new Set<string>();
   const url = new URL(request.url);
   const headers = new Headers(request.headers);
-  for (const binding of bindings) {
-    const transport = binding.transport;
-    const name = `${transport.location}:${transport.location === 'header' ? transport.name.toLowerCase() : transport.name}`;
-    if (names.has(name)) throw new TokenProviderError();
-    names.add(name);
-    if (!previous && (
-      (transport.location === 'header' && headers.has(transport.name)) ||
-      (transport.location === 'query' && url.searchParams.has(transport.name)) ||
-      (transport.location === 'cookie' && cookieEntries(headers).some(([name]) => name === transport.name))
-    )) throw new TokenProviderError();
-  }
+  validateTransports(bindings, url, headers, !previous);
   const leases = await Promise.all(bindings.map(binding => manager.credentials(binding, request.signal)));
   request.signal.throwIfAborted();
-  bindings.forEach((binding, index) => {
-    const token = leases[index].tokens.accessToken;
-    const transport = binding.transport;
-    const credential = transport.prefix ? `${transport.prefix} ${token}` : token;
-    switch (transport.location) {
-      case 'header': {
-        if ([...credential].some(character => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)) throw new TokenProviderError();
-        headers.set(transport.name, credential);
-        break;
-      }
-      case 'query': replaceQueryCredential(url, transport.name, credential); break;
-      case 'cookie': {
-        const entries = cookieEntries(headers).filter(([name]) => name !== transport.name);
-        entries.push([transport.name, encodeURIComponent(credential)]);
-        headers.set('Cookie', entries.map(([name, value]) => `${name}=${value}`).join('; '));
-        break;
-      }
-    }
-  });
+  bindings.forEach((binding, index) => applyCredential(binding, leases[index].tokens.accessToken, url, headers));
   // Passing the body explicitly avoids Request's internal stream proxy, which can stall uploads in Bun.
   // Manual redirects also protect custom API-key headers and cookies from crossing origins.
   const authorized = url.toString() === request.url && request.redirect === 'manual' ? request :
@@ -109,19 +80,8 @@ export function redactSecurityResponse(response: Response, bindings: readonly Se
 }
 
 function hasInvalidBearerChallenge(header: string): boolean {
-  const parts: string[] = [];
-  let start = 0;
-  let quoted = false;
-  let escaped = false;
-  for (let index = 0; index < header.length; index++) {
-    const character = header[index];
-    if (escaped) { escaped = false; continue; }
-    if (quoted && character === '\\') { escaped = true; continue; }
-    if (character === '"') quoted = !quoted;
-    if (!quoted && character === ',') { parts.push(header.slice(start, index).trim()); start = index + 1; }
-  }
-  if (quoted || escaped) return false;
-  parts.push(header.slice(start).trim());
+  const parts = splitChallenges(header);
+  if (!parts) return false;
   let bearer = false;
   for (let part of parts) {
     const challenge = /^([a-z][a-z0-9_-]*)\s+(?!\s*=)(.*)$/i.exec(part);
@@ -144,9 +104,60 @@ function cookieEntries(headers: Headers): [string, string][] {
 function replaceQueryCredential(url: URL, name: string, credential: string): void {
   const fields = (url.search ? url.search.slice(1).split('&') : []).filter(field => {
     const key = field.split('=', 1)[0];
-    try { return decodeURIComponent(key.replace(/\+/g, ' ')) !== name; }
+    try { return decodeURIComponent(key.replaceAll('+', ' ')) !== name; }
     catch { return true; }
   });
   fields.push(`${encodeURIComponent(name)}=${encodeURIComponent(credential)}`);
   url.search = fields.join('&');
+}
+
+function validateTransports(bindings: readonly SecurityBinding[], url: URL, headers: Headers, checkExisting: boolean): void {
+  const names = new Set<string>();
+  for (const binding of bindings) {
+    const transport = binding.transport;
+    const name = `${transport.location}:${transport.location === 'header' ? transport.name.toLowerCase() : transport.name}`;
+    if (names.has(name)) throw new TokenProviderError();
+    names.add(name);
+    if (checkExisting && (
+      (transport.location === 'header' && headers.has(transport.name)) ||
+      (transport.location === 'query' && url.searchParams.has(transport.name)) ||
+      (transport.location === 'cookie' && cookieEntries(headers).some(([name]) => name === transport.name))
+    )) throw new TokenProviderError();
+  }
+}
+
+function applyCredential(binding: SecurityBinding, token: string, url: URL, headers: Headers): void {
+  const transport = binding.transport;
+  const credential = transport.prefix ? `${transport.prefix} ${token}` : token;
+  switch (transport.location) {
+    case 'header': {
+      if ([...credential].some(character => character.codePointAt(0)! < 32 || character.codePointAt(0)! === 127)) throw new TokenProviderError();
+      headers.set(transport.name, credential);
+      break;
+    }
+    case 'query': replaceQueryCredential(url, transport.name, credential); break;
+    case 'cookie': {
+      const entries = cookieEntries(headers).filter(([name]) => name !== transport.name);
+      entries.push([transport.name, encodeURIComponent(credential)]);
+      headers.set('Cookie', entries.map(([name, value]) => `${name}=${value}`).join('; '));
+      break;
+    }
+  }
+}
+
+function splitChallenges(header: string): string[] | undefined {
+  const parts: string[] = [];
+  let start = 0;
+  let quoted = false;
+  let escaped = false;
+  for (let index = 0; index < header.length; index++) {
+    const character = header[index];
+    if (escaped) { escaped = false; continue; }
+    if (quoted && character === '\\') { escaped = true; continue; }
+    if (character === '"') quoted = !quoted;
+    if (!quoted && character === ',') { parts.push(header.slice(start, index).trim()); start = index + 1; }
+  }
+  if (quoted || escaped) return undefined;
+  parts.push(header.slice(start).trim());
+  return parts;
 }

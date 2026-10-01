@@ -123,17 +123,18 @@ function cyclePath(value: unknown): PropertyKey[] | undefined {
     if (ancestors.has(entry.value)) return entry.path;
     ancestors.add(entry.value);
     pending.push({ ...entry, leave: true });
-    const children: [PropertyKey, unknown][] = Array.isArray(entry.value)
-      ? entry.value.map((item, index) => [index, item])
-      : entry.value instanceof Map
-        ? [...entry.value].flatMap(([key, item], index) => [[`key:${index}`, key], [String(key), item]])
-        : entry.value instanceof Set
-          ? [...entry.value].map((item, index) => [index, item])
-          : Object.entries(entry.value);
+    const children = modelChildren(entry.value);
     for (let index = children.length - 1; index >= 0; index--) {
       const [key, item] = children[index];
       pending.push({ value: item, path: [...entry.path, key] });
     }
   }
   return undefined;
+}
+
+function modelChildren(value: object): [PropertyKey, unknown][] {
+  if (Array.isArray(value)) return value.map((item, index) => [index, item]);
+  if (value instanceof Map) return [...value].flatMap(([key, item], index) => [[`key:${index}`, key], [String(key), item]]);
+  if (value instanceof Set) return [...value].map((item, index) => [index, item]);
+  return Object.entries(value);
 }
