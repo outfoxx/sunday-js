@@ -27,6 +27,7 @@ import {
   SchemaLike,
   StreamingBody,
   SundayError,
+  RequestValidationError,
 } from '../src';
 import { unknownGet } from '../src/util/unknowns';
 import { delayedResponse } from './fetch-mock-utils';
@@ -58,6 +59,51 @@ const TestSetSchema = z.codec(
 );
 
 describe('FetchTransport', () => {
+  it('revalidates typed parameters for every bodyless request build', async () => {
+    const transport = new FetchTransport('http://example.com');
+    const values = ['known'];
+    const failure = new Error('unknown parameter');
+    let validations = 0;
+    const spec = {
+      method: 'GET' as const,
+      pathTemplate: '/parameters',
+      queryParameters: { state: values },
+      parameterValidation: () => {
+        validations++;
+        if (values.some(value => value !== 'known')) throw failure;
+      },
+    };
+    expect(validations).toBe(0);
+    const first = await transport.transportRequest(spec);
+    expect(first.body).toBeNull();
+    values.push('unknown');
+    await expect(transport.transportRequest(spec)).rejects.toMatchObject({ cause: failure });
+    expect(validations).toBe(2);
+  });
+
+  it('closes invalid parameter event sources and rejects stream consumers without sending', async () => {
+    const transport = new FetchTransport('http://example.com');
+    let validations = 0;
+    const original = new Error('Unknown parameter');
+    const spec = { method: 'GET' as const, pathTemplate: '/events', parameterValidation: () => {
+      validations++;
+      throw original;
+    } };
+    const source = transport.eventSource(spec);
+    const failure = new Promise<unknown>(resolve => {
+      source.onerror = event => resolve(unknownGet(event, 'error'));
+    });
+    source.connect();
+    expect(await failure).toBeInstanceOf(RequestValidationError);
+    expect(source.readyState).toBe(source.CLOSED);
+    expect(validations).toBe(1);
+    const iterator = transport.eventStream(spec, (_decoder, _event, _id, data) => data)[Symbol.asyncIterator]();
+    await expect(iterator.next()).rejects.toMatchObject({ cause: original });
+    await iterator.return?.();
+    expect(validations).toBe(2);
+    expect(fetchMock.callHistory.calls()).toHaveLength(0);
+  });
+
   const fetchTransport = new FetchTransport('http://example.com');
 
   beforeEach(() => {

@@ -90,6 +90,8 @@ export interface RequestSpec<B> {
   queryParameters?: Record<string, unknown>;
   body?: B;
   bodyType?: SchemaLike<B>;
+  /** Revalidates typed parameters on every request build, before wire conversion. */
+  parameterValidation?: () => void;
   contentTypes?: MediaType[];
   acceptTypes?: MediaType[];
   headers?: Record<string, unknown>;

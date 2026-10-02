@@ -79,3 +79,13 @@ for the client-credentials flow. Interactive sessions require fresh application 
 Built-in OAuth providers retain at most 1,024 consumed authorization-code hashes per provider instance.
 After this limit, create a provider for a newly authorized application session; old hashes are never
 evicted to allow code reuse. Refresh exchanges do not consume this history.
+
+### Typed request parameters
+
+`parameterValidation` is an optional callback on the request specification. The transport invokes it
+before encoding on every request build, including bodyless requests and event streams. Generated
+callbacks validate captured typed parameters in request mode; reusing an operation checks mutable
+values again. Custom transports must invoke the callback at the same boundary before transmission.
+
+Parameter failures throw `RequestValidationError` with the native validation error as `cause`.
+Event sources close on this error, and event stream iterators reject instead of reconnecting.
