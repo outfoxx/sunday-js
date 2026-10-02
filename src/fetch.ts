@@ -24,6 +24,7 @@ import {
 } from './schema-runtime.js';
 import { SundayError } from './sunday-error.js';
 import { errorToMessage } from './util/errors.js';
+import { encodeBase64 } from './util/base64.js';
 
 const problemRuntime = createSchemaRuntime({
                                              format: 'json',
@@ -153,8 +154,8 @@ export namespace ResponseExample {
           bodyExcerpt = `<<binary data: ${blob.size} bytes>>`;
         }
         else {
-          const dataSlice = await blob.slice(0, maxLength).bytes();
-          bodyExcerpt = dataSlice.toBase64({ omitPadding: true });
+          const dataSlice = new Uint8Array(await blob.slice(0, maxLength).arrayBuffer());
+          bodyExcerpt = encodeBase64(dataSlice);
         }
       }
     }
