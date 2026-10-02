@@ -80,6 +80,7 @@ export class FetchTransport implements Transport {
   async transportRequest(
     requestSpec: RequestSpec<unknown>,
   ): Promise<Request> {
+    requestSpec.parameterValidation?.();
     const url = this.baseUrl.complete(
       requestSpec.pathTemplate,
       requestSpec.pathParameters ?? {},

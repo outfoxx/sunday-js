@@ -58,6 +58,28 @@ const TestSetSchema = z.codec(
 );
 
 describe('FetchTransport', () => {
+  it('revalidates typed parameters for every bodyless request build', async () => {
+    const transport = new FetchTransport('http://example.com');
+    const values = ['known'];
+    const failure = new Error('unknown parameter');
+    let validations = 0;
+    const spec = {
+      method: 'GET' as const,
+      pathTemplate: '/parameters',
+      queryParameters: { state: values },
+      parameterValidation: () => {
+        validations++;
+        if (values.some(value => value !== 'known')) throw failure;
+      },
+    };
+    expect(validations).toBe(0);
+    const first = await transport.transportRequest(spec);
+    expect(first.body).toBeNull();
+    values.push('unknown');
+    await expect(transport.transportRequest(spec)).rejects.toBe(failure);
+    expect(validations).toBe(2);
+  });
+
   const fetchTransport = new FetchTransport('http://example.com');
 
   beforeEach(() => {
