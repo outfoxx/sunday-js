@@ -37,11 +37,11 @@ export function decodeBase64(value: string, alphabet: 'base64' | 'base64url' = '
 /** Encodes a byte view as unpadded standard or URL-safe base64. */
 export function encodeBase64(value: Uint8Array, alphabet: 'base64' | 'base64url' = 'base64'): string {
   const chunks: string[] = [];
-  // Bound spread arguments independently of payload size on all supported JavaScript engines.
-  const chunkSize = 0x8000;
+  // Bound temporary binary strings and spread arguments; align chunks so padding only occurs at the end.
+  const chunkSize = 0x6000;
   for (let offset = 0; offset < value.length; offset += chunkSize) {
-    chunks.push(String.fromCharCode(...value.subarray(offset, offset + chunkSize)));
+    const encoded = btoa(String.fromCharCode(...value.subarray(offset, offset + chunkSize))).replace(/=+$/, '');
+    chunks.push(alphabet === 'base64url' ? encoded.replaceAll('+', '-').replaceAll('/', '_') : encoded);
   }
-  const encoded = btoa(chunks.join('')).replace(/=+$/, '');
-  return alphabet === 'base64url' ? encoded.replaceAll('+', '-').replaceAll('/', '_') : encoded;
+  return chunks.join('');
 }

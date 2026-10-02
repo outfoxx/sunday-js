@@ -46,13 +46,15 @@ describe('portable base64', () => {
   });
 
   it.each(alphabets)('round trips large byte views without exposing surrounding bytes for %s', (alphabet) => {
-    const storage = Uint8Array.from({ length: 200003 }, (_, index) => index % 256);
-    const bytes = storage.subarray(1, storage.length - 1);
-    const expected = Buffer.from(bytes).toString(alphabet).replace(/=+$/, '');
-    const encoded = encodeBase64(bytes, alphabet);
-    expect(encoded).toBe(expected);
-    const decoded = decodeBase64(encoded, alphabet);
-    expect(decoded.byteLength).toBe(bytes.length);
-    expect(new Uint8Array(decoded)).toEqual(bytes);
+    for (const length of [24575, 24576, 24577, 24578, 49153, 200001]) {
+      const storage = Uint8Array.from({ length: length + 2 }, (_, index) => index % 256);
+      const bytes = storage.subarray(1, storage.length - 1);
+      const expected = Buffer.from(bytes).toString(alphabet).replace(/=+$/, '');
+      const encoded = encodeBase64(bytes, alphabet);
+      expect(encoded).toBe(expected);
+      const decoded = decodeBase64(encoded, alphabet);
+      expect(decoded.byteLength).toBe(bytes.length);
+      expect(new Uint8Array(decoded)).toEqual(bytes);
+    }
   });
 });
