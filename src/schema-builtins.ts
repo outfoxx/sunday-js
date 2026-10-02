@@ -21,6 +21,7 @@ import {
   SchemaPolicy,
 } from './schema-policy.js';
 import { defineSchema } from './schema-runtime.js';
+import { decodeBase64, encodeBase64 } from './util/base64.js';
 
 export type BuiltinSchemaSet = {
   readonly urlSchema: z.ZodType<URL>;
@@ -103,40 +104,33 @@ const URL_CBOR_CODEC = z.codec(z.union([z.string(), z.instanceof(TaggedValue)]),
 });
 
 function base64Decoder(encoding: ArrayBufferEncoding): (value: string) => ArrayBuffer {
-  let options: { alphabet: 'base64' | 'base64url', lastChunkHandling: 'loose' };
+  let alphabet: 'base64' | 'base64url';
   switch (encoding) {
     case ArrayBufferEncoding.BASE64:
-      options = { alphabet: 'base64', lastChunkHandling: 'loose' };
+      alphabet = 'base64';
       break;
     case ArrayBufferEncoding.BASE64URL:
-      options = { alphabet: 'base64url', lastChunkHandling: 'loose' };
+      alphabet = 'base64url';
       break;
     default:
       throw new TypeError(`Invalid ArrayBufferEncoding: ${encoding}`);
   }
-  return (value) => {
-    const array = Uint8Array.fromBase64(value, options);
-    return array
-      .buffer
-      .slice();
-  };
+  return (value) => decodeBase64(value, alphabet);
 }
 
 function base64Encoder(encoding: ArrayBufferEncoding): (buffer: ArrayBufferLike) => string {
-  let options: { alphabet: 'base64' | 'base64url', omitPadding: true };
+  let alphabet: 'base64' | 'base64url';
   switch (encoding) {
     case ArrayBufferEncoding.BASE64:
-      options = { alphabet: 'base64', omitPadding: true };
+      alphabet = 'base64';
       break;
     case ArrayBufferEncoding.BASE64URL:
-      options = { alphabet: 'base64url', omitPadding: true };
+      alphabet = 'base64url';
       break;
     default:
       throw new TypeError(`Invalid ArrayBufferEncoding: ${encoding}`);
   }
-  return (value) => {
-    return new Uint8Array(value).toBase64(options);
-  };
+  return (value) => encodeBase64(new Uint8Array(value), alphabet);
 }
 
 function createArrayBufferSchema(policy: SchemaPolicy): z.ZodType<ArrayBuffer> {
@@ -167,13 +161,9 @@ function createArrayBufferSchema(policy: SchemaPolicy): z.ZodType<ArrayBuffer> {
               const string = z.string().decode(value.value);
               switch (value.tag) {
                 case base64Tag:
-                  return Uint8Array
-                    .fromBase64(string, { alphabet: 'base64', lastChunkHandling: 'loose' })
-                    .buffer;
+                  return decodeBase64(string, 'base64');
                 case base64UrlTag:
-                  return Uint8Array
-                    .fromBase64(string, { alphabet: 'base64url', lastChunkHandling: 'loose' })
-                    .buffer;
+                  return decodeBase64(string, 'base64url');
                 default:
                   ctx.issues.push(
                     {
