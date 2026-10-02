@@ -86,3 +86,6 @@ evicted to allow code reuse. Refresh exchanges do not consume this history.
 before encoding on every request build, including bodyless requests and event streams. Generated
 callbacks validate captured typed parameters in request mode; reusing an operation checks mutable
 values again. Custom transports must invoke the callback at the same boundary before transmission.
+
+Parameter failures throw `RequestValidationError` with the native validation error as `cause`.
+Event sources close on this error, and event stream iterators reject instead of reconnecting.

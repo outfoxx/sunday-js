@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { RequestValidationError } from './request-validation-error.js';
+import { unknownGet } from './util/unknowns.js';
 import { TokenManager } from './token-manager.js';
 import { AuthorizedRequest, authorizeRequest, canRecoverAuthentication, redactSecurityResponse, rejectedBearerLeases } from './request-security.js';
 import { ZodError } from 'zod';
@@ -80,7 +82,11 @@ export class FetchTransport implements Transport {
   async transportRequest(
     requestSpec: RequestSpec<unknown>,
   ): Promise<Request> {
-    requestSpec.parameterValidation?.();
+    try {
+      requestSpec.parameterValidation?.();
+    } catch (cause) {
+      throw new RequestValidationError(cause);
+    }
     const url = this.baseUrl.complete(
       requestSpec.pathTemplate,
       requestSpec.pathParameters ?? {},
@@ -404,6 +410,11 @@ export class FetchTransport implements Transport {
 
     eventSource.onerror = (event) => {
       this.logger?.error?.({ event }, 'event source error');
+      const cause = unknownGet(event, 'error');
+      if (eventSource.readyState === eventSource.CLOSED) {
+        fail(cause ?? new Error('Event source closed with an error'));
+        finish();
+      }
     };
 
     let abortHandler: (() => void) | undefined;

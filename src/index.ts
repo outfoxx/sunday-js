@@ -59,3 +59,5 @@ export * from './token-provider.js';
 export * from './token-manager.js';
 
 export * from './fetch-oauth-token-provider.js';
+
+export * from './request-validation-error.js';

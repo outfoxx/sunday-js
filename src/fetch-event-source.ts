@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { RequestValidationError } from './request-validation-error.js';
 import { AuthorizationRequiredError, TokenProviderError } from './token-provider.js';
 import { EventInfo, EventParser } from './event-parser.js';
 import { validate } from './fetch.js';
@@ -192,7 +193,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
         this.receivedComplete();
       })
       .catch((error: unknown) => {
-        if ((error instanceof TokenProviderError && error.reason !== 'temporary') || error instanceof AuthorizationRequiredError) {
+        if (error instanceof RequestValidationError || (error instanceof TokenProviderError && error.reason !== 'temporary') || error instanceof AuthorizationRequiredError) {
           this.receivedFatalError(error);
         } else {
           this.receivedError(error);
