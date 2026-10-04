@@ -59,6 +59,20 @@ const TestSetSchema = z.codec(
 );
 
 describe('FetchTransport', () => {
+  it.each([
+    ['', 'http://example.com/items/'],
+    [null, 'http://example.com/items'],
+    [undefined, 'http://example.com/items'],
+  ] as const)('preserves path parameter %j in native requests', async (id, url) => {
+    const transport = new FetchTransport('http://example.com');
+    const request = await transport.transportRequest({
+      method: 'GET',
+      pathTemplate: '/items{/id}',
+      pathParameters: { id },
+    });
+    expect(request.url).toBe(url);
+  });
+
   it('revalidates typed parameters for every bodyless request build', async () => {
     const transport = new FetchTransport('http://example.com');
     const values = ['known'];

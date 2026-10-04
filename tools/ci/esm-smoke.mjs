@@ -36,10 +36,16 @@ for (const format of ['json', 'cbor']) {
     assert.throws(() => schema.parse('invalid!'), SyntaxError);
   }
 }
+const template = new rootModule.URLTemplate('https://example.com/items{/id}');
+assert.equal(template.complete('', { id: '' }).href, 'https://example.com/items/');
+assert.equal(template.complete('', { id: null }).href, 'https://example.com/items');
+assert.equal(template.complete('', {}).href, 'https://example.com/items');
+assert.equal(template.complete('', { id: [''] }).href, 'https://example.com/items/');
+
 const { ResponseExample } = await import('@outfoxx/sunday/fetch');
 const [excerpt, body] = await ResponseExample.bodyExcerpt(new Response(bytes), 100);
 assert.equal(excerpt, 'AH+A/v8');
 assert.ok(body instanceof Blob);
 assert.deepEqual(new Uint8Array(await body.arrayBuffer()), bytes);
 
-console.log('ESM imports, binary codecs, and response excerpts succeeded');
+console.log('ESM imports, URI templates, binary codecs, and response excerpts succeeded');
