@@ -89,3 +89,11 @@ values again. Custom transports must invoke the callback at the same boundary be
 
 Parameter failures throw `RequestValidationError` with the native validation error as `cause`.
 Event sources close on this error, and event stream iterators reject instead of reconnecting.
+
+## URI template variables
+
+`URLTemplate.complete` preserves the distinction between an empty string and a missing,
+`undefined`, or `null` value. For `/items{/id}`, `id: ''` produces `/items/`, while an
+undefined `id` produces `/items`. An empty collection is undefined; a list containing
+an empty string has a defined member. Per-call values override stored template parameters,
+including explicit null or undefined values that remove a stored value for that expansion.
