@@ -65,24 +65,25 @@ export class Provider {
   private process?: Subprocess;
   private container?: string;
 
-  constructor(readonly mode: string, readonly cache: string) {
-    this.backend = backend(mode, process.platform, process.env.CI);
+  constructor(readonly mode: string, readonly cache: string, private readonly startupTimeout = 120000,
+    system = process.platform, ci = process.env.CI) {
+    this.backend = backend(mode, system, ci);
   }
 
   async start(): Promise<this> {
     this.directory = await mkdtemp(join(tmpdir(), 'sunday-oauth-'));
-    const reservation = Bun.listen({ hostname: '127.0.0.1', port: 0, socket: { data() {} } });
-    const port = reservation.port;
-    reservation.stop(true);
-    this.base = `http://127.0.0.1:${port}`;
-    this.issuer = `${this.base}/realms/${this.realm}`;
     try {
+      const reservation = Bun.listen({ hostname: '127.0.0.1', port: 0, socket: { data() {} } });
+      const port = reservation.port;
+      reservation.stop(true);
+      this.base = `http://127.0.0.1:${port}`;
+      this.issuer = `${this.base}/realms/${this.realm}`;
       const command = await this.command(port);
       this.process = Bun.spawn(command, { stdout: Bun.file(join(this.directory, 'provider.log')), stderr: Bun.file(join(this.directory, 'provider-error.log')) });
       const url = this.mode === 'replay' ? `${this.base}/__admin/mappings` : `${this.issuer}/.well-known/openid-configuration`;
-      const deadline = Date.now() + 120000;
+      const deadline = Date.now() + this.startupTimeout;
       while (Date.now() < deadline) {
-        if (this.process.exitCode !== null) throw new Error('Provider exited before readiness');
+        if (this.process.exitCode !== null || this.process.signalCode !== null) throw new Error('Provider exited before readiness');
         try {
           const response = await fetch(url, { signal: AbortSignal.timeout(1000) });
           if (response.status === 200) return this;
@@ -96,7 +97,7 @@ export class Provider {
     }
   }
 
-  private async command(port: number): Promise<string[]> {
+  protected async command(port: number): Promise<string[]> {
     if (this.backend === 'wiremock-java') {
       return ['java', '-jar', await artifact(this.cache, WIREMOCK_URL, WIREMOCK_SHA), '--bind-address', '127.0.0.1', '--port', String(port)];
     }
@@ -135,7 +136,7 @@ export class Provider {
         this.container = undefined;
         try { await bounded(Bun.spawn(['docker', 'rm', '-f', name], { stdout: 'ignore', stderr: 'ignore' }), 20000); } catch { /* Continue owned-process cleanup. */ }
       }
-      if (this.process && this.process.exitCode === null) {
+      if (this.process && this.process.exitCode === null && this.process.signalCode === null) {
         this.process.kill('SIGTERM');
         try { await bounded(this.process, 10000); } catch { /* bounded already kills a timed-out process. */ }
       }

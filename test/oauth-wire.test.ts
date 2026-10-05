@@ -18,7 +18,7 @@ import { DiscoveryMetadata, TokenErrorResponse, TokenSuccessResponse } from '../
 
 const corpus = JSON.parse(readFileSync(new URL('../test-fixtures/oauth/cases.json', import.meta.url), 'utf8')) as {
   formatVersion: number;
-  cases: { id: string; kind: string; body: string; context: { scopes: string[]; clockMillis: number }; expected: string }[];
+  cases: { id: string; kind: string; body: string; context: { scopes: string[]; clockMillis: number }; expected: string; tokens?: { accessToken: string; refreshToken: string | null; expiresAtMillis: number | null } }[];
 };
 
 describe('OAuth wire conformance', () => {
@@ -30,7 +30,12 @@ describe('OAuth wire conformance', () => {
         if (item.kind === 'error') return TokenErrorResponse.parse(item.body);
         return (await TokenSuccessResponse.parse(item.body)).tokens(item.context.scopes, item.context.clockMillis);
       };
-      if (item.expected === 'accept') await expect(parse()).resolves.toBeDefined();
+      if (item.expected === 'accept') {
+        const parsed = await parse();
+        expect(parsed).toBeDefined();
+        if (item.tokens) expect(parsed).toEqual({ accessToken: item.tokens.accessToken,
+          refreshToken: item.tokens.refreshToken ?? undefined, expiresAt: item.tokens.expiresAtMillis ?? undefined });
+      }
       else await expect(parse()).rejects.toThrow();
     });
   }

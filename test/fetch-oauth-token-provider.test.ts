@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { beforeEach, describe, expect, it } from 'bun:test';
+import { readFileSync } from 'node:fs';
 import fetchMock from 'fetch-mock';
 import {
   AuthorizationRequiredError, FetchOAuthTokenProvider, SecurityBinding, TokenManager, TokenProviderError,
@@ -337,6 +338,30 @@ describe('OAuth exchange', () => {
       fetchMock.post('https://identity.example/token', { status, body });
       const provider = new FetchOAuthTokenProvider({ identity: 'app', clientId: 'client', clientSecret: 'secret', authentication: 'client_secret_post' });
       await expect(new TokenManager({ identity: provider }).credentials(binding)).rejects.toMatchObject({ reason });
+    }
+  });
+
+  it('runs shared HTTP fixtures through acquire and refresh', async () => {
+    const corpus = JSON.parse(readFileSync(new URL('../test-fixtures/oauth/http-cases.json', import.meta.url), 'utf8')) as {
+      formatVersion: number; cases: { id: string; target: string; status: number; body: string; headers: Record<string, string>; expected: string }[];
+    };
+    expect(corpus.formatVersion).toBe(1);
+    for (const fixture of corpus.cases) {
+      for (const refresh of [false, true]) {
+        fetchMock.hardReset().mockGlobal();
+        const discovery = fixture.target === 'discovery';
+        fetchMock.route(`https://identity.example/${discovery ? 'discovery' : 'token'}`,
+          { status: fixture.status, body: fixture.status === 204 ? undefined : fixture.body, headers: fixture.headers },
+          { method: discovery ? 'GET' : 'POST' });
+        const provider = new FetchOAuthTokenProvider({ identity: 'app', clientId: 'client', clientSecret: 'secret',
+          authentication: 'client_secret_post', issuer: 'https://trusted.example' });
+        const request = { ...binding, discoveryUrl: discovery ? 'https://identity.example/discovery' : undefined,
+          clientIdentity: 'client' };
+        const signal = new AbortController().signal;
+        const operation = refresh ? provider.refresh(request, 'refresh-secret', signal) : provider.acquire(request, signal);
+        await expect(operation).rejects.toMatchObject({ reason: fixture.expected === 'invalid_grant' ? 'invalidGrant' : fixture.expected });
+        expect(fetchMock.callHistory.calls().length).toBe(1);
+      }
     }
   });
 

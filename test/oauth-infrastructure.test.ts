@@ -13,11 +13,13 @@
 // limitations under the License.
 
 import { describe, expect, test } from 'bun:test';
+import fetchMock from 'fetch-mock';
 import { createHash } from 'node:crypto';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { artifact, backend } from './oauth-support/provider';
+import { artifact, backend, bounded, Provider } from './oauth-support/provider';
 
 describe('OAuth infrastructure', () => {
   test('CI values select a backend before any executable discovery', () => {
@@ -44,4 +46,53 @@ describe('OAuth infrastructure', () => {
       await expect(artifact(directory, 'https://example.invalid/provider.jar', digest)).rejects.toThrow('integrity');
     } finally { await rm(directory, { recursive: true, force: true }); }
   });
+});
+
+
+class UnreadyProvider extends Provider {
+  protected override async command(): Promise<string[]> {
+    return [process.execPath, '-e', 'setInterval(() => {}, 1000)'];
+  }
+}
+
+class FailedProvider extends Provider {
+  protected override async command(): Promise<string[]> {
+    throw new Error('synthetic-secret');
+  }
+}
+
+test('startup failure and readiness timeout clean isolated directories', async () => {
+  for (const fixture of [FailedProvider, UnreadyProvider]) {
+    const provider = new fixture('replay', '', 0);
+    await expect(provider.start()).rejects.toThrow('OAuth infrastructure startup failed (wiremock-java)');
+    expect(existsSync(provider.directory)).toBe(false);
+    await provider.close();
+  }
+});
+
+test('bounded process timeout kills and reaps the owned process', async () => {
+  const child = Bun.spawn([process.execPath, '-e', 'setInterval(() => {}, 1000)']);
+  await expect(bounded(child, 50)).rejects.toThrow('process failed');
+  expect(child.signalCode).toBe('SIGKILL');
+});
+
+test('macOS CI cache failure cannot fall back to Docker or replay', async () => {
+  const cache = await mkdtemp(join(tmpdir(), 'oauth-java-failure-'));
+  const provider = new Provider('live', cache, 0, 'darwin', 'true');
+  try {
+    await writeFile(join(cache, 'keycloak-26.2.5.tar.gz'), 'tampered');
+    await expect(provider.start()).rejects.toThrow('OAuth infrastructure startup failed (keycloak-java)');
+    expect(existsSync(provider.directory)).toBe(false);
+    expect(await readdir(cache)).toEqual(['keycloak-26.2.5.tar.gz']);
+  } finally { await provider.close(); await rm(cache, { recursive: true, force: true }); }
+});
+
+test('failed download verification does not populate the artifact cache', async () => {
+  fetchMock.hardReset();
+  const cache = await mkdtemp(join(tmpdir(), 'oauth-download-'));
+  const server = Bun.serve({ port: 0, fetch: () => new Response('tampered') });
+  try {
+    await expect(artifact(cache, `${server.url}provider.jar`, 'invalid')).rejects.toThrow('integrity');
+    expect(await readdir(cache)).toEqual([]);
+  } finally { server.stop(true); await rm(cache, { recursive: true, force: true }); }
 });

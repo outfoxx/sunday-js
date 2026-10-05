@@ -28,6 +28,10 @@ export class DiscoveryMetadata {
     const authorizationUrl = string(data, 'authorization_endpoint');
     if (tokenUrl !== undefined) endpoint(tokenUrl);
     if (authorizationUrl !== undefined) endpoint(authorizationUrl);
+    for (const name of ['jwks_uri', 'registration_endpoint', 'revocation_endpoint', 'introspection_endpoint']) {
+      const value = string(data, name);
+      if (value !== undefined) endpoint(value);
+    }
     let methods: string[] | undefined;
     if ('token_endpoint_auth_methods_supported' in data) {
       const raw = data.token_endpoint_auth_methods_supported;
