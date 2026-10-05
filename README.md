@@ -50,7 +50,11 @@ grants and rotates refresh tokens. Configure `identity`, `clientId`, and explici
 a fresh `grantIdentity` and an `authorization(request, signal)` callback returning
 `{code, redirectUri, codeVerifier}` after its S256 PKCE browser flow has verified state, issuer, and redirect
 URI. Codes are consumed once even when exchange fails or is canceled. Discovery requires a separately
-configured `issuer`; acquisition endpoint overrides cannot change it. Other authentication methods use
+configured `issuer`; acquisition endpoint overrides cannot change it. Public authorization-code/PKCE
+clients using `authentication: 'none'` accept discovery that omits `none`, including an absent or empty
+authentication-method list. Supplied lists must contain only strings. Confidential clients still
+require their configured method; an absent list defaults to `client_secret_basic`. Discovery and
+endpoint trust are checked again on refresh. Other authentication methods use
 an application `TokenProvider`. Token endpoints require HTTPS except for loopback development URLs.
 
 External and static providers implement `configure` and `acquire`, optionally `refresh`. A `TokenSet`

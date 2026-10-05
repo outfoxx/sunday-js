@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { beforeEach, describe, expect, it, spyOn } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import fetchMock from 'fetch-mock';
 import { FetchEventSource, MediaType, Problem } from '../src';
 import { unknownGet, unknownSet } from '../src/util/unknowns';
@@ -45,7 +45,17 @@ declare global {
   }
 }
 
+const sources: FetchEventSource[] = [];
+const createEventSource = (...args: ConstructorParameters<typeof FetchEventSource>): FetchEventSource => {
+  const source = new FetchEventSource(...args);
+  sources.push(source);
+  return source;
+};
+
 describe('FetchEventSource', () => {
+  afterEach(() => {
+    for (const source of sources.splice(0)) source.close();
+  });
   beforeEach(() => {
     fetchMock.hardReset().mockGlobal();
   });
@@ -69,7 +79,7 @@ describe('FetchEventSource', () => {
       },
     );
 
-    const eventSource = new FetchEventSource('http://example.com');
+    const eventSource = createEventSource('http://example.com');
     await waitForEvent((resolve, _reject) => {
       eventSource.onmessage = () => {
         eventSource.close();
@@ -103,7 +113,7 @@ describe('FetchEventSource', () => {
       },
     );
 
-    const eventSource = new FetchEventSource('http://example.com');
+    const eventSource = createEventSource('http://example.com');
 
     await waitForEvent((resolve, _reject) => {
       eventSource.onmessage = () => {
@@ -120,7 +130,7 @@ describe('FetchEventSource', () => {
   });
 
   it('uses the aligned exponential retry policy', () => {
-    const eventSource = new FetchEventSource('http://example.com');
+    const eventSource = createEventSource('http://example.com');
     const calculateRetryTime = unknownGet<
       (retryAttempt: number, retryTime: number, retryMax: number) => number
     >(FetchEventSource, 'calculateRetryTime');
@@ -134,7 +144,7 @@ describe('FetchEventSource', () => {
   });
 
   it('resets retry escalation after a successful connection', () => {
-    const eventSource = new FetchEventSource('http://example.com');
+    const eventSource = createEventSource('http://example.com');
     const timeoutSet = spyOn(globalThis, 'setTimeout');
     const receivedHeaders = unknownGet<(response: Response) => void>(
       eventSource,
@@ -156,7 +166,7 @@ describe('FetchEventSource', () => {
   });
 
   it('escalates retry delays across consecutive connection failures', () => {
-    const eventSource = new FetchEventSource('http://example.com');
+    const eventSource = createEventSource('http://example.com');
     const timeoutSet = spyOn(globalThis, 'setTimeout');
     const timeoutClear = spyOn(globalThis, 'clearTimeout');
     const receivedError = unknownGet<(error: unknown) => void>(
@@ -177,7 +187,7 @@ describe('FetchEventSource', () => {
   });
 
   it('accepts server reconnect and keepalive controls', () => {
-    const eventSource = new FetchEventSource('http://example.com');
+    const eventSource = createEventSource('http://example.com');
     const dispatchParsedEvent = unknownGet<(eventInfo: object) => void>(
       eventSource,
       'dispatchParsedEvent',
@@ -202,7 +212,7 @@ describe('FetchEventSource', () => {
   });
 
   it('applies a minimum keepalive timeout', () => {
-    const eventSource = new FetchEventSource('http://example.com');
+    const eventSource = createEventSource('http://example.com');
     const intervalSet = spyOn(globalThis, 'setInterval');
     const dispatchParsedEvent = unknownGet<(eventInfo: object) => void>(
       eventSource,
@@ -220,7 +230,7 @@ describe('FetchEventSource', () => {
   });
 
   it('does not retain server keepalive timeouts across connections', () => {
-    const eventSource = new FetchEventSource('http://example.com');
+    const eventSource = createEventSource('http://example.com');
     const dispatchParsedEvent = unknownGet<(eventInfo: object) => void>(
       eventSource,
       'dispatchParsedEvent',
@@ -246,7 +256,7 @@ describe('FetchEventSource', () => {
   });
 
   it('prefers an explicit event timeout over keepalive controls', () => {
-    const eventSource = new FetchEventSource('http://example.com', {
+    const eventSource = createEventSource('http://example.com', {
       eventTimeout: 750,
     });
     const dispatchParsedEvent = unknownGet<(eventInfo: object) => void>(
@@ -269,7 +279,7 @@ describe('FetchEventSource', () => {
   });
 
   it('ignores invalid reconnect and keepalive controls', () => {
-    const eventSource = new FetchEventSource('http://example.com');
+    const eventSource = createEventSource('http://example.com');
     const dispatchParsedEvent = unknownGet<(eventInfo: object) => void>(
       eventSource,
       'dispatchParsedEvent',
@@ -287,7 +297,7 @@ describe('FetchEventSource', () => {
   });
 
   it('does not enable event timeouts without a server promise', () => {
-    const eventSource = new FetchEventSource('http://example.com');
+    const eventSource = createEventSource('http://example.com');
     const receivedHeaders = unknownGet<(response: Response) => void>(
       eventSource,
       'receivedHeaders',
@@ -303,7 +313,7 @@ describe('FetchEventSource', () => {
   it('fails non-successful responses without reconnecting', async () => {
     fetchMock.get('http://example.com', { status: 400 });
 
-    const eventSource = new FetchEventSource('http://example.com');
+    const eventSource = createEventSource('http://example.com');
 
     await waitForEvent((resolve, reject) => {
       eventSource.onerror = (event) => {
@@ -325,7 +335,7 @@ describe('FetchEventSource', () => {
   it('stops reconnecting after a 204 response', async () => {
     fetchMock.get('http://example.com', { status: 204 });
 
-    const eventSource = new FetchEventSource('http://example.com');
+    const eventSource = createEventSource('http://example.com');
 
     await waitForEvent((resolve, reject) => {
       eventSource.onerror = () => {
@@ -355,7 +365,7 @@ describe('FetchEventSource', () => {
           headers: { 'content-type': MediaType.EventStream.toString() },
         }),
     );
-    const eventSource = new FetchEventSource('http://example.com');
+    const eventSource = createEventSource('http://example.com');
     await waitForEvent((resolve, reject) => {
       fetchMock.get('http://example.com', (callLog) => {
         try {
@@ -387,7 +397,7 @@ describe('FetchEventSource', () => {
           headers: { 'content-type': MediaType.EventStream.toString() },
         }),
     );
-    const eventSource = new FetchEventSource('http://example.com');
+    const eventSource = createEventSource('http://example.com');
     await waitForEvent((resolve, reject) => {
       fetchMock.get('http://example.com', (callLog) => {
         try {
@@ -423,7 +433,7 @@ describe('FetchEventSource', () => {
       { status: 503 },
     );
 
-    const eventSource = new FetchEventSource('http://example.com');
+    const eventSource = createEventSource('http://example.com');
     await waitForEvent((resolve, reject) => {
       eventSource.addEventListener('hello', () => {
         eventSource.close();
@@ -444,7 +454,7 @@ describe('FetchEventSource', () => {
       delayedResponse({ status: 200 }, 5000),
     );
 
-    const eventSource = new FetchEventSource('http://example.com', {
+    const eventSource = createEventSource('http://example.com', {
       signal: abortController.signal,
     });
 
@@ -478,7 +488,7 @@ describe('FetchEventSource', () => {
     const warnings: unknown[][] = [];
 
     await waitForEvent((resolve, _reject) => {
-      const eventSource = new FetchEventSource('http://example.com', {
+      const eventSource = createEventSource('http://example.com', {
         logger: {
           warn: (...data: unknown[]) => {
             warnings.push(data);
@@ -518,7 +528,7 @@ describe('FetchEventSource', () => {
       { status: 503 },
     );
 
-    const eventSource = new FetchEventSource('http://example.com');
+    const eventSource = createEventSource('http://example.com');
 
     const lastEventReceivedTimeSet = spyOn(
       eventSource,
@@ -569,7 +579,7 @@ describe('FetchEventSource', () => {
         }),
     );
 
-    const eventSource = new FetchEventSource(url);
+    const eventSource = createEventSource(url);
     let messagesReceived = 0;
 
     await waitForEvent((resolve, reject) => {

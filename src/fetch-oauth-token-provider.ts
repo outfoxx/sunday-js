@@ -131,6 +131,7 @@ export class FetchOAuthTokenProvider implements TokenProvider {
     endpoint(tokenUrl);
     if (authorizationUrl !== undefined) endpoint(authorizationUrl);
     else if (request.flow === 'authorizationCode') throw new TokenProviderError();
+    if (request.refreshUrl !== undefined) endpoint(request.refreshUrl);
     return { ...request, tokenUrl, authorizationUrl };
   }
 
