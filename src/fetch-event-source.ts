@@ -397,6 +397,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
   //
 
   private scheduleReconnect() {
+    this.clearReconnect();
     this.internalClose();
 
     const retryDelay = FetchEventSource.calculateRetryTime(

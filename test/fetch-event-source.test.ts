@@ -158,6 +158,7 @@ describe('FetchEventSource', () => {
   it('escalates retry delays across consecutive connection failures', () => {
     const eventSource = new FetchEventSource('http://example.com');
     const timeoutSet = spyOn(globalThis, 'setTimeout');
+    const timeoutClear = spyOn(globalThis, 'clearTimeout');
     const receivedError = unknownGet<(error: unknown) => void>(
       eventSource,
       'receivedError',
@@ -169,8 +170,10 @@ describe('FetchEventSource', () => {
 
     expect(timeoutSet).toHaveBeenNthCalledWith(1, expect.any(Function), 500);
     expect(timeoutSet).toHaveBeenNthCalledWith(2, expect.any(Function), 1000);
+    expect(timeoutClear).toHaveBeenCalledWith(timeoutSet.mock.results[0].value);
     eventSource.close();
     timeoutSet.mockRestore();
+    timeoutClear.mockRestore();
   });
 
   it('accepts server reconnect and keepalive controls', () => {

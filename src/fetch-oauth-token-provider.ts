@@ -12,11 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import * as oauth from 'oauth4webapi';
+
 import { SecurityBinding, SecurityEndpoints } from './security-binding.js';
 import {
   AuthorizationRequiredError, TokenConfiguration, TokenProvider, TokenProviderError,
   TokenRequest, TokenSet,
 } from './token-provider.js';
+
+import { DiscoveryMetadata, TokenSuccessResponse, TokenErrorResponse, endpoint } from './oauth-wire.js';
 
 /** Fresh application-authorized S256 PKCE grant, consumed once even if exchange fails or is canceled. */
 export interface AuthorizationGrant {
@@ -117,13 +121,16 @@ export class FetchOAuthTokenProvider implements TokenProvider {
     const response = await this.fetchResponse(endpoint(request.discoveryUrl), {
       headers: { Accept: 'application/json' }, credentials: 'omit', redirect: 'manual', signal,
     });
-    const document: unknown = await response.json();
-    if (response.status !== 200 || !isObject(document) || document.issuer !== this.options.issuer) throw new TokenProviderError();
-    const methods = document.token_endpoint_auth_methods_supported ?? ['client_secret_basic'];
-    if (!Array.isArray(methods) || !methods.includes(this.authentication)) throw new TokenProviderError();
-    const tokenUrl = request.tokenUrl ?? document.token_endpoint;
-    const authorizationUrl = request.authorizationUrl ?? document.authorization_endpoint;
-    if (typeof tokenUrl !== 'string' || (authorizationUrl !== undefined && typeof authorizationUrl !== 'string')) throw new TokenProviderError();
+    if (response.status !== 200) throw new TokenProviderError();
+    const metadata = DiscoveryMetadata.parse(await response.text());
+    if (metadata.issuer !== this.options.issuer) throw new TokenProviderError();
+    const publicCode = this.authentication === 'none' && request.flow === 'authorizationCode';
+    if (!publicCode && !(metadata.methods ?? ['client_secret_basic']).includes(this.authentication)) throw new TokenProviderError();
+    const tokenUrl = request.tokenUrl ?? metadata.tokenUrl;
+    const authorizationUrl = request.authorizationUrl ?? metadata.authorizationUrl;
+    endpoint(tokenUrl);
+    if (authorizationUrl !== undefined) endpoint(authorizationUrl);
+    else if (request.flow === 'authorizationCode') throw new TokenProviderError();
     return { ...request, tokenUrl, authorizationUrl };
   }
 
@@ -145,59 +152,33 @@ export class FetchOAuthTokenProvider implements TokenProvider {
     if (request.scopes.length) form.set('scope', request.scopes.join(' '));
     if (request.audience !== undefined) form.set('audience', request.audience);
     if (request.resource !== undefined) form.set('resource', request.resource);
-    const headers = new Headers({ Accept: 'application/json' });
-    if (this.authentication === 'client_secret_basic') {
-      const credential = `${formEncode(this.options.clientId)}:${formEncode(this.options.clientSecret!)}`;
-      headers.set('Authorization', `Basic ${btoa(credential)}`);
+    const url = endpoint(tokenUrl);
+    const authentication = this.authentication === 'client_secret_basic'
+      ? oauth.ClientSecretBasic(this.options.clientSecret!)
+      : this.authentication === 'client_secret_post'
+        ? oauth.ClientSecretPost(this.options.clientSecret!) : oauth.None();
+    const grantType = form.get('grant_type')!;
+    form.delete('grant_type');
+    const response = await oauth.genericTokenEndpointRequest(
+      { issuer: new URL(url).origin, token_endpoint: url },
+      { client_id: this.options.clientId }, authentication, grantType, form, {
+        signal,
+        // Endpoint policy permits HTTP only for loopback, before this escape hatch is enabled.
+        [oauth.allowInsecureRequests]: new URL(url).protocol === 'http:',
+        [oauth.customFetch]: (input, init) => this.fetchResponse(String(input), {
+          ...init, credentials: 'omit', redirect: 'manual', signal,
+        }),
+      });
+    const body = await response.text();
+    if (response.status !== 200) {
+      const code = TokenErrorResponse.parse(body).code;
+      if (code === 'invalid_grant') {
+        if (request.flow === 'authorizationCode') throw new AuthorizationRequiredError();
+        throw new TokenProviderError('invalidGrant');
+      }
+      if (code === 'temporarily_unavailable' || code === 'server_error') throw new TokenProviderError('temporary');
+      throw new TokenProviderError();
     }
-    else {
-      form.set('client_id', this.options.clientId);
-      if (this.authentication === 'client_secret_post') form.set('client_secret', this.options.clientSecret!);
-    }
-    const response = await this.fetchResponse(endpoint(tokenUrl), { method: 'POST', headers, body: form, credentials: 'omit', redirect: 'manual', signal });
-    const data: unknown = await response.json();
-    if (!isObject(data)) throw new TokenProviderError();
-    checkTokenResponse(response.status, data, request);
-    return this.parseTokens(data, request);
-  }
-
-  private parseTokens(data: Record<string, unknown>, request: TokenRequest): TokenSet {
-    if (typeof data.access_token !== 'string' || !data.access_token || typeof data.token_type !== 'string' || data.token_type.toLowerCase() !== 'bearer') throw new TokenProviderError();
-    let expiresAt: number | undefined;
-    if (data.expires_in !== undefined) {
-      if (typeof data.expires_in !== 'number' || !Number.isFinite(data.expires_in) || data.expires_in <= 0) throw new TokenProviderError();
-      expiresAt = this.now() + data.expires_in * 1_000;
-      if (!Number.isFinite(expiresAt)) throw new TokenProviderError();
-    }
-    if (data.refresh_token !== undefined && (typeof data.refresh_token !== 'string' || !data.refresh_token)) throw new TokenProviderError();
-    if (data.scope !== undefined && (typeof data.scope !== 'string' || !request.scopes.every(scope => (data.scope as string).split(' ').includes(scope)))) throw new TokenProviderError();
-    return { accessToken: data.access_token, expiresAt, refreshToken: data.refresh_token as string | undefined };
-  }
-}
-
-function endpoint(value: string | undefined): string {
-  if (!value) throw new TokenProviderError();
-  const url = new URL(value);
-  if (url.username || url.password || url.hash) throw new TokenProviderError();
-  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname))) throw new TokenProviderError();
-  return url.toString();
-}
-
-function formEncode(value: string): string {
-  return new URLSearchParams({ value }).toString().slice('value='.length);
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object' && !Array.isArray(value);
-}
-
-function checkTokenResponse(status: number, data: Record<string, unknown>, request: TokenRequest): void {
-  if (status !== 200) {
-    if (data.error === 'invalid_grant') {
-      if (request.flow === 'authorizationCode') throw new AuthorizationRequiredError();
-      throw new TokenProviderError('invalidGrant');
-    }
-    if (data.error === 'temporarily_unavailable' || data.error === 'server_error') throw new TokenProviderError('temporary');
-    throw new TokenProviderError();
+    return (await TokenSuccessResponse.parse(body)).tokens(request.scopes, this.now());
   }
 }
