@@ -119,11 +119,17 @@ export class FetchOAuthTokenProvider implements TokenProvider {
     });
     const document: unknown = await response.json();
     if (response.status !== 200 || !isObject(document) || document.issuer !== this.options.issuer) throw new TokenProviderError();
-    const methods = document.token_endpoint_auth_methods_supported ?? ['client_secret_basic'];
-    if (!Array.isArray(methods) || !methods.includes(this.authentication)) throw new TokenProviderError();
+    const methods = document.token_endpoint_auth_methods_supported === undefined ? ['client_secret_basic'] : document.token_endpoint_auth_methods_supported;
+    if (!Array.isArray(methods) || methods.some(method => typeof method !== 'string')) throw new TokenProviderError();
+    // Public PKCE clients do not authenticate; servers such as Keycloak omit them from this list.
+    const publicAuthorizationCode = this.authentication === 'none' && request.flow === 'authorizationCode';
+    if (!publicAuthorizationCode && !methods.includes(this.authentication)) throw new TokenProviderError();
     const tokenUrl = request.tokenUrl ?? document.token_endpoint;
     const authorizationUrl = request.authorizationUrl ?? document.authorization_endpoint;
     if (typeof tokenUrl !== 'string' || (authorizationUrl !== undefined && typeof authorizationUrl !== 'string')) throw new TokenProviderError();
+    endpoint(tokenUrl);
+    if (authorizationUrl !== undefined) endpoint(authorizationUrl);
+    if (request.refreshUrl !== undefined) endpoint(request.refreshUrl);
     return { ...request, tokenUrl, authorizationUrl };
   }
 
