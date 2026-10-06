@@ -21,3 +21,5 @@ reports/
 
 # dotenv environment variables file
 .env*
+
+.oauth-cache/
