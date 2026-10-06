@@ -60,7 +60,7 @@ export class ClientSettings {
 
   /** Expands server variables once and resolves relative servers against their document location. */
   static serverUrl(template: string, variables: Readonly<Record<string, string>>, documentBaseUrl?: string): string {
-    const expanded = template.replace(/\{([^}]+)\}/g, (_match, name: string) => {
+    const expanded = template.replace(/\{([^{}]+)\}/g, (_match, name: string) => {
       if (!Object.hasOwn(variables, name)) throw new TypeError(`Missing server variable '${name}'`);
       return variables[name];
     });
@@ -101,20 +101,29 @@ export class ClientSettings {
       }
       if (previous !== undefined) continue;
       owners.set(binding.provider, binding.scheme);
-      const credentials = this.#credentials.get(binding.scheme)!;
-      if (credentials.kind === 'provider') providers.set(binding.provider, credentials.provider);
-      else if (credentials.kind === 'oauth') providers.set(binding.provider, credentials.providerFactory(credentials));
-      else {
-        const identity = crypto.randomUUID();
-        const token = credentials.kind === 'bearer' ? credentials.token : credentials.kind === 'apiKey' ? credentials.key :
-          btoa(Array.from(new TextEncoder().encode(`${credentials.username}:${credentials.password}`), byte => String.fromCharCode(byte)).join(''));
-        providers.set(binding.provider, {
-          identity,
-          configure: () => ({ clientIdentity: identity }),
-          acquire: async () => ({ accessToken: token }),
-        });
-      }
+      providers.set(binding.provider, this.prepareProvider(this.#credentials.get(binding.scheme)!));
     }
     return providers.size ? new TokenManager(Object.fromEntries(providers)) : undefined;
   }
+
+  private prepareProvider(credentials: Credentials): TokenProvider {
+    if (credentials.kind === 'provider') return credentials.provider;
+    if (credentials.kind === 'oauth') return credentials.providerFactory(credentials);
+    const identity = crypto.randomUUID();
+    let token: string;
+    switch (credentials.kind) {
+      case 'bearer': token = credentials.token; break;
+      case 'apiKey': token = credentials.key; break;
+      case 'basic':
+        token = btoa(Array.from(new TextEncoder().encode(`${credentials.username}:${credentials.password}`),
+          byte => String.fromCodePoint(byte)).join(''));
+        break;
+    }
+    return {
+      identity,
+      configure: () => ({ clientIdentity: identity }),
+      acquire: () => Promise.resolve({ accessToken: token }),
+    };
+  }
+
 }

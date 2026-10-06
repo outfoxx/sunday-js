@@ -96,6 +96,14 @@ describe('client settings', () => {
     expect(() => new ClientSettings(endpoint, { list: [{ ...binding, tokenUrl: '/{version}/token' }] }, { identity: { kind: 'bearer', token: 'secret' } })).toThrow();
   });
 
+  it('expands adjacent and prototype-named variables without recursive substitution', () => {
+    expect(ClientSettings.serverUrl('https://api.example/{one}{two}/{__proto__}',
+      { one: 'a', two: 'b', ['__proto__']: '{literal}' })).toBe('https://api.example/ab/%7Bliteral%7D');
+    expect(() => ClientSettings.serverUrl('https://{missing}', {})).toThrow('Missing server variable');
+    const unmatched = '{'.repeat(100_000);
+    expect(ClientSettings.serverUrl(`https://api.example/${unmatched}`, {})).toContain('%7B');
+  });
+
   it('isolates token managers between configurations with the same scheme', async () => {
     const first = new ClientSettings('https://one.example', { list: [bearer] }, { identity: { kind: 'bearer', token: 'one' } });
     const second = new ClientSettings('https://two.example', { list: [bearer] }, { identity: { kind: 'bearer', token: 'two' } });

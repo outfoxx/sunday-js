@@ -83,15 +83,7 @@ export function validateCredentials(credentials: Credentials, binding: SecurityB
   }
   const prefix = binding.transport.prefix?.toLowerCase();
   if (credentials.kind === 'oauth') {
-    if (prefix !== 'bearer' || credentials.flow !== binding.flow || !credentials.identity.trim() || !credentials.clientId.trim()) {
-      throw new TypeError('OAuth credentials do not match the selected security binding');
-    }
-    const authentication = credentials.authentication ?? 'none';
-    if (!['none', 'client_secret_basic', 'client_secret_post'].includes(authentication) || (authentication === 'none') !== (credentials.clientSecret === undefined) || credentials.clientSecret === '' ||
-      (credentials.flow === 'clientCredentials' && authentication === 'none') ||
-      (credentials.flow === 'authorizationCode' && (!credentials.grantIdentity.trim() || !credentials.authorization))) {
-      throw new TypeError('Invalid OAuth credential configuration');
-    }
+    validateOAuthCredentials(credentials, binding);
     return;
   }
   if (binding.flow !== 'static' && binding.flow !== 'external') {
@@ -105,5 +97,19 @@ export function validateCredentials(credentials: Credentials, binding: SecurityB
   }
   if (credentials.kind === 'basic' && (prefix !== 'basic' || credentials.username.includes(':'))) {
     throw new TypeError('Basic credentials do not match the selected security binding');
+  }
+}
+
+
+function validateOAuthCredentials(credentials: OAuthCredentials, binding: SecurityBinding): void {
+  const prefix = binding.transport.prefix?.toLowerCase();
+  if (prefix !== 'bearer' || credentials.flow !== binding.flow || !credentials.identity.trim() || !credentials.clientId.trim()) {
+    throw new TypeError('OAuth credentials do not match the selected security binding');
+  }
+  const authentication = credentials.authentication ?? 'none';
+  if (!['none', 'client_secret_basic', 'client_secret_post'].includes(authentication) || (authentication === 'none') !== (credentials.clientSecret === undefined) || credentials.clientSecret === '' ||
+    (credentials.flow === 'clientCredentials' && authentication === 'none') ||
+    (credentials.flow === 'authorizationCode' && (!credentials.grantIdentity.trim() || !credentials.authorization))) {
+    throw new TypeError('Invalid OAuth credential configuration');
   }
 }
