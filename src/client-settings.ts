@@ -29,7 +29,7 @@ export class ClientSettings {
   constructor(baseUrl: string, bindings: Readonly<Record<string, readonly SecurityBinding[]>> = {},
     credentials: Readonly<Record<string, Credentials>> = {}) {
     const url = new URL(baseUrl);
-    if (!['https:', 'http:'].includes(url.protocol)) throw new TypeError('Client endpoint must be HTTP or HTTPS');
+    if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.href.includes('?') || url.href.includes('#')) throw new TypeError('Client endpoint must be HTTP or HTTPS');
     this.baseUrl = url.href;
     this.bindings = Object.freeze(Object.fromEntries(Object.entries(bindings).map(([operation, values]) =>
       [operation, Object.freeze(values.map(value => Object.freeze({
@@ -71,16 +71,25 @@ export class ClientSettings {
     return url.href;
   }
 
-  /** Chooses one complete alternative per operation using supplied credentials and optional explicit scheme sets. */
+  /**
+   * Chooses one complete alternative per operation using credentials and optional explicit scheme sets.
+   * `alternativeSelection` selects a zero-based candidate index, including its scopes and endpoint metadata.
+   */
   static resolve(baseUrl: string, alternatives: Readonly<Record<string, readonly (readonly SecurityBinding[])[]>>,
-    credentials: Readonly<Record<string, Credentials>>, selection: Readonly<Record<string, readonly string[]>> = {}): ClientSettings {
+    credentials: Readonly<Record<string, Credentials>>, selection: Readonly<Record<string, readonly string[]>> = {},
+    alternativeSelection: Readonly<Record<string, number>> = {}): ClientSettings {
+    if ([...Object.keys(selection), ...Object.keys(alternativeSelection)].some(operation => !Object.hasOwn(alternatives, operation))) {
+      throw new TypeError('Unknown operation selection');
+    }
     const bindings: Record<string, readonly SecurityBinding[]> = Object.create(null);
     for (const [operation, candidates] of Object.entries(alternatives)) {
-      const selected = selection[operation];
-      const usable = candidates.filter(candidate => {
+      const selected = Object.hasOwn(selection, operation) ? selection[operation] : undefined;
+      const selectedIndex = Object.hasOwn(alternativeSelection, operation) ? alternativeSelection[operation] : undefined;
+      const usable = candidates.filter((candidate, index) => {
+        if (selectedIndex !== undefined && selectedIndex !== index) return false;
         if (selected && (selected.length !== candidate.length || candidate.some(binding => !selected.includes(binding.scheme)))) return false;
         return candidate.every(binding => {
-          const credential = credentials[binding.scheme];
+          const credential = Object.hasOwn(credentials, binding.scheme) ? credentials[binding.scheme] : undefined;
           if (!credential) return false;
           try { validateCredentials(credential, binding); return true; } catch { return false; }
         });

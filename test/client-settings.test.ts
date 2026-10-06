@@ -21,6 +21,25 @@ const bearer: SecurityBinding = {
 };
 
 describe('client settings', () => {
+  it('rejects URL components that corrupt direct transport paths', () => {
+    for (const url of ['https://user:secret@api.example/v1', 'https://api.example/v1?x=1', 'https://api.example/v1#part']) {
+      expect(() => new ClientSettings(url)).toThrow();
+    }
+  });
+
+  it('selects complete alternatives with distinct scopes and prototype-named operations', () => {
+    const alternatives = { ['constructor']: [[{ ...bearer, scopes: ['read'] }], [{ ...bearer, scopes: ['write'] }]],
+      ['__proto__']: [[]], ['toString']: [[]] };
+    const credentials = { identity: { kind: 'bearer' as const, token: 'token' } };
+    expect(() => ClientSettings.resolve('https://api.example', alternatives, credentials)).toThrow('one complete');
+    const settings = ClientSettings.resolve('https://api.example', alternatives, credentials, {}, { ['constructor']: 1 });
+    expect(settings.bindings['constructor'][0].scopes).toEqual(['write']);
+    expect(settings.bindings['__proto__']).toEqual([]);
+    expect(settings.bindings['toString']).toEqual([]);
+    expect(() => ClientSettings.resolve('https://api.example', alternatives, credentials, {}, { ['constructor']: 2 })).toThrow();
+    expect(() => ClientSettings.resolve('https://api.example', alternatives, credentials, {}, { typo: 0 })).toThrow('Unknown operation');
+  });
+
   it('constructs the application-selected transport without OAuth acquisition', () => {
     const settings = new ClientSettings('https://api.example/v1', { list: [bearer] }, {
       identity: { kind: 'bearer', token: 'private-token' },
