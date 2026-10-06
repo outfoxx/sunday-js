@@ -20,7 +20,7 @@ import { nullifyProblem, type ProblemMatcher } from './util/nullify.js';
 
 /** Extracts the native request type from a transport. */
 export type TransportRequest<Factory> =
-  Factory extends Transport<infer NativeRequest> ? NativeRequest : never;
+  Factory extends { transportRequest(requestSpec: RequestSpec<unknown>): Promise<infer NativeRequest> } ? NativeRequest : never;
 
 /** Options used when converting an operation into a native request. */
 export interface BuildRequestOptions {

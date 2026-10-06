@@ -14,33 +14,18 @@
 
 import * as oauth from 'oauth4webapi';
 
-import { SecurityBinding, SecurityEndpoints } from './security-binding.js';
+import { SecurityBinding } from './security-binding.js';
 import {
   AuthorizationRequiredError, TokenConfiguration, TokenProvider, TokenProviderError,
   TokenRequest, TokenSet,
 } from './token-provider.js';
 
 import { DiscoveryMetadata, TokenSuccessResponse, TokenErrorResponse, endpoint } from './oauth-wire.js';
+import { OAuthCredentialOptions } from './credentials.js';
+export type { AuthorizationGrant } from './credentials.js';
 
-/** Fresh application-authorized S256 PKCE grant, consumed once even if exchange fails or is canceled. */
-export interface AuthorizationGrant {
-  readonly code: string;
-  readonly redirectUri: string;
-  readonly codeVerifier: string;
-}
-
-/** Application-owned OAuth configuration; secrets and session grants never appear in generated metadata. */
-export interface OAuthProviderOptions {
-  readonly identity: string;
-  readonly clientId: string;
-  readonly clientSecret?: string;
-  readonly authentication?: 'none' | 'client_secret_basic' | 'client_secret_post';
-  readonly grantIdentity?: string;
-  /** The application verifies state, issuer, and redirect URI before supplying an authorization result. */
-  readonly authorization?: (request: TokenRequest, signal: AbortSignal) => Promise<AuthorizationGrant>;
-  readonly endpoints?: SecurityEndpoints;
-  /** Expected discovery issuer; endpoint overrides never change this separate trust value. */
-  readonly issuer?: string;
+/** Fetch-specific OAuth exchange options. */
+export interface OAuthProviderOptions extends OAuthCredentialOptions {
   readonly fetch?: typeof fetch;
   readonly now?: () => number;
 }

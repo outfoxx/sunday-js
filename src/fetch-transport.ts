@@ -40,6 +40,8 @@ import { isStreamingBody } from './streaming-body.js';
 import { URLTemplate } from './url-template.js';
 import { errorToMessage } from './util/errors.js';
 
+import { ClientSettings } from './client-settings.js';
+
 export class FetchTransport implements Transport {
   public baseUrl: URLTemplate;
   public adapter?: RequestAdapter;
@@ -69,6 +71,14 @@ export class FetchTransport implements Transport {
     this.mediaTypeDecoders =
       options?.mediaTypeDecoders ?? MediaTypeDecoders.DEFAULT;
     this.logger = options?.logger ?? console;
+  }
+
+  /** Builds a transport from generated settings while retaining application transport options. */
+  static fromSettings(settings: ClientSettings, options?: ConstructorParameters<typeof FetchTransport>[1]): FetchTransport {
+    return new FetchTransport(settings.baseUrl, {
+      ...options,
+      tokenManager: options?.tokenManager ?? settings.tokenManager,
+    });
   }
 
   registerProblem(
