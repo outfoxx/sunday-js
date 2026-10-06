@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import * as oauth from 'oauth4webapi';
+import { parse, isLosslessNumber, isSafeNumber } from 'lossless-json';
 
 import { TokenProviderError, TokenSet } from './token-provider.js';
 
@@ -52,8 +53,10 @@ export class TokenSuccessResponse {
     const data = document(body);
     let expiresIn: number | undefined;
     if ('expires_in' in data) {
-      if (typeof data.expires_in !== 'number' || !Number.isFinite(data.expires_in) || !Number.isInteger(data.expires_in)) throw new TokenProviderError();
-      expiresIn = data.expires_in;
+      const raw = data.expires_in;
+      if (!isLosslessNumber(raw) || !isSafeNumber(raw.value) || !Number.isInteger(Number(raw.value))) throw new TokenProviderError();
+      expiresIn = Number(raw.value);
+      data.expires_in = expiresIn;
     }
     const scope = string(data, 'scope');
     if (scope !== undefined && !/^[\x21\x23-\x5b\x5d-\x7e]+(?: [\x21\x23-\x5b\x5d-\x7e]+)*(?![\s\S])/.test(scope)) throw new TokenProviderError();
@@ -87,7 +90,7 @@ export class TokenErrorResponse {
   private constructor(readonly code: string) {}
   static parse(body: string): TokenErrorResponse {
     const data = document(body);
-    string(data, 'error_description');
+    string(data, 'error_description', false, true);
     string(data, 'error_uri');
     return new TokenErrorResponse(string(data, 'error', true)!);
   }
@@ -105,16 +108,16 @@ export function endpoint(value: string | undefined): string {
 }
 
 function document(body: string): Record<string, unknown> {
-  const data: unknown = JSON.parse(body);
+  const data: unknown = parse(body);
   if (!data || typeof data !== 'object' || Array.isArray(data)) throw new TokenProviderError();
   return data as Record<string, unknown>;
 }
 
-function string(data: Record<string, unknown>, key: string, required = false): string | undefined {
+function string(data: Record<string, unknown>, key: string, required = false, allowEmpty = false): string | undefined {
   if (!(key in data)) {
     if (required) throw new TokenProviderError();
     return undefined;
   }
-  if (typeof data[key] !== 'string' || !data[key]) throw new TokenProviderError();
+  if (typeof data[key] !== 'string' || (!allowEmpty && !data[key])) throw new TokenProviderError();
   return data[key];
 }

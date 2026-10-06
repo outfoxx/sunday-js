@@ -63,7 +63,7 @@ export class Provider {
   issuer = '';
   directory = '';
   private process?: Subprocess;
-  private container?: string;
+  protected container?: string;
 
   constructor(readonly mode: string, readonly cache: string, private readonly startupTimeout = 120000,
     system = process.platform, ci = process.env.CI) {
@@ -92,8 +92,9 @@ export class Provider {
       }
       throw new Error('Provider readiness timeout');
     } catch {
-      await this.close();
-      throw new Error(`OAuth infrastructure startup failed (${this.backend})`);
+      let cleanup = '';
+      try { await this.close(); } catch { cleanup = '; container cleanup failed; retry close'; }
+      throw new Error(`OAuth infrastructure startup failed (${this.backend})${cleanup}`);
     }
   }
 
@@ -130,11 +131,13 @@ export class Provider {
   }
 
   async close(): Promise<void> {
+    let cleanupFailed = false;
     try {
       if (this.container) {
-        const name = this.container;
-        this.container = undefined;
-        try { await bounded(Bun.spawn(['docker', 'rm', '-f', name], { stdout: 'ignore', stderr: 'ignore' }), 20000); } catch { /* Continue owned-process cleanup. */ }
+        try {
+          await this.removeContainer(this.container);
+          this.container = undefined;
+        } catch { cleanupFailed = true; }
       }
       if (this.process && this.process.exitCode === null && this.process.signalCode === null) {
         this.process.kill('SIGTERM');
@@ -143,6 +146,11 @@ export class Provider {
     } finally {
       if (this.directory) await rm(this.directory, { recursive: true, force: true });
     }
+    if (cleanupFailed) throw new Error(`OAuth infrastructure container cleanup failed (${this.backend}); retry close`);
+  }
+
+  protected async removeContainer(name: string): Promise<void> {
+    await bounded(Bun.spawn(['docker', 'rm', '-f', name], { stdout: 'ignore', stderr: 'ignore' }), 20000);
   }
 }
 

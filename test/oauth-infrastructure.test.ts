@@ -96,3 +96,25 @@ test('failed download verification does not populate the artifact cache', async 
     expect(await readdir(cache)).toEqual([]);
   } finally { server.stop(true); await rm(cache, { recursive: true, force: true }); }
 });
+
+class CleanupProvider extends UnreadyProvider {
+  removals: string[] = [];
+  failRemoval = true;
+  ownContainer(): void { this.container = 'sunday-owned-fixture'; }
+  protected override async removeContainer(name: string): Promise<void> {
+    this.removals.push(name);
+    if (this.failRemoval) throw new Error('synthetic-secret');
+  }
+}
+
+test('failed container removal reports failure, finishes local cleanup, and retries', async () => {
+  const provider = new CleanupProvider('replay', '', 0);
+  provider.directory = await mkdtemp(join(tmpdir(), 'oauth-cleanup-'));
+  provider.ownContainer();
+  await expect(provider.close()).rejects.toThrow('container cleanup failed');
+  expect(existsSync(provider.directory)).toBe(false);
+  provider.failRemoval = false;
+  await provider.close();
+  await provider.close();
+  expect(provider.removals).toEqual(['sunday-owned-fixture', 'sunday-owned-fixture']);
+});

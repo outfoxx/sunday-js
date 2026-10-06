@@ -154,17 +154,17 @@ export class FetchOAuthTokenProvider implements TokenProvider {
     if (request.audience !== undefined) form.set('audience', request.audience);
     if (request.resource !== undefined) form.set('resource', request.resource);
     const url = endpoint(tokenUrl);
-    const authentication = this.authentication === 'client_secret_basic'
-      ? oauth.ClientSecretBasic(this.options.clientSecret!)
-      : this.authentication === 'client_secret_post'
-        ? oauth.ClientSecretPost(this.options.clientSecret!) : oauth.None();
+    let authentication = oauth.None();
+    if (this.authentication === 'client_secret_basic') authentication = oauth.ClientSecretBasic(this.options.clientSecret!);
+    else if (this.authentication === 'client_secret_post') authentication = oauth.ClientSecretPost(this.options.clientSecret!);
     const grantType = form.get('grant_type')!;
     form.delete('grant_type');
     const response = await oauth.genericTokenEndpointRequest(
       { issuer: new URL(url).origin, token_endpoint: url },
       { client_id: this.options.clientId }, authentication, grantType, form, {
         signal,
-        // Endpoint policy permits HTTP only for loopback, before this escape hatch is enabled.
+        // Intentionally deprecated upstream to discourage non-TLS use; endpoint() has already
+        // restricted HTTP to loopback. This is required for the supported local-provider policy.
         [oauth.allowInsecureRequests]: new URL(url).protocol === 'http:',
         [oauth.customFetch]: (input, init) => this.fetchResponse(String(input), {
           ...init, credentials: 'omit', redirect: 'manual', signal,

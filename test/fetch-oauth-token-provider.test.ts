@@ -80,7 +80,7 @@ describe('OAuth exchange', () => {
         return { token_type: 'Bearer', access_token: 'first', refresh_token: 'rotating' };
       }
       expect(form.has('code')).toBe(false);
-      return { status: 400, body: { error: 'invalid_grant', error_description: 'SECRET' } };
+      return { status: 400, body: { error: 'invalid_grant', error_description: '' } };
     });
     const provider = new FetchOAuthTokenProvider({
       identity: 'app', clientId: 'public-client', grantIdentity: 'fresh-session',
@@ -360,7 +360,7 @@ describe('OAuth exchange', () => {
         const signal = new AbortController().signal;
         const operation = refresh ? provider.refresh(request, 'refresh-secret', signal) : provider.acquire(request, signal);
         await expect(operation).rejects.toMatchObject({ reason: fixture.expected === 'invalid_grant' ? 'invalidGrant' : fixture.expected });
-        expect(fetchMock.callHistory.calls().length).toBe(1);
+        expect(fetchMock.callHistory.calls()).toHaveLength(1);
       }
     }
   });
