@@ -15,6 +15,7 @@
 import { Credentials, validateCredentials } from './credentials.js';
 import { SecurityBinding } from './security-binding.js';
 import { TokenManager } from './token-manager.js';
+import { TokenManagerFactory } from './token-manager-factory.js';
 import { TokenProvider } from './token-provider.js';
 
 /** Resolved, transport-independent inputs supplied to an application's transport factory. */
@@ -27,7 +28,7 @@ export class ClientSettings {
 
   /** Snapshots operation bindings and credentials without acquiring tokens or making requests. */
   constructor(baseUrl: string, bindings: Readonly<Record<string, readonly SecurityBinding[]>> = {},
-    credentials: Readonly<Record<string, Credentials>> = {}) {
+    credentials: Readonly<Record<string, Credentials>> = {}, tokenManagerFactory?: TokenManagerFactory) {
     const url = new URL(baseUrl);
     if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.href.includes('?') || url.href.includes('#')) throw new TypeError('Client endpoint must be HTTP or HTTPS');
     this.baseUrl = url.href;
@@ -54,7 +55,7 @@ export class ClientSettings {
       if (!credential) throw new TypeError(`Missing credentials for scheme '${binding.scheme}'`);
       validateCredentials(credential, binding);
     }
-    this.tokenManager = this.prepareTokenManager();
+    this.tokenManager = this.prepareTokenManager(tokenManagerFactory);
     Object.freeze(this);
   }
 
@@ -77,7 +78,7 @@ export class ClientSettings {
    */
   static resolve(baseUrl: string, alternatives: Readonly<Record<string, readonly (readonly SecurityBinding[])[]>>,
     credentials: Readonly<Record<string, Credentials>>, selection: Readonly<Record<string, readonly string[]>> = {},
-    alternativeSelection: Readonly<Record<string, number>> = {}): ClientSettings {
+    alternativeSelection: Readonly<Record<string, number>> = {}, tokenManagerFactory?: TokenManagerFactory): ClientSettings {
     if ([...Object.keys(selection), ...Object.keys(alternativeSelection)].some(operation => !Object.hasOwn(alternatives, operation))) {
       throw new TypeError('Unknown operation selection');
     }
@@ -97,10 +98,10 @@ export class ClientSettings {
       if (usable.length !== 1) throw new TypeError(`Operation '${operation}' requires one complete security alternative`);
       bindings[operation] = usable[0];
     }
-    return new ClientSettings(baseUrl, bindings, credentials);
+    return new ClientSettings(baseUrl, bindings, credentials, tokenManagerFactory);
   }
 
-  private prepareTokenManager(): TokenManager | undefined {
+  private prepareTokenManager(factory?: TokenManagerFactory): TokenManager | undefined {
     const providers = new Map<string, TokenProvider>();
     const owners = new Map<string, string>();
     for (const binding of Object.values(this.bindings).flat()) {
@@ -112,7 +113,9 @@ export class ClientSettings {
       owners.set(binding.provider, binding.scheme);
       providers.set(binding.provider, this.prepareProvider(this.#credentials.get(binding.scheme)!));
     }
-    return providers.size ? new TokenManager(Object.fromEntries(providers)) : undefined;
+    if (!providers.size) return undefined;
+    const resolved = Object.freeze(Object.fromEntries(providers));
+    return factory ? factory(resolved) : new TokenManager(resolved);
   }
 
   private prepareProvider(credentials: Credentials): TokenProvider {

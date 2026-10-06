@@ -57,6 +57,7 @@ export * from './util/nullify.js';
 export * from './security-binding.js';
 export * from './token-provider.js';
 export * from './token-manager.js';
+export * from './token-manager-factory.js';
 
 export * from './fetch-oauth-token-provider.js';
 

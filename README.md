@@ -101,3 +101,33 @@ Event sources close on this error, and event stream iterators reject instead of 
 undefined `id` produces `/items`. An empty collection is undefined; a list containing
 an empty string has a defined member. Per-call values override stored template parameters,
 including explicit null or undefined values that remove a stored value for that expansion.
+
+## Application-owned token persistence
+
+```typescript
+const settings = ClientSettings.resolve(baseUrl, alternatives, credentials, {}, {},
+  providers => new TokenManager(providers, {
+    store: applicationStore, expirySkewMs: 30_000, now: applicationClock,
+  }));
+```
+
+The same optional `TokenManagerFactory` is the fourth constructor argument. The last two resolver
+arguments before it are scheme selections and alternative-index selections. Clock values and expiry
+skew are milliseconds. The native manager has no close/reset method: cancel application requests with
+their abort signals, await completion, and discard the manager at session end. The factory does not
+change cancellation behavior or take ownership of application resources.
+
+The hook is invoked once with the resolved provider map, after security validation, and is skipped
+when no providers are selected. It must only construct a manager: do not acquire tokens or read
+storage in the hook. Omitting it keeps the existing in-memory default. Settings retain the returned
+manager, not the factory. All operations on those settings share it; generated aggregate children
+therefore retain the same cache and single-flight renewal. Independently created managers do not
+coordinate concurrent refreshes, even if their stores are the same. Reuse a client/aggregate within
+an active session; use successive managers to reopen saved sessions.
+
+The application owns persistence, encryption, store access and session boundaries. Provider/client,
+grant, profile and endpoint identities must distinguish environments and users; the API base URL
+alone is not an implicit store namespace. Use a new grant identity for a fresh authorization session.
+For logout, stop requests and wait for pending refresh/persistence to finish before removing the
+session's store entries, then construct fresh settings. `invalidate` expires an access token for
+renewal; it is not logout and deliberately retains refresh state. No disk storage is enabled automatically.
