@@ -41,6 +41,26 @@ describe('binary responses', () => {
     }
   }
 
+  it.each(['image/png', 'application/x-download'])('sends explicit download Accept type %s', async (media) => {
+    const bytes = new Uint8Array([0, 255, 34, 128]);
+    fetchMock.get('https://example.com/download', () => new Response(bytes, { headers: { 'content-type': media } }));
+    const transport = new FetchTransport('https://example.com');
+    const acceptType = MediaType.from(media);
+    expect(transport.mediaTypeDecoders.supports(acceptType)).toBe(false);
+    const operation = createOperation(transport, {
+      request: { method: 'GET', pathTemplate: '/download', acceptTypes: [acceptType], binaryResponse: true },
+      responseType: ArrayBufferSchema,
+    });
+
+    expect(new Uint8Array(await operation.execute())).toEqual(bytes);
+    expect(new Uint8Array((await operation.response()).result)).toEqual(bytes);
+    const calls = fetchMock.callHistory.calls();
+    expect(calls).toHaveLength(2);
+    for (const call of calls) {
+      expect(call.request?.headers.get('accept')).toBe(media);
+    }
+  });
+
   it('keeps mixed union media decoding', async () => {
     fetchMock.get('https://example.com/download', { body: '"asset"', headers: { 'content-type': 'application/json' } });
     const mixed = defineSchema(runtime => z.union([z.string(), runtime.resolveSchema(ArrayBufferSchema)]));
