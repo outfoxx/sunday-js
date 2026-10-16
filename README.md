@@ -131,3 +131,15 @@ alone is not an implicit store namespace. Use a new grant identity for a fresh a
 For logout, stop requests and wait for pending refresh/persistence to finish before removing the
 session's store entries, then construct fresh settings. `invalidate` expires an access token for
 renewal; it is not logout and deliberately retains refresh state. No disk storage is enabled automatically.
+
+## Binary downloads
+
+Generated operations set `RequestSpec.binaryResponse` for whole-body binary responses,
+including unions whose branches are all binary. `FetchTransport` then preserves the
+raw bytes regardless of `Content-Type`, while applying the response schema and retaining
+normal HTTP problem handling. This also permits download media types without a registered
+media decoder. Manually constructed binary request specs can set the same flag.
+
+Mixed binary/non-binary unions and binary fields inside structured documents continue to
+use media decoding. Successful 200 responses may contain an empty `ArrayBuffer`; typed
+204/205 responses retain the existing empty-response error behavior.
