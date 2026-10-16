@@ -94,6 +94,8 @@ export interface RequestSpec<B> {
   parameterValidation?: () => void;
   contentTypes?: MediaType[];
   acceptTypes?: MediaType[];
+  /** Decode a successful response as raw bytes, independent of its media type. */
+  binaryResponse?: boolean;
   headers?: Record<string, unknown>;
   signal?: AbortSignal;
   /** Complete, explicitly selected credential bindings for this operation. */

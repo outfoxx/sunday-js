@@ -24,6 +24,7 @@ import { HeaderParameters } from './header-parameters.js';
 import { Logger } from './logger.js';
 import { MediaType } from './media-type.js';
 import { TextMediaTypeDecoder } from './media-type-codecs/media-type-decoder.js';
+import { BinaryDecoder } from './media-type-codecs/binary-decoder.js';
 import { MediaTypeDecoders } from './media-type-codecs/media-type-decoders.js';
 import { isURLQueryParamsEncoder } from './media-type-codecs/media-type-encoder.js';
 import { MediaTypeEncoders } from './media-type-codecs/media-type-encoders.js';
@@ -121,7 +122,7 @@ export class FetchTransport implements Transport {
     // Determine & add accept header
     if (requestSpec.acceptTypes) {
       const supportedAcceptTypes = requestSpec.acceptTypes.filter((type) =>
-                                                                    this.mediaTypeDecoders.supports(type),
+                                                                    requestSpec.binaryResponse || this.mediaTypeDecoders.supports(type),
       );
 
       if (!supportedAcceptTypes.length) {
@@ -235,7 +236,7 @@ export class FetchTransport implements Transport {
         response.headers.get('content-type'),
         MediaType.OctetStream,
       );
-      const decoder = this.mediaTypeDecoders.find(contentType);
+      const decoder = request.binaryResponse ? BinaryDecoder.default : this.mediaTypeDecoders.find(contentType);
       const result = await decoder.decode(response, responseType);
       return new OperationResponse(result, response);
     }
@@ -269,7 +270,7 @@ export class FetchTransport implements Transport {
         response.headers.get('content-type'),
         MediaType.OctetStream,
       );
-      const decoder = this.mediaTypeDecoders.find(contentType);
+      const decoder = request.binaryResponse ? BinaryDecoder.default : this.mediaTypeDecoders.find(contentType);
       return await decoder.decode(response, responseType);
     }
     catch (error) {

@@ -12,24 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ArrayBufferSchema } from '../schema-builtins.js';
 import { BufferMediaTypeDecoder } from './media-type-decoder.js';
-import { isSchema, SchemaLike } from '../schema-runtime.js';
+import { SchemaLike } from '../schema-runtime.js';
+
+import { createCBORSchemaRuntime } from './default-policies.js';
 
 export class BinaryDecoder implements BufferMediaTypeDecoder {
   static readonly default = new BinaryDecoder();
+
+  // The CBOR schema policy accepts raw bytes without base64 conversion. No CBOR parsing is performed.
+  private readonly runtime = createCBORSchemaRuntime();
 
   async decode<T>(response: Response, type: SchemaLike<T>): Promise<T> {
     return this.decodeBuffer(await response.arrayBuffer(), type);
   }
 
   decodeBuffer<T>(buffer: ArrayBuffer, schema: SchemaLike<T>): T {
-    if (isSchema(schema)) {
-      return schema.parse(buffer);
-    } else if (schema === ArrayBufferSchema) {
-      return buffer as unknown as T;
-    } else {
-      throw new Error(`Unsupported schema type: ${typeof schema}`);
-    }
+    return this.runtime.resolveSchema(schema).decode(buffer);
   }
 }
