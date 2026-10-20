@@ -64,6 +64,15 @@ test('other prereleases verify their own dist-tag', async () => {
   assert.deepEqual(h.pauses, []);
 });
 
+test('hyphenated prerelease channels match the publisher dist-tag', async () => {
+  const h = harness([
+    Response.json(metadata('2.0.0-rc-next.1', 'rc-next')),
+    new Response(tarball),
+  ], 1);
+  await waitForNpmRelease('@outfoxx/sunday', '2.0.0-rc-next.1', h.options);
+  assert.deepEqual(h.pauses, []);
+});
+
 test('retries transient HTTP and network failures', async () => {
   const h = harness([
     new Response(null, { status: 503 }),

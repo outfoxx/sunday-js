@@ -16,7 +16,9 @@ export async function waitForNpmRelease(name, packageVersion, {
 } = {}) {
   // Tag validation can retain the Git tag's prefix; npm normalizes it away.
   const version = packageVersion.replace(/^v/, '');
-  const distTag = version.includes('-') ? version.split('-')[1].split('.')[0] : 'latest';
+  const distTag = version.includes('-')
+    ? version.slice(version.indexOf('-') + 1).split('.')[0]
+    : 'latest';
   const metadataUrl = `https://registry.npmjs.org/${encodeURIComponent(name)}`;
   let lastError;
 

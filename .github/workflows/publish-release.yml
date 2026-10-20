@@ -12,8 +12,10 @@ permissions:
   id-token: write
 
 concurrency:
-  group: publish-release-${{ github.ref }}
-  cancel-in-progress: true
+  # Hold the lock through verification so another release cannot move its npm tag.
+  group: publish-release
+  cancel-in-progress: false
+  queue: max
 
 jobs:
   publish:
