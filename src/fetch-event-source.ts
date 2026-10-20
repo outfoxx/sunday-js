@@ -426,7 +426,12 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     retryTime: number,
     retryMax: number,
   ): number {
-    return Math.min(retryTime * Math.pow(2, retryAttempt), retryMax);
+    if (retryAttempt === 0) {
+      return retryTime;
+    }
+
+    const cappedDelay = Math.min(retryTime * Math.pow(2, retryAttempt), retryMax);
+    return cappedDelay * (0.9 + Math.random() * 0.1);
   }
 
   private clearReconnect() {
