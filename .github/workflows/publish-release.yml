@@ -12,8 +12,10 @@ permissions:
   id-token: write
 
 concurrency:
-  group: publish-release-${{ github.ref }}
-  cancel-in-progress: true
+  # Hold the lock through verification so another release cannot move its npm tag.
+  group: publish-release
+  cancel-in-progress: false
+  queue: max
 
 jobs:
   publish:
@@ -63,6 +65,10 @@ jobs:
           echo "Publishing stable ${PACKAGE_VERSION} with dist-tag 'latest'"
           npm publish --tag latest
         fi
+
+    - name: Verify npm Availability
+      timeout-minutes: 20
+      run: node tools/ci/wait-for-npm-release.mjs
 
     - name: Build Documentation
       run: bun run docs -- --out docs/${{ github.ref_name }}
