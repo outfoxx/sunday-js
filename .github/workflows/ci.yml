@@ -35,6 +35,9 @@ jobs:
     - name: Check
       run: bun run check
 
+    - name: Release Verification Tests
+      run: node --test tools/ci/wait-for-npm-release.test.mjs
+
     - name: Docs Smoke
       run: bun run docs -- --emit none
 

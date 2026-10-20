@@ -64,6 +64,10 @@ jobs:
           npm publish --tag latest
         fi
 
+    - name: Verify npm Availability
+      timeout-minutes: 20
+      run: node tools/ci/wait-for-npm-release.mjs
+
     - name: Build Documentation
       run: bun run docs -- --out docs/${{ github.ref_name }}
 
