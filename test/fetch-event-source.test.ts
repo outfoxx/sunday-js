@@ -129,23 +129,62 @@ describe('FetchEventSource', () => {
     });
   });
 
-  it('uses the aligned exponential retry policy', () => {
-    const eventSource = createEventSource('http://example.com');
-    const calculateRetryTime = unknownGet<
-      (retryAttempt: number, retryTime: number, retryMax: number) => number
-    >(FetchEventSource, 'calculateRetryTime');
+  it.each([0, 0x80000000, 0xffffffff])(
+    'keeps the first retry exact with random value %s',
+    (randomValue) => {
+      const random = spyOn(crypto, 'getRandomValues').mockReturnValue(
+        new Uint32Array([randomValue]),
+      );
+      const calculateRetryTime = unknownGet<
+        (retryAttempt: number, retryTime: number, retryMax: number) => number
+      >(FetchEventSource, 'calculateRetryTime');
 
-    expect(eventSource.retryTime).toBe(500);
-    expect(
-      Array.from({ length: 7 }, (_, retryAttempt) =>
-        calculateRetryTime(retryAttempt, eventSource.retryTime, 15000),
-      ),
-    ).toEqual([500, 1000, 2000, 4000, 8000, 15000, 15000]);
-  });
+      try {
+        expect(calculateRetryTime(0, 500, 15000)).toBe(500);
+        expect(calculateRetryTime(0, 250, 2000)).toBe(250);
+        expect(random).not.toHaveBeenCalled();
+      } finally {
+        random.mockRestore();
+      }
+    },
+  );
+
+  it.each([0, 0x80000000, 0xffffffff])(
+    'applies downward jitter after capping exponential retries with random value %s',
+    (randomValue) => {
+      const random = spyOn(crypto, 'getRandomValues').mockReturnValue(
+        new Uint32Array([randomValue]),
+      );
+      const calculateRetryTime = unknownGet<
+        (retryAttempt: number, retryTime: number, retryMax: number) => number
+      >(FetchEventSource, 'calculateRetryTime');
+
+      try {
+        for (const [retryTime, retryMax, cappedDelays] of [
+          [500, 15000, [1000, 2000, 4000, 8000, 15000, 15000]],
+          [250, 2000, [500, 1000, 2000, 2000, 2000, 2000]],
+        ] as const) {
+          cappedDelays.forEach((cappedDelay, index) => {
+            const delay = calculateRetryTime(index + 1, retryTime, retryMax);
+            expect(delay).toBeCloseTo(
+              cappedDelay * (0.9 + (randomValue / 0x100000000) * 0.1),
+            );
+            expect(delay).toBeGreaterThanOrEqual(cappedDelay * 0.9);
+            expect(delay).toBeLessThanOrEqual(cappedDelay);
+          });
+        }
+      } finally {
+        random.mockRestore();
+      }
+    },
+  );
 
   it('resets retry escalation after a successful connection', () => {
     const eventSource = createEventSource('http://example.com');
     const timeoutSet = spyOn(globalThis, 'setTimeout');
+    const random = spyOn(crypto, 'getRandomValues').mockReturnValue(
+      new Uint32Array([0]),
+    );
     const receivedHeaders = unknownGet<(response: Response) => void>(
       eventSource,
       'receivedHeaders',
@@ -155,35 +194,47 @@ describe('FetchEventSource', () => {
       'receivedComplete',
     ).bind(eventSource);
 
-    unknownSet(eventSource, 'retryAttempt', 5);
-    eventSource.readyState = eventSource.CONNECTING;
-    receivedHeaders(new Response());
-    receivedComplete();
+    try {
+      unknownSet(eventSource, 'retryAttempt', 5);
+      eventSource.readyState = eventSource.CONNECTING;
+      receivedHeaders(new Response());
+      receivedComplete();
 
-    expect(timeoutSet).toHaveBeenCalledWith(expect.any(Function), 500);
-    eventSource.close();
-    timeoutSet.mockRestore();
+      expect(timeoutSet).toHaveBeenCalledWith(expect.any(Function), 500);
+      expect(random).not.toHaveBeenCalled();
+    } finally {
+      eventSource.close();
+      timeoutSet.mockRestore();
+      random.mockRestore();
+    }
   });
 
   it('escalates retry delays across consecutive connection failures', () => {
     const eventSource = createEventSource('http://example.com');
     const timeoutSet = spyOn(globalThis, 'setTimeout');
+    const random = spyOn(crypto, 'getRandomValues').mockReturnValue(
+      new Uint32Array([0]),
+    );
     const timeoutClear = spyOn(globalThis, 'clearTimeout');
     const receivedError = unknownGet<(error: unknown) => void>(
       eventSource,
       'receivedError',
     ).bind(eventSource);
 
-    eventSource.readyState = eventSource.CONNECTING;
-    receivedError(new TypeError('Network failure'));
-    receivedError(new TypeError('Network failure'));
+    try {
+      eventSource.readyState = eventSource.CONNECTING;
+      receivedError(new TypeError('Network failure'));
+      receivedError(new TypeError('Network failure'));
 
-    expect(timeoutSet).toHaveBeenNthCalledWith(1, expect.any(Function), 500);
-    expect(timeoutSet).toHaveBeenNthCalledWith(2, expect.any(Function), 1000);
-    expect(timeoutClear).toHaveBeenCalledWith(timeoutSet.mock.results[0].value);
-    eventSource.close();
-    timeoutSet.mockRestore();
-    timeoutClear.mockRestore();
+      expect(timeoutSet).toHaveBeenNthCalledWith(1, expect.any(Function), 500);
+      expect(timeoutSet).toHaveBeenNthCalledWith(2, expect.any(Function), 900);
+      expect(timeoutClear).toHaveBeenCalledWith(timeoutSet.mock.results[0].value);
+    } finally {
+      eventSource.close();
+      timeoutSet.mockRestore();
+      random.mockRestore();
+      timeoutClear.mockRestore();
+    }
   });
 
   it('accepts server reconnect and keepalive controls', () => {
