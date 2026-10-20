@@ -431,7 +431,9 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     }
 
     const cappedDelay = Math.min(retryTime * Math.pow(2, retryAttempt), retryMax);
-    return cappedDelay * (0.9 + Math.random() * 0.1);
+    const randomValue =
+      crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000;
+    return cappedDelay * (0.9 + randomValue * 0.1);
   }
 
   private clearReconnect() {

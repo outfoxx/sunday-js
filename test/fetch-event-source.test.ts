@@ -129,10 +129,12 @@ describe('FetchEventSource', () => {
     });
   });
 
-  it.each([0, 0.5, 1 - Number.EPSILON])(
+  it.each([0, 0x80000000, 0xffffffff])(
     'keeps the first retry exact with random value %s',
     (randomValue) => {
-      const random = spyOn(Math, 'random').mockReturnValue(randomValue);
+      const random = spyOn(crypto, 'getRandomValues').mockReturnValue(
+        new Uint32Array([randomValue]),
+      );
       const calculateRetryTime = unknownGet<
         (retryAttempt: number, retryTime: number, retryMax: number) => number
       >(FetchEventSource, 'calculateRetryTime');
@@ -147,10 +149,12 @@ describe('FetchEventSource', () => {
     },
   );
 
-  it.each([0, 0.5, 1 - Number.EPSILON])(
+  it.each([0, 0x80000000, 0xffffffff])(
     'applies downward jitter after capping exponential retries with random value %s',
     (randomValue) => {
-      const random = spyOn(Math, 'random').mockReturnValue(randomValue);
+      const random = spyOn(crypto, 'getRandomValues').mockReturnValue(
+        new Uint32Array([randomValue]),
+      );
       const calculateRetryTime = unknownGet<
         (retryAttempt: number, retryTime: number, retryMax: number) => number
       >(FetchEventSource, 'calculateRetryTime');
@@ -162,7 +166,9 @@ describe('FetchEventSource', () => {
         ] as const) {
           cappedDelays.forEach((cappedDelay, index) => {
             const delay = calculateRetryTime(index + 1, retryTime, retryMax);
-            expect(delay).toBeCloseTo(cappedDelay * (0.9 + randomValue * 0.1));
+            expect(delay).toBeCloseTo(
+              cappedDelay * (0.9 + (randomValue / 0x100000000) * 0.1),
+            );
             expect(delay).toBeGreaterThanOrEqual(cappedDelay * 0.9);
             expect(delay).toBeLessThanOrEqual(cappedDelay);
           });
@@ -176,7 +182,9 @@ describe('FetchEventSource', () => {
   it('resets retry escalation after a successful connection', () => {
     const eventSource = createEventSource('http://example.com');
     const timeoutSet = spyOn(globalThis, 'setTimeout');
-    const random = spyOn(Math, 'random').mockReturnValue(0);
+    const random = spyOn(crypto, 'getRandomValues').mockReturnValue(
+      new Uint32Array([0]),
+    );
     const receivedHeaders = unknownGet<(response: Response) => void>(
       eventSource,
       'receivedHeaders',
@@ -204,7 +212,9 @@ describe('FetchEventSource', () => {
   it('escalates retry delays across consecutive connection failures', () => {
     const eventSource = createEventSource('http://example.com');
     const timeoutSet = spyOn(globalThis, 'setTimeout');
-    const random = spyOn(Math, 'random').mockReturnValue(0);
+    const random = spyOn(crypto, 'getRandomValues').mockReturnValue(
+      new Uint32Array([0]),
+    );
     const timeoutClear = spyOn(globalThis, 'clearTimeout');
     const receivedError = unknownGet<(error: unknown) => void>(
       eventSource,
