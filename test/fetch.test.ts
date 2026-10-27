@@ -195,7 +195,7 @@ describe('Fetch API Utilities', () => {
 
     const transport = new FetchTransport('http://example.com');
 
-    expect(
+    await expect(
       transport.transportResponse(
         { method: 'GET', pathTemplate: '/test' },
         true,

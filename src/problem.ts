@@ -55,7 +55,7 @@ const ProblemURI = z.union([
       (value) =>
         !/^[a-z][a-z0-9+.-]*:/i.test(value) &&
         ![...value].some(
-          (character) => /\s/.test(character) || character.charCodeAt(0) < 32,
+          (character) => /\s/.test(character) || character.codePointAt(0)! < 32,
         ) &&
         !/%(?![0-9a-f]{2})/i.test(value),
       'Invalid relative Problem URI',
