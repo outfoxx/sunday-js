@@ -17,6 +17,7 @@ import { describe, expect, it } from 'bun:test';
 import { z } from 'zod';
 import {
   createProblemCodec,
+  nullifyProblem,
   Problem,
   ProblemWireSchema,
   ProblemStringSchema,
@@ -74,6 +75,43 @@ describe('RFC 9457 standard members', () => {
       cause: { detail: 42 },
     };
     expect(schema.encode(schema.decode(input))).toEqual(input);
+  });
+
+  it('matches decoded Problems against codecs without weakening reverse validation', async () => {
+    class CustomProblem extends Problem {}
+    const matcher = createProblemCodec(
+      CustomProblem,
+      ProblemWireSchema.extend({
+        type: createProblemReferenceCodec(z.literal('urn:custom'), true),
+        detail: ProblemStringSchema.pipe(z.string().min(2)),
+        trace: z.string(),
+      }),
+    );
+    const matched = matcher.decode({
+      type: 'urn:custom',
+      detail: 'valid',
+      trace: 'required',
+    });
+    await expect(
+      nullifyProblem(Promise.reject(matched), [], [matcher]),
+    ).resolves.toBeNull();
+    for (const unmatched of [
+      new CustomProblem({
+        type: 'urn:other',
+        detail: 'valid',
+        trace: 'required',
+      }),
+      new CustomProblem({ type: 'urn:custom', detail: 'x', trace: 'required' }),
+      new CustomProblem({ type: 'urn:custom', detail: 'valid' }),
+    ]) {
+      await expect(
+        nullifyProblem(Promise.reject(unmatched), [], [matcher]),
+      ).rejects.toBe(unmatched);
+    }
+    const transformed = z.instanceof(CustomProblem).transform((value) => value);
+    await expect(
+      nullifyProblem(Promise.reject(matched), [], [transformed]),
+    ).resolves.toBeNull();
   });
 
   it('round-trips exact constrained URI strings through the declared stub API', () => {

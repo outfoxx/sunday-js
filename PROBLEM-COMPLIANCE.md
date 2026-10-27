@@ -12,4 +12,4 @@ The schemas support `.parse()`, `.decode()`, `.safeParse()`, and `.encode()`. Re
 
 Transport registration uses the effective type: missing, null, or wrong-typed type means `about:blank`. Valid body status takes precedence over response status. HTTP default titles apply only to `about:blank`; custom types can define their own property defaults. Invalid required extensions still fail.
 
-Regenerated Problems require Sunday 2.0.0-beta.16 or later. `createProblemUnionCodec` normalizes only the type used for branch selection; each branch retains extension validation. Ordinary model schemas retain their existing behavior. Reference: [RFC 9457 §3.1](https://www.rfc-editor.org/rfc/rfc9457.html#section-3.1) and [Zod codecs](https://zod.dev/codecs).
+Regenerated Problems require Sunday 2.0.0-beta.17 or later. `createProblemUnionCodec` normalizes only the type used for branch selection; each branch retains extension validation. Ordinary model schemas retain their existing behavior. Reference: [RFC 9457 §3.1](https://www.rfc-editor.org/rfc/rfc9457.html#section-3.1) and [Zod codecs](https://zod.dev/codecs).
