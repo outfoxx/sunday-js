@@ -161,6 +161,34 @@ export interface Problem {
 	instance?: URL | string;
 	[key: string]: unknown;
 }
+/** RFC 9457 strings accept only string tokens; null and other categories are absent. */
+export declare const ProblemStringSchema: z.ZodCodec<z.ZodOptional<z.ZodUnknown>, z.ZodOptional<z.ZodString>>;
+/** Exact integral status values, without scalar coercion or numeric truncation. */
+export declare const ProblemStatusSchema: z.ZodCodec<z.ZodOptional<z.ZodUnknown>, z.ZodOptional<z.ZodNumber>>;
+/** Compose string constraints/defaults with Problem URI conversion at a single property. */
+export declare function createProblemReferenceCodec(schema?: z.ZodType<string | undefined, string | undefined>, defaultType?: boolean): z.ZodPrefault<z.ZodPipe<z.ZodCodec<z.ZodOptional<z.ZodUnknown>, z.ZodType<string | undefined, string | undefined, z.core.$ZodTypeInternals<string | undefined, string | undefined>>>, z.ZodCodec<z.ZodOptional<z.ZodString>, z.ZodOptional<z.ZodUnion<readonly [
+	z.ZodCustom<URL, URL>,
+	z.ZodString
+]>>>>>;
+/** URI references use URLs only when conversion preserves the original string exactly. */
+export declare const ProblemReferenceSchema: z.ZodPrefault<z.ZodPipe<z.ZodCodec<z.ZodOptional<z.ZodUnknown>, z.ZodType<string | undefined, string | undefined, z.core.$ZodTypeInternals<string | undefined, string | undefined>>>, z.ZodCodec<z.ZodOptional<z.ZodString>, z.ZodOptional<z.ZodUnion<readonly [
+	z.ZodCustom<URL, URL>,
+	z.ZodString
+]>>>>>;
+/** Normalize absence before applying the RFC default, including subtype dispatch. */
+export declare const ProblemTypeSchema: z.ZodPipe<z.ZodPrefault<z.ZodPipe<z.ZodCodec<z.ZodOptional<z.ZodUnknown>, z.ZodType<string | undefined, string | undefined, z.core.$ZodTypeInternals<string | undefined, string | undefined>>>, z.ZodCodec<z.ZodOptional<z.ZodString>, z.ZodOptional<z.ZodUnion<readonly [
+	z.ZodCustom<URL, URL>,
+	z.ZodString
+]>>>>>, z.ZodUnion<readonly [
+	z.ZodCustom<URL, URL>,
+	z.ZodString
+]>>;
+/** Category/default interpretation for subtype selection, before branch-specific validation. */
+export declare const ProblemDispatchSchema: z.ZodObject<{
+	type: z.ZodPrefault<z.ZodPipe<z.ZodCodec<z.ZodOptional<z.ZodUnknown>, z.ZodOptional<z.ZodString>>, z.ZodPrefault<z.ZodString>>>;
+}, z.core.$loose>;
+/** Normalize the type property before a generated union chooses its branch. */
+export declare function createProblemUnionCodec<T extends z.ZodType>(schema: T): z.ZodCodec<z.ZodRecord<z.ZodString, z.ZodUnknown>, T>;
 export declare const ProblemWireSchema: z.ZodObject<{
 	type: z.ZodPipe<z.ZodPrefault<z.ZodPipe<z.ZodCodec<z.ZodOptional<z.ZodUnknown>, z.ZodType<string | undefined, string | undefined, z.core.$ZodTypeInternals<string | undefined, string | undefined>>>, z.ZodCodec<z.ZodOptional<z.ZodString>, z.ZodOptional<z.ZodUnion<readonly [
 		z.ZodCustom<URL, URL>,

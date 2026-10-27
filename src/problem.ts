@@ -53,12 +53,12 @@ const ProblemURI = z.union([
     .string()
     .refine(
       (value) =>
-        !/^[a-z][a-z0-9+.-]*:/i.test(value) &&
+        (!/^[a-z][a-z0-9+.-]*:/i.test(value) || URL.canParse(value)) &&
         ![...value].some(
           (character) => /\s/.test(character) || character.codePointAt(0)! < 32,
         ) &&
         !/%(?![0-9a-f]{2})/i.test(value),
-      'Invalid relative Problem URI',
+      'Invalid Problem URI reference',
     ),
 ]);
 
@@ -83,7 +83,9 @@ export function createProblemReferenceCodec(
         if (value === undefined || !/^[a-z][a-z0-9+.-]*:/i.test(value))
           return value;
         try {
-          return new URL(value);
+          const url = new URL(value);
+          // URL canonicalization must not change a literal, pattern, or enum constraint on the wire value.
+          return url.toString() === value ? url : value;
         } catch {
           ctx.issues.push({
             code: 'custom',
@@ -99,7 +101,7 @@ export function createProblemReferenceCodec(
   return reference.prefault(defaultType ? 'about:blank' : undefined);
 }
 
-/** URI references preserve empty/relative strings and represent absolute URIs as URLs. */
+/** URI references use URLs only when conversion preserves the original string exactly. */
 export const ProblemReferenceSchema = createProblemReferenceCodec();
 
 /** Normalize absence before applying the RFC default, including subtype dispatch. */

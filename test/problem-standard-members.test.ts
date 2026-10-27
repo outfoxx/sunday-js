@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import type * as ProblemStub from '../tools/stub/out/index.js';
 import { describe, expect, it } from 'bun:test';
 import { z } from 'zod';
 import {
@@ -73,6 +74,21 @@ describe('RFC 9457 standard members', () => {
       cause: { detail: 42 },
     };
     expect(schema.encode(schema.decode(input))).toEqual(input);
+  });
+
+  it('round-trips exact constrained URI strings through the declared stub API', () => {
+    const referenceCodec: typeof ProblemStub.createProblemReferenceCodec =
+      createProblemReferenceCodec;
+    for (const value of [
+      'https://example.com',
+      'HTTPS://EXAMPLE.COM/a',
+      'https://example.com:443/a',
+      '',
+      '../related',
+    ]) {
+      const codec = referenceCodec(z.literal(value), true);
+      expect(codec.encode(codec.decode(value))).toBe(value);
+    }
   });
 
   it('composes defaults and constraints at properties in extendable schemas', () => {
