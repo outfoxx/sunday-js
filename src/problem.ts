@@ -15,44 +15,144 @@
 import { constructValidatedModel } from './model-construction.js';
 import { z } from 'zod';
 import { ResponseExample } from './fetch.js';
-import {
-  defineSchema,
-  SchemaLike,
-} from './schema-runtime.js';
+import { defineSchema, SchemaLike } from './schema-runtime.js';
 
 export interface Problem {
-  type: URL;
-  title: string;
-  status: number;
+  type: URL | string;
+  title?: string;
+  status?: number;
   detail?: string;
-  instance?: URL;
+  instance?: URL | string;
 
   [key: string]: unknown;
 }
 
-export const ProblemWireSchema = z.looseObject({
-  type: z.union([z.string(), z.instanceof(URL)]).optional(),
-  title: z.string(),
-  status: z.number(),
-  detail: z.string().optional(),
-  instance: z.union([z.string(), z.instanceof(URL)]).optional(),
+/** RFC 9457 strings accept only string tokens; null and other categories are absent. */
+export const ProblemStringSchema = z.codec(
+  z.unknown().optional(),
+  z.string().optional(),
+  {
+    decode: (value) => (typeof value === 'string' ? value : undefined),
+    encode: (value) => value,
+  },
+);
+
+/** Exact integral status values, without scalar coercion or numeric truncation. */
+export const ProblemStatusSchema = z.codec(
+  z.unknown().optional(),
+  z.number().int().optional(),
+  {
+    decode: (value) => (typeof value === 'number' ? value : undefined),
+    encode: (value) => value,
+  },
+);
+
+const ProblemURI = z.union([
+  z.instanceof(URL),
+  z
+    .string()
+    .refine(
+      (value) =>
+        !/^[a-z][a-z0-9+.-]*:/i.test(value) &&
+        ![...value].some(
+          (character) => /\s/.test(character) || character.charCodeAt(0) < 32,
+        ) &&
+        !/%(?![0-9a-f]{2})/i.test(value),
+      'Invalid relative Problem URI',
+    ),
+]);
+
+/** Compose string constraints/defaults with Problem URI conversion at a single property. */
+export function createProblemReferenceCodec(
+  schema: z.ZodType<string | undefined, string | undefined> = z
+    .string()
+    .optional(),
+  defaultType = false,
+) {
+  const defaults = z
+    .string()
+    .optional()
+    .prefault(defaultType ? 'about:blank' : undefined);
+  const constrained = z.codec(z.unknown().optional(), schema, {
+    decode: (value) => defaults.parse(ProblemStringSchema.decode(value)),
+    encode: (value) => value,
+  });
+  const reference = constrained.pipe(
+    z.codec(z.string().optional(), ProblemURI.optional(), {
+      decode: (value, ctx) => {
+        if (value === undefined || !/^[a-z][a-z0-9+.-]*:/i.test(value))
+          return value;
+        try {
+          return new URL(value);
+        } catch {
+          ctx.issues.push({
+            code: 'custom',
+            input: value,
+            message: 'Invalid Problem URI',
+          });
+          return z.NEVER;
+        }
+      },
+      encode: (value) => value?.toString(),
+    }),
+  );
+  return reference.prefault(defaultType ? 'about:blank' : undefined);
+}
+
+/** URI references preserve empty/relative strings and represent absolute URIs as URLs. */
+export const ProblemReferenceSchema = createProblemReferenceCodec();
+
+/** Normalize absence before applying the RFC default, including subtype dispatch. */
+export const ProblemTypeSchema = createProblemReferenceCodec(
+  z.string(),
+  true,
+).pipe(ProblemURI);
+
+/** Category/default interpretation for subtype selection, before branch-specific validation. */
+export const ProblemDispatchSchema = z.looseObject({
+  type: ProblemStringSchema.pipe(z.string().prefault('about:blank')).prefault(
+    'about:blank',
+  ),
 });
 
-export type ProblemSpec = z.infer<typeof ProblemWireSchema>;
+/** Normalize the type property before a generated union chooses its branch. */
+export function createProblemUnionCodec<T extends z.ZodType>(schema: T) {
+  return z.codec(z.record(z.string(), z.unknown()), schema, {
+    decode: (value) => ProblemDispatchSchema.decode(value) as z.input<T>,
+    encode: (value) => value as Record<string, unknown>,
+  });
+}
+
+export const ProblemWireSchema = z.looseObject({
+  type: ProblemTypeSchema,
+  title: ProblemStringSchema,
+  status: ProblemStatusSchema,
+  detail: ProblemStringSchema,
+  instance: ProblemReferenceSchema,
+});
+
+/** Constructor input accepts URI strings as well as decoded URL values. */
+export interface ProblemSpec {
+  type?: string | URL;
+  title?: string;
+  status?: number;
+  detail?: string;
+  instance?: string | URL;
+  [key: string]: unknown;
+}
 
 export class Problem extends Error implements Problem {
-
   public static readonly BLANK_URL = new URL('about:blank');
 
-  public type: URL;
+  public type: URL | string;
 
-  public title: string;
+  public title?: string;
 
-  public status: number;
+  public status?: number;
 
   public detail?: string;
 
-  public instance?: URL;
+  public instance?: URL | string;
 
   private readonly _parameters?: Record<string, unknown>;
 
@@ -61,16 +161,18 @@ export class Problem extends Error implements Problem {
   }
 
   constructor(spec: ProblemSpec) {
-    super(`${spec.status.toString()} ${spec.type} - ${spec.title}`);
+    super(`${spec.status ?? ''} ${spec.type} - ${spec.title}`);
 
     const { type, title, status, detail, instance, ...parameters } = spec;
-    delete parameters.stack; // Fix for browsers that add stack to Error objects
 
-    this.type = Problem.parseURL(type) ?? Problem.BLANK_URL;
+    this.type = type instanceof URL ? type : ProblemTypeSchema.decode(type);
     this.status = status;
     this.title = title;
     this.detail = detail;
-    this.instance = Problem.parseURL(instance);
+    this.instance =
+      instance instanceof URL
+        ? instance
+        : ProblemReferenceSchema.decode(instance);
     this._parameters = Object.keys(parameters).length ? parameters : undefined;
   }
 
@@ -121,44 +223,39 @@ export class Problem extends Error implements Problem {
       },
     });
   }
-
-  private static parseURL(value: unknown): URL | undefined {
-    if (value == null) {
-      return undefined;
-    }
-    if (value instanceof URL) {
-      return value;
-    }
-    if (typeof value === 'string') {
-      try {
-        return new URL(value);
-      }
-      catch {
-        return undefined;
-      }
-    }
-    return undefined;
-  }
 }
 
 export function createProblemCodec<
   TProblem extends Problem,
-  TWire extends z.infer<typeof ProblemWireSchema>,
+  TWire extends ProblemSpec,
 >(
   problemType: new (spec: TWire) => TProblem,
   wireSchema: z.ZodType<TWire>,
 ): z.ZodType<TProblem> {
-  return z.codec(wireSchema, z.instanceof(problemType), {
-    decode: (value) => constructValidatedModel(problemType, value),
-    encode: (value) => ({
-      type: value.type?.toString() ?? Problem.BLANK_URL.toString(),
-      title: value.title,
-      status: value.status,
-      detail: value.detail,
-      instance: value.instance?.toString(),
-      ...value.parameters,
-    }) as TWire,
-  });
+  return z.codec(
+    z.codec(z.record(z.string(), z.unknown()), wireSchema, {
+      decode: (value) => value as TWire,
+      encode: (value) =>
+        Object.fromEntries(
+          Object.entries(value as Record<string, unknown>).filter(
+            ([, member]) => member !== undefined,
+          ),
+        ),
+    }),
+    z.instanceof(problemType),
+    {
+      decode: (value) => constructValidatedModel(problemType, value),
+      encode: (value) =>
+        ({
+          ...value.parameters,
+          type: value.type,
+          title: value.title,
+          status: value.status,
+          detail: value.detail,
+          instance: value.instance,
+        }) as TWire,
+    },
+  );
 }
 
 export const ProblemSchema: SchemaLike<Problem> = defineSchema(

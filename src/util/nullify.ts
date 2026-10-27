@@ -41,7 +41,7 @@ function matchesProblem(
   statuses: number[],
   problemTypes: ProblemMatcher[],
 ): boolean {
-  if (statuses.includes(error.status)) {
+  if (error.status !== undefined && statuses.includes(error.status)) {
     return true;
   }
 

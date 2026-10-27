@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { describe, expect, it } from 'bun:test';
-import { z, ZodError } from 'zod';
+import { z } from 'zod';
 import {
   createProblemCodec,
   JSONDecoder,
@@ -36,33 +36,6 @@ describe('Problem', () => {
     );
 
     expect(decodedProblem.type.toString()).toBe('about:blank');
-  });
-
-  it('throws error on invalid type to about:blank when decoding', () => {
-    expect(() => JSONDecoder.default.decodeObject<Problem>(
-      {
-        type: 42,
-        title: 'Invalid type',
-        status: 400,
-      },
-      ProblemSchema,
-    )).toThrow(ZodError);
-  });
-
-  it('keeps status and title required when decoding', () => {
-    expect(() => JSONDecoder.default.decodeObject<Problem>(
-      {
-        title: 'Missing status',
-      },
-      ProblemSchema,
-    )).toThrow();
-
-    expect(() => JSONDecoder.default.decodeObject<Problem>(
-      {
-        status: 400,
-      },
-      ProblemSchema,
-    )).toThrow();
   });
 
   it('serializes parameters on root object', () => {
