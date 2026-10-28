@@ -143,48 +143,92 @@ export declare function defineSchema<S extends AnySchema>(builder: (runtime: Sch
 	id?: symbol;
 	debugName?: string;
 }): SchemaDef<S>;
+/** Payload direction, independent of whether this application is a client or server. */
+export type ModelMode = "request" | "response";
+/** Resolves the native Zod schema for a payload direction and wire policy. */
 export interface SchemaRuntime {
 	readonly policy: SchemaPolicy;
+	readonly mode: ModelMode;
+	/** Reuses schema definitions in another direction without sharing direction-specific schemas. */
+	forMode(mode: ModelMode): SchemaRuntime;
 	resolveSchema<S extends SchemaLike>(ref: S): ResolvedSchema<S>;
 }
 export interface Problem {
-	type: URL;
-	title: string;
-	status: number;
+	type: URL | string;
+	title?: string;
+	status?: number;
 	detail?: string;
-	instance?: URL;
+	instance?: URL | string;
 	[key: string]: unknown;
 }
-export declare const ProblemWireSchema: z.ZodObject<{
-	type: z.ZodOptional<z.ZodUnion<readonly [
-		z.ZodString,
-		z.ZodCustom<URL, URL>
-	]>>;
-	title: z.ZodString;
-	status: z.ZodNumber;
-	detail: z.ZodOptional<z.ZodString>;
-	instance: z.ZodOptional<z.ZodUnion<readonly [
-		z.ZodString,
-		z.ZodCustom<URL, URL>
-	]>>;
+/** RFC 9457 strings accept only string tokens; null and other categories are absent. */
+export declare const ProblemStringSchema: z.ZodCodec<z.ZodOptional<z.ZodUnknown>, z.ZodOptional<z.ZodString>>;
+/** Exact integral status values, without scalar coercion or numeric truncation. */
+export declare const ProblemStatusSchema: z.ZodCodec<z.ZodOptional<z.ZodUnknown>, z.ZodOptional<z.ZodNumber>>;
+/** Compose string constraints/defaults with Problem URI conversion at a single property. */
+export declare function createProblemReferenceCodec(schema?: z.ZodType<string | undefined, string | undefined>, defaultType?: boolean): z.ZodPrefault<z.ZodPipe<z.ZodCodec<z.ZodOptional<z.ZodUnknown>, z.ZodType<string | undefined, string | undefined, z.core.$ZodTypeInternals<string | undefined, string | undefined>>>, z.ZodCodec<z.ZodOptional<z.ZodString>, z.ZodOptional<z.ZodUnion<readonly [
+	z.ZodCustom<URL, URL>,
+	z.ZodString
+]>>>>>;
+/** URI references use URLs only when conversion preserves the original string exactly. */
+export declare const ProblemReferenceSchema: z.ZodPrefault<z.ZodPipe<z.ZodCodec<z.ZodOptional<z.ZodUnknown>, z.ZodType<string | undefined, string | undefined, z.core.$ZodTypeInternals<string | undefined, string | undefined>>>, z.ZodCodec<z.ZodOptional<z.ZodString>, z.ZodOptional<z.ZodUnion<readonly [
+	z.ZodCustom<URL, URL>,
+	z.ZodString
+]>>>>>;
+/** Normalize absence before applying the RFC default, including subtype dispatch. */
+export declare const ProblemTypeSchema: z.ZodPipe<z.ZodPrefault<z.ZodPipe<z.ZodCodec<z.ZodOptional<z.ZodUnknown>, z.ZodType<string | undefined, string | undefined, z.core.$ZodTypeInternals<string | undefined, string | undefined>>>, z.ZodCodec<z.ZodOptional<z.ZodString>, z.ZodOptional<z.ZodUnion<readonly [
+	z.ZodCustom<URL, URL>,
+	z.ZodString
+]>>>>>, z.ZodUnion<readonly [
+	z.ZodCustom<URL, URL>,
+	z.ZodString
+]>>;
+/** Category/default interpretation for subtype selection, before branch-specific validation. */
+export declare const ProblemDispatchSchema: z.ZodObject<{
+	type: z.ZodPrefault<z.ZodPipe<z.ZodCodec<z.ZodOptional<z.ZodUnknown>, z.ZodOptional<z.ZodString>>, z.ZodPrefault<z.ZodString>>>;
 }, z.core.$loose>;
-export type ProblemSpec = z.infer<typeof ProblemWireSchema>;
+/** Normalize the type property before a generated union chooses its branch. */
+export declare function createProblemUnionCodec<T extends z.ZodType>(schema: T): z.ZodCodec<z.ZodRecord<z.ZodString, z.ZodUnknown>, T>;
+export declare const ProblemWireSchema: z.ZodObject<{
+	type: z.ZodPipe<z.ZodPrefault<z.ZodPipe<z.ZodCodec<z.ZodOptional<z.ZodUnknown>, z.ZodType<string | undefined, string | undefined, z.core.$ZodTypeInternals<string | undefined, string | undefined>>>, z.ZodCodec<z.ZodOptional<z.ZodString>, z.ZodOptional<z.ZodUnion<readonly [
+		z.ZodCustom<URL, URL>,
+		z.ZodString
+	]>>>>>, z.ZodUnion<readonly [
+		z.ZodCustom<URL, URL>,
+		z.ZodString
+	]>>;
+	title: z.ZodCodec<z.ZodOptional<z.ZodUnknown>, z.ZodOptional<z.ZodString>>;
+	status: z.ZodCodec<z.ZodOptional<z.ZodUnknown>, z.ZodOptional<z.ZodNumber>>;
+	detail: z.ZodCodec<z.ZodOptional<z.ZodUnknown>, z.ZodOptional<z.ZodString>>;
+	instance: z.ZodPrefault<z.ZodPipe<z.ZodCodec<z.ZodOptional<z.ZodUnknown>, z.ZodType<string | undefined, string | undefined, z.core.$ZodTypeInternals<string | undefined, string | undefined>>>, z.ZodCodec<z.ZodOptional<z.ZodString>, z.ZodOptional<z.ZodUnion<readonly [
+		z.ZodCustom<URL, URL>,
+		z.ZodString
+	]>>>>>;
+}, z.core.$loose>;
+/** Constructor input accepts URI strings as well as decoded URL values. */
+export interface ProblemSpec {
+	type?: string | URL;
+	title?: string;
+	status?: number;
+	detail?: string;
+	instance?: string | URL;
+	[key: string]: unknown;
+}
 export declare class Problem extends Error implements Problem {
 	static readonly BLANK_URL: URL;
-	type: URL;
-	title: string;
-	status: number;
+	type: URL | string;
+	title?: string;
+	status?: number;
 	detail?: string;
-	instance?: URL;
+	instance?: URL | string;
 	private readonly _parameters?;
 	get parameters(): Record<string, unknown> | undefined;
 	constructor(spec: ProblemSpec);
 	toString(): string;
 	static fromStatus(status: number, title: string): Problem;
 	static fromResponse(response: Response): Promise<Problem>;
-	private static parseURL;
 }
-export declare function createProblemCodec<TProblem extends Problem, TWire extends z.infer<typeof ProblemWireSchema>>(problemType: new (spec: TWire) => TProblem, wireSchema: z.ZodType<TWire>): z.ZodType<TProblem>;
+export declare function createProblemCodec<TProblem extends Problem, TWire extends ProblemSpec>(problemType: new (spec: TWire) => TProblem, wireSchema: z.ZodType<TWire>): z.ZodType<TProblem>;
 export type ProblemMatcher = z.ZodType<Problem> | ((problem: Problem) => boolean);
 export declare function nullifyProblem<T>(promise: Promise<T>, statuses: number[], problemTypes: ProblemMatcher[]): Promise<T | null>;
 /** Binary chunk values supported by streaming request bodies. */
@@ -208,6 +252,28 @@ export declare class StreamingBody {
 }
 /** Returns true when a value is a Sunday streaming request body. */
 export declare function isStreamingBody(value: unknown): value is StreamingBody;
+/** Acquisition endpoints selected by generation; deployment overrides never select another profile. */
+export interface SecurityEndpoints {
+	readonly discoveryUrl?: string;
+	readonly authorizationUrl?: string;
+	readonly tokenUrl?: string;
+	readonly refreshUrl?: string;
+}
+/** One logical scheme in the complete alternative selected for an operation. */
+export interface SecurityBinding extends SecurityEndpoints {
+	readonly scheme: string;
+	readonly provider: string;
+	readonly profile?: string;
+	readonly flow: "clientCredentials" | "authorizationCode" | "external" | "static";
+	readonly scopes: readonly string[];
+	readonly audience?: string;
+	readonly resource?: string;
+	readonly transport: {
+		readonly location: "header" | "query" | "cookie";
+		readonly name: string;
+		readonly prefix?: string;
+	};
+}
 export interface MediaTypeDecoder {
 	decode<T>(response: Response, type: SchemaLike<T>): Promise<T>;
 }
@@ -246,10 +312,13 @@ export declare class OperationResponse<R> {
 	/** Parsed `Content-Type` header value. */
 	get contentType(): MediaType | undefined;
 }
+/** An RFC 6570 URL template with reusable parameter defaults. */
 export declare class URLTemplate {
 	template: string;
 	parameters: Record<string, unknown>;
+	/** Creates a template whose stored parameters can be overridden for each expansion. */
 	constructor(template: string, parameters?: Record<string, unknown>);
+	/** Expands base and relative templates, preserving empty values and omitting null or missing values. */
 	complete(relativeTemplate: string, parameters: Record<string, unknown>): URL;
 }
 export interface Logger {
@@ -284,13 +353,21 @@ export interface RequestSpec<B> {
 	queryParameters?: Record<string, unknown>;
 	body?: B;
 	bodyType?: SchemaLike<B>;
+	/** Revalidates typed parameters on every request build, before wire conversion. */
+	parameterValidation?: () => void;
 	contentTypes?: MediaType[];
 	acceptTypes?: MediaType[];
+	/** Decode a successful response as raw bytes, independent of its media type. */
+	binaryResponse?: boolean;
 	headers?: Record<string, unknown>;
 	signal?: AbortSignal;
+	/** Complete, explicitly selected credential bindings for this operation. */
+	security?: readonly SecurityBinding[];
 }
 /** Extracts the native request type from a transport. */
-export type TransportRequest<Factory> = Factory extends Transport<infer NativeRequest> ? NativeRequest : never;
+export type TransportRequest<Factory> = Factory extends {
+	transportRequest(requestSpec: RequestSpec<unknown>): Promise<infer NativeRequest>;
+} ? NativeRequest : never;
 /** Options used when converting an operation into a native request. */
 export interface BuildRequestOptions {
 	readonly signal?: AbortSignal;

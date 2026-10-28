@@ -25,13 +25,14 @@ import {
 import { SundayError } from './sunday-error.js';
 import { errorToMessage } from './util/errors.js';
 import { encodeBase64 } from './util/base64.js';
+import { statusTitle } from './util/status-title.js';
 
 const problemRuntime = createSchemaRuntime({
-                                             format: 'json',
-                                             dateEncoding: DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
-                                             numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
-                                             arrayBufferEncoding: ArrayBufferEncoding.BASE64,
-                                           });
+  format: 'json',
+  dateEncoding: DateEncoding.DECIMAL_SECONDS_SINCE_EPOCH,
+  numericDateDecoding: NumericDateDecoding.DECIMAL_SECONDS_SINCE_EPOCH,
+  arrayBufferEncoding: ArrayBufferEncoding.BASE64,
+});
 
 export async function validate(
   response: Response,
@@ -55,7 +56,9 @@ export async function validate(
       logger,
     );
     const type = readProblemType(problemData);
-    const problemSchema = (type ? problemTypes?.get(type) : undefined) ?? ProblemSchema;
+    const problemSchema =
+      (type !== undefined ? problemTypes?.get(type) : undefined) ??
+      ProblemSchema;
     let error: Error;
     try {
       error = problemRuntime.resolveSchema(problemSchema).decode(problemData);
@@ -89,20 +92,28 @@ function normalizeProblemData(
     return value;
   }
 
-  const problemData: Record<string, unknown> = { ...value as Record<string, unknown> };
-  if (problemData.status === undefined) {
+  const problemData: Record<string, unknown> = {
+    ...(value as Record<string, unknown>),
+  };
+  if (typeof problemData.status !== 'number') {
     logger?.warn?.(
-      'problem response payload missing required "status"; backfilling from HTTP response status',
+      'problem response payload missing "status"; backfilling from HTTP response status',
       { status: response.status, statusText: response.statusText },
     );
     problemData.status = response.status;
   }
-  if (problemData.title === undefined) {
+  if (
+    typeof problemData.title !== 'string' &&
+    readProblemType(problemData) === 'about:blank'
+  ) {
     logger?.warn?.(
-      'problem response payload missing required "title"; backfilling from HTTP response status text',
+      'problem response payload missing "title"; backfilling from HTTP response status text',
       { status: response.status, statusText: response.statusText },
     );
-    problemData.title = response.statusText;
+    problemData.title =
+      problemData.status === response.status && response.statusText
+        ? response.statusText
+        : statusTitle(problemData.status as number);
   }
 
   return problemData;
@@ -113,7 +124,7 @@ function readProblemType(value: unknown): string | undefined {
     return undefined;
   }
   const rec = value as Record<string, unknown>;
-  return typeof rec.type === 'string' ? rec.type : undefined;
+  return typeof rec.type === 'string' ? rec.type : 'about:blank';
 }
 
 export namespace ResponseExample {
@@ -121,8 +132,8 @@ export namespace ResponseExample {
     return (
       `HTTP/?.? ${response.status} ${response.statusText}\n` +
       Array.from(response.headers.entries())
-           .map(([name, value]) => `${name}: ${value}\n`)
-           .join('') +
+        .map(([name, value]) => `${name}: ${value}\n`)
+        .join('') +
       '\n' +
       (bodyExample ?? '<none>')
     );
@@ -142,24 +153,22 @@ export namespace ResponseExample {
           const exampleText = text.slice(0, maxLength);
           const remainingTextLength = text.length - maxLength;
           bodyExcerpt = `${exampleText}<<... ${remainingTextLength} characters>>`;
-        }
-        else {
+        } else {
           bodyExcerpt = text;
         }
-      }
-      else {
+      } else {
         const blob = await response.blob();
         body = blob;
         if (blob.size > maxLength) {
           bodyExcerpt = `<<binary data: ${blob.size} bytes>>`;
-        }
-        else {
-          const dataSlice = new Uint8Array(await blob.slice(0, maxLength).arrayBuffer());
+        } else {
+          const dataSlice = new Uint8Array(
+            await blob.slice(0, maxLength).arrayBuffer(),
+          );
           bodyExcerpt = encodeBase64(dataSlice);
         }
       }
-    }
-    catch (error) {
+    } catch (error) {
       // ignore errors
       const message = errorToMessage(error);
       body = bodyExcerpt = `<<error displaying response data: ${message}>>`;
@@ -168,8 +177,9 @@ export namespace ResponseExample {
   }
 }
 
-export function mergeHeaders(...allHeaders: (Headers | HeadersInit | undefined)[]): Headers {
-
+export function mergeHeaders(
+  ...allHeaders: (Headers | HeadersInit | undefined)[]
+): Headers {
   function entries(headersInit?: HeadersInit): Iterable<[string, string]> {
     if (!headersInit) {
       return [];

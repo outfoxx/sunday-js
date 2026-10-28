@@ -15,9 +15,13 @@
 import { z } from 'zod';
 import { Problem } from '../problem.js';
 
-export type ProblemMatcher = z.ZodType<Problem> | ((problem: Problem) => boolean);
+export type ProblemMatcher =
+  | z.ZodType<Problem>
+  | ((problem: Problem) => boolean);
 
-export async function nullifyNotFound<T>(promise: Promise<T>): Promise<T | null> {
+export async function nullifyNotFound<T>(
+  promise: Promise<T>,
+): Promise<T | null> {
   return await nullifyProblem(promise, [404], []);
 }
 
@@ -29,7 +33,10 @@ export async function nullifyProblem<T>(
   try {
     return await promise;
   } catch (error) {
-    if (error instanceof Problem && matchesProblem(error, statuses, problemTypes)) {
+    if (
+      error instanceof Problem &&
+      matchesProblem(error, statuses, problemTypes)
+    ) {
       return null;
     }
     throw error;
@@ -41,13 +48,15 @@ function matchesProblem(
   statuses: number[],
   problemTypes: ProblemMatcher[],
 ): boolean {
-  if (statuses.includes(error.status)) {
+  if (error.status !== undefined && statuses.includes(error.status)) {
     return true;
   }
 
-  return problemTypes.some((matcher) =>
-    typeof matcher === 'function'
-      ? matcher(error)
-      : matcher.safeParse(error).success,
-  );
+  return problemTypes.some((matcher) => {
+    if (typeof matcher === 'function') return matcher(error);
+    // A thrown Problem is already decoded; codecs validate it in their output direction.
+    return matcher instanceof z.ZodCodec
+      ? matcher.safeEncode(error).success
+      : matcher.safeParse(error).success;
+  });
 }

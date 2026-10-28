@@ -23,26 +23,59 @@ import {
   SchemaLike,
   SundayError,
 } from '../src';
-import { mergeHeaders } from '../src/fetch';
+import { mergeHeaders, validate } from '../src/fetch';
 
 describe('Fetch API Utilities', () => {
   beforeEach(() => {
     fetchMock.hardReset().mockGlobal();
   });
 
-  it('merges headers correctly', () => {
+  it('uses valid body status for about:blank titles and preserves empty registered types', async () => {
+    const response = (data: unknown) =>
+      new Response(JSON.stringify(data), {
+        status: 400,
+        statusText: 'Bad Request',
+        headers: { 'content-type': MediaType.Problem.value },
+      });
+    try {
+      await validate(response({ status: 409, title: 42 }), false);
+    } catch (error) {
+      expect(error).toBeInstanceOf(Problem);
+      expect((error as Problem).status).toBe(409);
+      expect((error as Problem).title).toBe('Conflict');
+    }
+    class EmptyTypeProblem extends Problem {}
+    const registered = defineSchema(() =>
+      z.codec(
+        z.object({ type: z.literal(''), status: z.number() }),
+        z.instanceof(EmptyTypeProblem),
+        {
+          decode: (value) => new EmptyTypeProblem(value),
+          encode: (value) => ({ type: '' as const, status: value.status! }),
+        },
+      ),
+    );
+    await expect(
+      validate(
+        response({ type: '', status: 409 }),
+        false,
+        new Map([['', registered]]),
+      ),
+    ).rejects.toBeInstanceOf(EmptyTypeProblem);
+  });
 
-    const ha = new Headers({"a": "1"});
-    const hb: HeadersInit = new Headers({"b": "2"});
-    const hc: HeadersInit = {"c": "3"};
-    const hd: HeadersInit = [["d", "4"]];
-    const he: HeadersInit = [["c", "5"]];
+  it('merges headers correctly', () => {
+    const ha = new Headers({ a: '1' });
+    const hb: HeadersInit = new Headers({ b: '2' });
+    const hc: HeadersInit = { c: '3' };
+    const hd: HeadersInit = [['d', '4']];
+    const he: HeadersInit = [['c', '5']];
 
     const headers = mergeHeaders(ha, hb, hc, hd, he);
-    expect(headers.get("a")).toBe("1");
-    expect(headers.get("b")).toBe("2");
-    expect(headers.get("c")).toBe("3, 5");
-    expect(headers.get("d")).toBe("4");
+    expect(headers.get('a')).toBe('1');
+    expect(headers.get('b')).toBe('2');
+    expect(headers.get('c')).toBe('3, 5');
+    expect(headers.get('d')).toBe('4');
   });
 
   it('validate throws SundayError for 204 when data expected', async () => {
@@ -57,7 +90,10 @@ describe('Fetch API Utilities', () => {
 
     const transport = new FetchTransport('http://example.com');
     expect(
-      transport.transportResponse({ method: 'GET', pathTemplate: '/test' }, true),
+      transport.transportResponse(
+        { method: 'GET', pathTemplate: '/test' },
+        true,
+      ),
     ).rejects.toThrow(SundayError);
   });
 
@@ -73,17 +109,20 @@ describe('Fetch API Utilities', () => {
 
     const transport = new FetchTransport('http://example.com');
     expect(
-      transport.transportResponse({ method: 'GET', pathTemplate: '/test' }, true),
+      transport.transportResponse(
+        { method: 'GET', pathTemplate: '/test' },
+        true,
+      ),
     ).rejects.toThrow(Problem);
   });
 
   it('validate throws Problem for unregistered problem types', async () => {
     const problem = JSON.stringify({
-                                     type: 'http://example.com/invali_id',
-                                     status: 400,
-                                     title: 'Invalid Id',
-                                     detail: 'One or more characters are invalid',
-                                   });
+      type: 'http://example.com/invali_id',
+      status: 400,
+      title: 'Invalid Id',
+      detail: 'One or more characters are invalid',
+    });
 
     fetchMock.getOnce(
       'http://example.com/test',
@@ -96,7 +135,10 @@ describe('Fetch API Utilities', () => {
 
     const transport = new FetchTransport('http://example.com');
     expect(
-      transport.transportResponse({ method: 'GET', pathTemplate: '/test' }, true),
+      transport.transportResponse(
+        { method: 'GET', pathTemplate: '/test' },
+        true,
+      ),
     ).rejects.toThrow(Problem);
   });
 
@@ -119,9 +161,11 @@ describe('Fetch API Utilities', () => {
 
     let thrownProblem: Problem | undefined;
     try {
-      await transport.transportResponse({ method: 'GET', pathTemplate: '/test' }, true);
-    }
-    catch (error) {
+      await transport.transportResponse(
+        { method: 'GET', pathTemplate: '/test' },
+        true,
+      );
+    } catch (error) {
       expect(error).toBeInstanceOf(Problem);
       thrownProblem = error as Problem;
     }
@@ -133,7 +177,7 @@ describe('Fetch API Utilities', () => {
     expect(thrownProblem.type.toString()).toBe('about:blank');
   });
 
-  it('validate throws error on invalid type for problem payloads', async () => {
+  it('validate ignores wrong-typed type for problem payloads', async () => {
     const problem = JSON.stringify({
       type: 12345,
       status: 400,
@@ -151,14 +195,18 @@ describe('Fetch API Utilities', () => {
 
     const transport = new FetchTransport('http://example.com');
 
-    expect(transport.transportResponse({ method: 'GET', pathTemplate: '/test' }, true))
-      .rejects.toThrowError(SundayError);
+    await expect(
+      transport.transportResponse(
+        { method: 'GET', pathTemplate: '/test' },
+        true,
+      ),
+    ).rejects.toThrowError(Problem);
   });
 
   it('validate backfills missing status and title from response and warns', async () => {
     const warnings: unknown[][] = [];
     const problem = JSON.stringify({
-      type: 'http://example.com/invali_id',
+      type: 'about:blank',
     });
 
     fetchMock.getOnce(
@@ -178,9 +226,11 @@ describe('Fetch API Utilities', () => {
 
     let thrownProblem: Problem | undefined;
     try {
-      await transport.transportResponse({ method: 'GET', pathTemplate: '/test' }, true);
-    }
-    catch (error) {
+      await transport.transportResponse(
+        { method: 'GET', pathTemplate: '/test' },
+        true,
+      );
+    } catch (error) {
       expect(error).toBeInstanceOf(Problem);
       thrownProblem = error as Problem;
     }
@@ -220,9 +270,11 @@ describe('Fetch API Utilities', () => {
 
     let thrownProblem: Problem | undefined;
     try {
-      await transport.transportResponse({ method: 'GET', pathTemplate: '/test' }, true);
-    }
-    catch (error) {
+      await transport.transportResponse(
+        { method: 'GET', pathTemplate: '/test' },
+        true,
+      );
+    } catch (error) {
       expect(error).toBeInstanceOf(Problem);
       thrownProblem = error as Problem;
     }
@@ -240,7 +292,7 @@ describe('Fetch API Utilities', () => {
   it('validate backfills missing title only and warns once', async () => {
     const warnings: unknown[][] = [];
     const problem = JSON.stringify({
-      type: 'http://example.com/invali_id',
+      type: 'about:blank',
       status: 409,
     });
 
@@ -261,9 +313,11 @@ describe('Fetch API Utilities', () => {
 
     let thrownProblem: Problem | undefined;
     try {
-      await transport.transportResponse({ method: 'GET', pathTemplate: '/test' }, true);
-    }
-    catch (error) {
+      await transport.transportResponse(
+        { method: 'GET', pathTemplate: '/test' },
+        true,
+      );
+    } catch (error) {
       expect(error).toBeInstanceOf(Problem);
       thrownProblem = error as Problem;
     }
@@ -280,10 +334,10 @@ describe('Fetch API Utilities', () => {
 
   it('validate decodes registered problem refs through the schema runtime', async () => {
     const problem = JSON.stringify({
-                                     type: RegisteredProblem.TYPE,
-                                     status: 409,
-                                     title: 'Conflict',
-                                   });
+      type: RegisteredProblem.TYPE,
+      status: 409,
+      title: 'Conflict',
+    });
 
     fetchMock.getOnce(
       'http://example.com/test',
@@ -297,7 +351,10 @@ describe('Fetch API Utilities', () => {
     const transport = new FetchTransport('http://example.com');
     transport.registerProblem(RegisteredProblem.TYPE, RegisteredProblemSchema);
     expect(
-      transport.transportResponse({ method: 'GET', pathTemplate: '/test' }, true),
+      transport.transportResponse(
+        { method: 'GET', pathTemplate: '/test' },
+        true,
+      ),
     ).rejects.toBeInstanceOf(RegisteredProblem);
   });
 
@@ -325,9 +382,11 @@ describe('Fetch API Utilities', () => {
 
     let thrownProblem: RegisteredProblem | undefined;
     try {
-      await transport.transportResponse({ method: 'GET', pathTemplate: '/test' }, true);
-    }
-    catch (error) {
+      await transport.transportResponse(
+        { method: 'GET', pathTemplate: '/test' },
+        true,
+      );
+    } catch (error) {
       expect(error).toBeInstanceOf(RegisteredProblem);
       thrownProblem = error as RegisteredProblem;
     }
@@ -337,8 +396,8 @@ describe('Fetch API Utilities', () => {
     }
 
     expect(thrownProblem.status).toBe(409);
-    expect(thrownProblem.title).toBe('Conflict');
-    expect(warnings).toHaveLength(2);
+    expect(thrownProblem.title).toBe('Custom default');
+    expect(warnings).toHaveLength(1);
   });
 
   it('aborts response with an AbortSignal', async () => {
@@ -366,30 +425,30 @@ class RegisteredProblem extends Problem {
 
   constructor(status = 500, title = 'Registered Problem') {
     super({
-            type: RegisteredProblem.TYPE,
-            status,
-            title,
-          });
+      type: RegisteredProblem.TYPE,
+      status,
+      title,
+    });
   }
 }
 
 const RegisteredProblemSchema: SchemaLike<RegisteredProblem> = defineSchema(
   () =>
-  z.codec(
-    z.object({
-               type: z.string(),
-               status: z.number(),
-               title: z.string(),
-             }),
-    z.instanceof(RegisteredProblem),
-    {
-      decode: (value) => new RegisteredProblem(value.status, value.title),
-      encode: (value) => ({
-        type: value.type.toString(),
-        status: value.status,
-        title: value.title,
+    z.codec(
+      z.object({
+        type: z.string(),
+        status: z.number(),
+        title: z.string().default('Custom default'),
       }),
-    },
-  ),
+      z.instanceof(RegisteredProblem),
+      {
+        decode: (value) => new RegisteredProblem(value.status, value.title),
+        encode: (value) => ({
+          type: value.type.toString(),
+          status: value.status!,
+          title: value.title!,
+        }),
+      },
+    ),
   { debugName: 'RegisteredProblemSchema' },
 );

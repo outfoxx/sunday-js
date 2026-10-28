@@ -161,15 +161,15 @@ describe('FetchTransport', () => {
         {
           decode: (value) =>
             new TestProblem({
-              status: value.status,
-              title: value.title,
+              status: value.status!,
+              title: value.title!,
               detail: value.detail,
               instance: value.instance,
             }),
           encode: (value) => ({
             type: value.type.toString(),
-            status: value.status,
-            title: value.title,
+            status: value.status!,
+            title: value.title!,
             detail: value.detail,
             instance: value.instance?.toString(),
           }),
