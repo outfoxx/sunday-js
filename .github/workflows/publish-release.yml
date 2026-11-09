@@ -115,4 +115,4 @@ jobs:
       - name: WebKit Adapter Contracts
         env:
           SUNDAY_TEST_BROWSERS: webkit
-        run: bun test -r ./test/setup.ts test/adapter-browser-streaming.test.ts
+        run: bun test -r ./test/setup.ts test/adapter-browser.test.ts test/adapter-browser-streaming.test.ts

@@ -19,7 +19,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
-import { chromium, firefox, webkit } from 'playwright';
+import { testBrowsers } from './browser-support';
 
 describe('browser request stream copying', () => {
   let directory: string;
@@ -77,20 +77,7 @@ describe('browser request stream copying', () => {
     if (directory) await rm(directory, { recursive: true, force: true });
   });
 
-  const browsers = [chromium, firefox, webkit];
-  const selected = process.env.SUNDAY_TEST_BROWSERS?.split(',');
-  if (
-    selected?.some(
-      (name) => !browsers.some((browser) => browser.name() === name),
-    )
-  )
-    throw new Error(
-      'SUNDAY_TEST_BROWSERS must name chromium, firefox, or webkit',
-    );
-
-  for (const engine of browsers.filter(
-    (browser) => !selected || selected.includes(browser.name()),
-  )) {
+  for (const engine of testBrowsers) {
     it(`${engine.name()}: matches native SSE framing across byte boundaries`, async () => {
       const browser = await engine.launch();
       try {
@@ -472,7 +459,7 @@ describe('browser request stream copying', () => {
           'compatible upload',
         ]);
         expect(result.bodyChecks).toBeGreaterThan(30);
-        if (engine === chromium || engine === webkit) {
+        if (engine.name() !== 'firefox') {
           expect(result).toEqual({
             bodies: ['payload', 'payload', 'payload'],
             uploads: ['payload', 'payload', 'payload'],

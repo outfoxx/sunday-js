@@ -13,10 +13,10 @@
 // limitations under the License.
 
 import { describe, expect, it } from 'bun:test';
-import { chromium, firefox, webkit } from 'playwright';
+import { testBrowsers } from './browser-support';
 
 describe('browser Fetch adapter behavior', () => {
-  for (const engine of [chromium, firefox, webkit]) {
+  for (const engine of testBrowsers) {
     it(`${engine.name()}: preserves native redirects, opaque credentialed redirects, and abort identity`, async () => {
       const bundle = await Bun.build({
         entrypoints: ['./src/index.ts'],
