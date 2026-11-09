@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { isRequestStopped } from './request-cancellation-error.js';
 import { SecurityBinding, SecurityEndpoints } from './security-binding.js';
+import type { TokenLease } from './token-manager.js';
 
 /** Credentials returned by an application provider; values are never included in runtime diagnostics. */
 export interface TokenSet {
@@ -36,13 +38,24 @@ export interface TokenRequest extends SecurityBinding {
 
 /**
  * Application credential binding. OAuth providers exchange fresh authorization and refresh tokens;
- * the shared manager owns caching, rotation, renewal coalescing, and cancellation.
+ * providers own their lifecycle; TokenManager adds caching only when explicitly supplied.
  */
 export interface TokenProvider {
   readonly identity: string;
   configure(binding: SecurityBinding): TokenConfiguration;
   acquire(request: TokenRequest, signal: AbortSignal): Promise<TokenSet>;
-  refresh?(request: TokenRequest, refreshToken: string, signal: AbortSignal): Promise<TokenSet>;
+  /** Optional receipt acquisition, used by caching decorators to retain their original cache identity. */
+  credentials?(
+    binding: SecurityBinding,
+    signal?: AbortSignal,
+  ): Promise<TokenLease>;
+  /** Rejects only this token in its original session. False leaves recovery to the caller. */
+  reject?(request: TokenRequest, rejectedToken: string): Promise<boolean>;
+  refresh?(
+    request: TokenRequest,
+    refreshToken: string,
+    signal: AbortSignal,
+  ): Promise<TokenSet>;
 }
 
 /** Application-owned storage. Implementations must serialize writes and keep credentials private. */
@@ -63,8 +76,78 @@ export class AuthorizationRequiredError extends Error {
 /** Safe provider failure without a provider's potentially credential-bearing error message. */
 export class TokenProviderError extends Error {
   /** Safe recovery classification; provider messages and credentials are never retained. */
-  constructor(readonly reason: 'unavailable' | 'temporary' | 'invalidGrant' = 'unavailable') {
+  constructor(
+    readonly reason:
+      | 'unavailable'
+      | 'temporary'
+      | 'invalidGrant' = 'unavailable',
+  ) {
     super('The credential provider could not supply usable credentials');
     this.name = 'TokenProviderError';
+  }
+}
+
+/** Acquires once from an application provider without adding storage or refresh policy. */
+export async function providerCredentials(
+  provider: TokenProvider,
+  binding: SecurityBinding,
+  signal: AbortSignal,
+): Promise<TokenLease> {
+  signal.throwIfAborted();
+  if (provider.credentials) return provider.credentials(binding, signal);
+  try {
+    const configuration = provider.configure(binding);
+    if (!provider.identity.trim() || !configuration.clientIdentity.trim())
+      throw new TokenProviderError();
+    const request: TokenRequest = Object.freeze({
+      ...binding,
+      ...Object.fromEntries(
+        Object.entries(configuration.endpoints ?? {}).filter(
+          ([, value]) => value !== undefined,
+        ),
+      ),
+      clientIdentity: configuration.clientIdentity,
+      grantIdentity: configuration.grantIdentity,
+      scopes: Object.freeze([...new Set(binding.scopes)].sort()),
+      transport: Object.freeze({ ...binding.transport }),
+    });
+    const tokens = Object.freeze({
+      ...(await provider.acquire(request, signal)),
+    });
+    signal.throwIfAborted();
+    if (
+      !tokens.accessToken ||
+      (tokens.expiresAt !== undefined &&
+        (!Number.isFinite(tokens.expiresAt) || tokens.expiresAt <= Date.now()))
+    )
+      throw new TokenProviderError();
+    return {
+      key: '',
+      tokens,
+      invalidate: async () => {
+        try {
+          return (
+            (await provider.reject?.(request, tokens.accessToken)) ?? false
+          );
+        } catch (error) {
+          if (isRequestStopped(error)) throw error;
+          if (
+            error instanceof AuthorizationRequiredError ||
+            error instanceof TokenProviderError
+          )
+            throw error;
+          throw new TokenProviderError();
+        }
+      },
+    };
+  } catch (error) {
+    signal.throwIfAborted();
+    if (isRequestStopped(error)) throw error;
+    if (
+      error instanceof AuthorizationRequiredError ||
+      error instanceof TokenProviderError
+    )
+      throw error;
+    throw new TokenProviderError();
   }
 }

@@ -15,6 +15,7 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import fetchMock from 'fetch-mock';
 import { FetchEventSource, MediaType, Problem } from '../src';
+import { EventParser } from '../src/event-parser';
 import { unknownGet, unknownSet } from '../src/util/unknowns';
 import { delayedResponse } from './fetch-mock-utils';
 
@@ -46,7 +47,9 @@ declare global {
 }
 
 const sources: FetchEventSource[] = [];
-const createEventSource = (...args: ConstructorParameters<typeof FetchEventSource>): FetchEventSource => {
+const createEventSource = (
+  ...args: ConstructorParameters<typeof FetchEventSource>
+): FetchEventSource => {
   const source = new FetchEventSource(...args);
   sources.push(source);
   return source;
@@ -72,12 +75,9 @@ describe('FetchEventSource', () => {
           headers: { 'content-type': MediaType.EventStream.toString() },
         }),
     );
-    fetchMock.get(
-      'http://example.com',
-      {
-        status: 503,
-      },
-    );
+    fetchMock.get('http://example.com', {
+      status: 503,
+    });
 
     const eventSource = createEventSource('http://example.com');
     await waitForEvent((resolve, _reject) => {
@@ -106,12 +106,9 @@ describe('FetchEventSource', () => {
           headers: { 'content-type': MediaType.EventStream.toString() },
         }),
     );
-    fetchMock.get(
-      'http://example.com',
-      {
-        status: 503,
-      },
-    );
+    fetchMock.get('http://example.com', {
+      status: 503,
+    });
 
     const eventSource = createEventSource('http://example.com');
 
@@ -179,6 +176,22 @@ describe('FetchEventSource', () => {
     },
   );
 
+  it('bounds long reconnect delays and keeps zero finite after prolonged failures', () => {
+    const calculate = unknownGet<
+      (attempt: number, retry: number, maximum: number) => number
+    >(FetchEventSource, 'calculateRetryTime');
+    expect(calculate(0, 2147483648, Number.MAX_SAFE_INTEGER)).toBe(2147483647);
+    expect(calculate(0, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER)).toBe(
+      2147483647,
+    );
+    for (const attempt of [1, 1024]) {
+      const delay = calculate(attempt, 1200000000, Number.MAX_SAFE_INTEGER);
+      expect(delay).toBeGreaterThanOrEqual(2147483647 * 0.9);
+      expect(delay).toBeLessThanOrEqual(2147483647);
+    }
+    expect(calculate(1024, 0, 0)).toBe(0);
+  });
+
   it('resets retry escalation after a successful connection', () => {
     const eventSource = createEventSource('http://example.com');
     const timeoutSet = spyOn(globalThis, 'setTimeout');
@@ -196,6 +209,11 @@ describe('FetchEventSource', () => {
 
     try {
       unknownSet(eventSource, 'retryAttempt', 5);
+      unknownSet(
+        eventSource,
+        'connectionAbortController',
+        new AbortController(),
+      );
       eventSource.readyState = eventSource.CONNECTING;
       receivedHeaders(new Response());
       receivedComplete();
@@ -223,12 +241,24 @@ describe('FetchEventSource', () => {
 
     try {
       eventSource.readyState = eventSource.CONNECTING;
+      unknownSet(
+        eventSource,
+        'connectionAbortController',
+        new AbortController(),
+      );
       receivedError(new TypeError('Network failure'));
+      unknownSet(
+        eventSource,
+        'connectionAbortController',
+        new AbortController(),
+      );
       receivedError(new TypeError('Network failure'));
 
       expect(timeoutSet).toHaveBeenNthCalledWith(1, expect.any(Function), 500);
       expect(timeoutSet).toHaveBeenNthCalledWith(2, expect.any(Function), 900);
-      expect(timeoutClear).toHaveBeenCalledWith(timeoutSet.mock.results[0].value);
+      expect(timeoutClear).toHaveBeenCalledWith(
+        timeoutSet.mock.results[0].value,
+      );
     } finally {
       eventSource.close();
       timeoutSet.mockRestore();
@@ -239,13 +269,13 @@ describe('FetchEventSource', () => {
 
   it('accepts server reconnect and keepalive controls', () => {
     const eventSource = createEventSource('http://example.com');
-    const dispatchParsedEvent = unknownGet<(eventInfo: object) => void>(
+    const receiveControls = unknownGet<(eventInfo: object) => void>(
       eventSource,
-      'dispatchParsedEvent',
+      'receiveControls',
     ).bind(eventSource);
 
     eventSource.readyState = eventSource.OPEN;
-    dispatchParsedEvent({
+    receiveControls({
       retry: '250',
       'retry-max': '2000',
       keepalive: '2000',
@@ -256,7 +286,7 @@ describe('FetchEventSource', () => {
     expect(unknownGet<number>(eventSource, 'eventTimeout')).toBe(6000);
     expect(unknownGet(eventSource, 'eventTimeoutCheckHandle')).toBeDefined();
 
-    dispatchParsedEvent({ 'retry-max': '0' });
+    receiveControls({ 'retry-max': '0' });
     expect(unknownGet<number>(eventSource, 'internalRetryMax')).toBe(2000);
 
     eventSource.close();
@@ -265,13 +295,13 @@ describe('FetchEventSource', () => {
   it('applies a minimum keepalive timeout', () => {
     const eventSource = createEventSource('http://example.com');
     const intervalSet = spyOn(globalThis, 'setInterval');
-    const dispatchParsedEvent = unknownGet<(eventInfo: object) => void>(
+    const receiveControls = unknownGet<(eventInfo: object) => void>(
       eventSource,
-      'dispatchParsedEvent',
+      'receiveControls',
     ).bind(eventSource);
 
     eventSource.readyState = eventSource.OPEN;
-    dispatchParsedEvent({ keepalive: '100' });
+    receiveControls({ keepalive: '100' });
 
     expect(unknownGet<number>(eventSource, 'eventTimeout')).toBe(1000);
     expect(intervalSet).toHaveBeenCalledWith(expect.any(Function), 1000);
@@ -282,9 +312,9 @@ describe('FetchEventSource', () => {
 
   it('does not retain server keepalive timeouts across connections', () => {
     const eventSource = createEventSource('http://example.com');
-    const dispatchParsedEvent = unknownGet<(eventInfo: object) => void>(
+    const receiveControls = unknownGet<(eventInfo: object) => void>(
       eventSource,
-      'dispatchParsedEvent',
+      'receiveControls',
     ).bind(eventSource);
     const receivedHeaders = unknownGet<(response: Response) => void>(
       eventSource,
@@ -292,7 +322,7 @@ describe('FetchEventSource', () => {
     ).bind(eventSource);
 
     eventSource.readyState = eventSource.OPEN;
-    dispatchParsedEvent({ keepalive: '2000' });
+    receiveControls({ keepalive: '2000' });
 
     expect(unknownGet<number>(eventSource, 'eventTimeout')).toBe(6000);
     expect(unknownGet(eventSource, 'eventTimeoutCheckHandle')).toBeDefined();
@@ -310,9 +340,9 @@ describe('FetchEventSource', () => {
     const eventSource = createEventSource('http://example.com', {
       eventTimeout: 750,
     });
-    const dispatchParsedEvent = unknownGet<(eventInfo: object) => void>(
+    const receiveControls = unknownGet<(eventInfo: object) => void>(
       eventSource,
-      'dispatchParsedEvent',
+      'receiveControls',
     ).bind(eventSource);
     const receivedHeaders = unknownGet<(response: Response) => void>(
       eventSource,
@@ -321,7 +351,7 @@ describe('FetchEventSource', () => {
 
     eventSource.readyState = eventSource.CONNECTING;
     receivedHeaders(new Response());
-    dispatchParsedEvent({ keepalive: '2000' });
+    receiveControls({ keepalive: '2000' });
 
     expect(unknownGet<number>(eventSource, 'eventTimeout')).toBe(750);
     expect(unknownGet(eventSource, 'eventTimeoutCheckHandle')).toBeDefined();
@@ -331,16 +361,15 @@ describe('FetchEventSource', () => {
 
   it('ignores invalid reconnect and keepalive controls', () => {
     const eventSource = createEventSource('http://example.com');
-    const dispatchParsedEvent = unknownGet<(eventInfo: object) => void>(
+    const receiveControls = unknownGet<(eventInfo: object) => void>(
       eventSource,
-      'dispatchParsedEvent',
+      'receiveControls',
     ).bind(eventSource);
 
-    dispatchParsedEvent({
-      retry: '250ms',
-      'retry-max': '0',
-      keepalive: '0',
-    });
+    new EventParser(receiveControls).process(
+      new TextEncoder().encode('retry: 250ms\nretry-max: 0\nkeepalive: 0\n\n'),
+      () => {},
+    );
 
     expect(eventSource.retryTime).toBe(500);
     expect(unknownGet(eventSource, 'internalRetryMax')).toBeUndefined();
@@ -479,10 +508,7 @@ describe('FetchEventSource', () => {
           headers: { 'content-type': MediaType.EventStream.toString() },
         }),
     );
-    fetchMock.get(
-      'http://example.com',
-      { status: 503 },
-    );
+    fetchMock.get('http://example.com', { status: 503 });
 
     const eventSource = createEventSource('http://example.com');
     await waitForEvent((resolve, reject) => {
@@ -562,7 +588,7 @@ describe('FetchEventSource', () => {
     ]);
   });
 
-  it('counts comment only pings as events but does not dispatch', async () => {
+  it('counts received bytes as activity without dispatching comments', async () => {
     const eventStream = new TextEncoder().encode(
       ': ping\n\n: ping\n\nevent: hello\nid: 12345\ndata: Hello World!\n\n',
     ).buffer;
@@ -574,10 +600,7 @@ describe('FetchEventSource', () => {
           headers: { 'content-type': MediaType.EventStream.toString() },
         }),
     );
-    fetchMock.get(
-      'http://example.com',
-      { status: 503 },
-    );
+    fetchMock.get('http://example.com', { status: 503 });
 
     const eventSource = createEventSource('http://example.com');
 
@@ -594,8 +617,8 @@ describe('FetchEventSource', () => {
         expect(ev.data).toEqual('Hello World!');
 
         if (ev.type === 'hello') {
-          expect(dispatchEventSpy).toHaveBeenCalledTimes(1);
-          expect(lastEventReceivedTimeSet).toHaveBeenCalledTimes(3);
+          expect(dispatchEventSpy).toHaveBeenCalledTimes(2);
+          expect(lastEventReceivedTimeSet).toHaveBeenCalledTimes(1);
           resolve();
         }
       };

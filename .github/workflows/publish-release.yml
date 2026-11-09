@@ -3,8 +3,8 @@ name: Publish Release
 on:
   push:
     tags:
-    - 'v*.*.*'
-    - '*.*.*'
+      - 'v*.*.*'
+      - '*.*.*'
   workflow_dispatch:
 
 permissions:
@@ -23,69 +23,72 @@ jobs:
     environment: npm
 
     steps:
-    - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
 
-    - uses: oven-sh/setup-bun@v2
-      with:
-        bun-version: 1.3.10
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
 
-    - uses: actions/setup-node@v4
-      with:
-        node-version: '24'
-        registry-url: 'https://registry.npmjs.org'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
 
-    - name: Check Version Format in Tag
-      id: version
-      uses: nowsprinting/check-version-format-action@v3
+      - name: Check Version Format in Tag
+        id: version
+        uses: nowsprinting/check-version-format-action@v3
 
-    - name: Install Packages
-      run: bun install --frozen-lockfile
+      - name: Install Packages
+        run: bun install --frozen-lockfile
 
-    - name: Stamp Package Version
-      run: bun pm pkg set version=${{ steps.version.outputs.full_without_prefix }}
+      - name: Install Browsers
+        run: bunx playwright install --with-deps chromium firefox webkit
 
-    - name: Verify OIDC Context
-      run: |
-        if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
-          echo "OIDC token request context is unavailable."
-          echo "Ensure workflow permissions include 'id-token: write' and npm trusted publishing is configured."
-          exit 1
-        fi
+      - name: Stamp Package Version
+        run: bun pm pkg set version=${{ steps.version.outputs.full_without_prefix }}
 
-    - name: Publish Package
-      env:
-        PACKAGE_VERSION: ${{ steps.version.outputs.full_without_prefix }}
-      run: |
-        if [[ "$PACKAGE_VERSION" == *-* ]]; then
-          DIST_TAG="${PACKAGE_VERSION#*-}"
-          DIST_TAG="${DIST_TAG%%.*}"
-          echo "Publishing prerelease ${PACKAGE_VERSION} with dist-tag '${DIST_TAG}'"
-          npm publish --tag "${DIST_TAG}"
-        else
-          echo "Publishing stable ${PACKAGE_VERSION} with dist-tag 'latest'"
-          npm publish --tag latest
-        fi
+      - name: Verify OIDC Context
+        run: |
+          if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "OIDC token request context is unavailable."
+            echo "Ensure workflow permissions include 'id-token: write' and npm trusted publishing is configured."
+            exit 1
+          fi
 
-    - name: Verify npm Availability
-      timeout-minutes: 20
-      run: node tools/ci/wait-for-npm-release.mjs
+      - name: Publish Package
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.full_without_prefix }}
+        run: |
+          if [[ "$PACKAGE_VERSION" == *-* ]]; then
+            DIST_TAG="${PACKAGE_VERSION#*-}"
+            DIST_TAG="${DIST_TAG%%.*}"
+            echo "Publishing prerelease ${PACKAGE_VERSION} with dist-tag '${DIST_TAG}'"
+            npm publish --tag "${DIST_TAG}"
+          else
+            echo "Publishing stable ${PACKAGE_VERSION} with dist-tag 'latest'"
+            npm publish --tag latest
+          fi
 
-    - name: Build Documentation
-      run: bun run docs -- --out docs/${{ github.ref_name }}
+      - name: Verify npm Availability
+        timeout-minutes: 20
+        run: node tools/ci/wait-for-npm-release.mjs
 
-    - name: Publish Documentation
-      uses: JamesIves/github-pages-deploy-action@v4
-      with:
-        branch: gh-pages
-        clean: false
-        folder: docs
+      - name: Build Documentation
+        run: bun run docs -- --out docs/${{ github.ref_name }}
 
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v2
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        name: 🚀 ${{ github.ref_name }}
-        tag_name: ${{ github.ref_name }}
-        generate_release_notes: true
-        prerelease: ${{ steps.version.outputs.is_stable != 'true' }}
-        draft: false
+      - name: Publish Documentation
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          clean: false
+          folder: docs
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: 🚀 ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          prerelease: ${{ steps.version.outputs.is_stable != 'true' }}
+          draft: false

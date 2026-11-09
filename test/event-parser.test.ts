@@ -12,11 +12,136 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {describe, it, expect} from 'bun:test';
+import { describe, it, expect } from 'bun:test';
 import { EventInfo, EventParser } from '../src/event-parser';
 
 describe('EventParser', () => {
   const text = new TextEncoder();
+
+  const parse = (chunks: Uint8Array[]): EventInfo[] => {
+    const parser = new EventParser();
+    const events: EventInfo[] = [];
+    for (const chunk of chunks)
+      parser.process(chunk, (event) => events.push(event));
+    return events;
+  };
+
+  for (const first of ['\n', '\r', '\r\n']) {
+    for (const second of ['\n', '\r', '\r\n']) {
+      it(`recognizes line endings ${JSON.stringify([first, second])} at every byte split`, () => {
+        const bytes = text.encode(`data: one${first}${second}data: two\n\n`);
+        const expected =
+          first === '\r' && second === '\n'
+            ? [{ data: 'one\ntwo' }]
+            : [{ data: 'one' }, { data: 'two' }];
+        for (let split = 0; split <= bytes.length; split++) {
+          expect(
+            parse([
+              bytes.subarray(0, split),
+              new Uint8Array(),
+              bytes.subarray(split),
+            ]),
+          ).toEqual(expected);
+        }
+      });
+    }
+  }
+
+  it('replaces malformed UTF-8 without corrupting the following event', () => {
+    const bytes = new Uint8Array([
+      ...text.encode('data: '),
+      0xe2,
+      ...text.encode('\n\ndata: two\n\n'),
+    ]);
+    for (let split = 0; split <= bytes.length; split++) {
+      expect(parse([bytes.subarray(0, split), bytes.subarray(split)])).toEqual([
+        { data: '�' },
+        { data: 'two' },
+      ]);
+    }
+  });
+
+  it('decodes split UTF-8 and strips exactly one stream-leading BOM', () => {
+    const bytes = text.encode('\ufeffdata: café☕🚀\n\ndata: \ufeffvalue\n\n');
+    expect(parse(Array.from(bytes, (byte) => new Uint8Array([byte])))).toEqual([
+      { data: 'café☕🚀' },
+      { data: '\ufeffvalue' },
+    ]);
+    expect(
+      parse([text.encode('\ufeff\ufeffdata: ignored\n\ndata: next\n\n')]).map(
+        (event) => event.data,
+      ),
+    ).toEqual(['next']);
+  });
+
+  it('retains valid fields when later fields are invalid, at every byte boundary', () => {
+    const bytes = text.encode(
+      'id: kept\nid: bad\0id\nretry: 7\nretry: bad\nevent: named\nevent:\ndata: value\n\n',
+    );
+    for (let split = 0; split <= bytes.length; split++) {
+      expect(parse([bytes.subarray(0, split), bytes.subarray(split)])).toEqual([
+        { id: 'kept', event: '', data: 'value' },
+      ]);
+    }
+  });
+
+  it('discards comments and unknown fields while accumulating an event', () => {
+    const parser = new EventParser();
+    const events: EventInfo[] = [];
+    for (let i = 0; i < 1000; i++)
+      parser.process(text.encode(': heartbeat\nunknown: ignored\n'), (event) =>
+        events.push(event),
+      );
+    expect(events).toEqual([]);
+    parser.process(text.encode('data: value\n\n'), (event) =>
+      events.push(event),
+    );
+    expect(events).toEqual([{ data: 'value' }]);
+  });
+
+  it('reads only the supplied view', () => {
+    const bytes = text.encode('XXdata: value\n\nYY');
+    expect(parse([bytes.subarray(2, bytes.length - 2)])).toEqual([
+      { data: 'value' },
+    ]);
+  });
+
+  it('discards an incomplete event at the end of a connection', () => {
+    expect(parse([text.encode('data: complete\n\ndata: partial\n')])).toEqual([
+      { data: 'complete' },
+    ]);
+  });
+
+  it('stops within a chunk when its connection is aborted', () => {
+    const parser = new EventParser();
+    const abort = new AbortController();
+    const events: EventInfo[] = [];
+    parser.process(
+      text.encode('data: first\n\ndata: second\n\ndata: incomplete').buffer,
+      (event) => {
+        events.push(event);
+        abort.abort();
+      },
+      abort.signal,
+    );
+    expect(events).toEqual([{ data: 'first' }]);
+    // A stopped batch must not leave its trailing partial event buffered for another call.
+    parser.process(text.encode('data: next\n\n').buffer, (event) =>
+      events.push(event),
+    );
+    expect(events).toEqual([{ data: 'first' }, { data: 'next' }]);
+  });
+
+  it('does not dispatch with an already aborted signal', () => {
+    const parser = new EventParser();
+    const events: EventInfo[] = [];
+    parser.process(
+      text.encode('data: ignored\n\n').buffer,
+      (event) => events.push(event),
+      AbortSignal.abort(),
+    );
+    expect(events).toEqual([]);
+  });
 
   it('dispatches events with line-feeds', () => {
     const eventBuffer = text.encode(
@@ -150,7 +275,6 @@ describe('EventParser', () => {
     parser.process(eventBuffer, (ei) => events.push(ei));
 
     expect(events.length).toBe(1);
-    expect(events[0].retry).toBe('');
     expect(events[0].event).toBe('');
     expect(events[0].id).toBe('');
     expect(events[0].data).toBe('');
@@ -165,28 +289,26 @@ describe('EventParser', () => {
     parser.process(eventBuffer, (ei) => events.push(ei));
 
     expect(events.length).toBe(1);
-    expect(events[0].retry).toBe('');
     expect(events[0].event).toBe('');
     expect(events[0].id).toBe('');
     expect(events[0].data).toBe('');
   });
 
-  it('parses server reconnect control fields', () => {
-    const eventBuffer = text.encode(
-      'retry: 500\nretry-max: 15000\nkeepalive: 10000\n\n',
-    ).buffer;
-
-    const parser = new EventParser();
-
+  it('reports controls immediately without dispatching an unfinished message', () => {
+    const controls: object[] = [];
     const events: EventInfo[] = [];
-    parser.process(eventBuffer, (ei) => events.push(ei));
-
-    expect(events).toEqual([
-      {
-        retry: '500',
-        'retry-max': '15000',
-        keepalive: '10000',
-      },
+    const parser = new EventParser((control) => controls.push(control));
+    parser.process(
+      text.encode(
+        'data: unfinished\nretry: 500\nretry-max: 15000\nkeepalive: 10000\n',
+      ),
+      (event) => events.push(event),
+    );
+    expect(events).toEqual([]);
+    expect(controls).toEqual([
+      { retry: '500' },
+      { 'retry-max': '15000' },
+      { keepalive: '10000' },
     ]);
   });
 
@@ -199,7 +321,6 @@ describe('EventParser', () => {
     parser.process(eventBuffer, (ei) => events.push(ei));
 
     expect(events.length).toBe(1);
-    expect(events[0].retry).toBe('');
     expect(events[0].event).toBe('');
     expect(events[0].id).toBe('');
     expect(events[0].data).toBe('');
@@ -216,7 +337,6 @@ describe('EventParser', () => {
     parser.process(eventBuffer, (ei) => events.push(ei));
 
     expect(events.length).toBe(1);
-    expect(events[0].retry).toBeUndefined();
     expect(events[0].event).toBe('');
     expect(events[0].id).toBe('');
     expect(events[0].data).toBe('');

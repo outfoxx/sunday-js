@@ -48,7 +48,14 @@ export * from './date-time-types.js';
 export * from './streaming-body.js';
 export * from './operation-response.js';
 export * from './operation.js';
-export * from './request-adapters.js';
+export {
+  HeaderTokenAuthorizingAdapter,
+  StaticHeaderTokenAuthorizingAdapter,
+  RefreshingHeaderTokenAuthorizingAdapter,
+  RequestAdapters,
+  chainRequestAdapters,
+} from './request-adapters.js';
+export type { TokenAuthorization } from './request-adapters.js';
 
 // Select exports from util
 export * from './util/errors.js';
@@ -57,7 +64,6 @@ export * from './util/nullify.js';
 export * from './security-binding.js';
 export * from './token-provider.js';
 export * from './token-manager.js';
-export * from './token-manager-factory.js';
 
 export * from './fetch-oauth-token-provider.js';
 
@@ -65,3 +71,10 @@ export * from './request-validation-error.js';
 
 export * from './credentials.js';
 export * from './client-settings.js';
+
+export * from './response-adapter.js';
+export * from './response-adapters.js';
+export * from './request-cancellation-error.js';
+export * from './fetch-copy.js';
+
+export * from './request-body.js';

@@ -15,11 +15,36 @@
 import { describe, it, expect, setSystemTime } from 'bun:test';
 import {
   RefreshingHeaderTokenAuthorizingAdapter,
-  Transport,
   StaticHeaderTokenAuthorizingAdapter,
 } from '../src';
 
 describe('Request Adapters', () => {
+  for (const refreshing of [false, true]) {
+    for (const invalid of ['name', 'value']) {
+      it(`validates ${invalid} before transferring the ${refreshing ? 'refreshing' : 'static'} request body`, async () => {
+        const token = invalid === 'value' ? 'bad\ntoken' : 'token';
+        const adapter = refreshing
+          ? new RefreshingHeaderTokenAuthorizingAdapter(async () => ({
+              token,
+              expires: new Date(Date.now() + 60000),
+            }))
+          : new StaticHeaderTokenAuthorizingAdapter(token);
+        if (invalid === 'name') adapter.header = 'Invalid Header';
+        const request = new Request('https://example.com', {
+          method: 'POST',
+          body: 'original',
+        });
+        const body = request.body;
+        await expect(adapter.adapt(request)).rejects.toBeInstanceOf(TypeError);
+        expect(request.body).toBe(body);
+        expect(request.bodyUsed).toBe(false);
+        expect(body?.locked).toBe(false);
+        expect(request.headers.has('Authorization')).toBe(false);
+        expect(await request.text()).toBe('original');
+      });
+    }
+  }
+
   describe('RefreshingHeaderTokenAuthorizingAdapter', () => {
     it('should cache token', async () => {
       const start = new Date('2026-01-01T00:00:00.000Z');
@@ -35,14 +60,13 @@ describe('Request Adapters', () => {
         };
 
         const request = new Request('https://example.com');
-        const transport = {} as Transport;
         const adapter = new RefreshingHeaderTokenAuthorizingAdapter(refresher);
 
         expect(adapter.shouldRefresh()).toBe(true);
 
         const expectedRequest = new Request('https://example.com');
         expectedRequest.headers.set('Authorization', 'Bearer token-1');
-        const adaptedRequest = await adapter.adapt(transport, request);
+        const adaptedRequest = await adapter.adapt(request);
         expect(adaptedRequest).toEqual(expectedRequest);
 
         expect(adapter.shouldRefresh()).toBe(false);
@@ -55,12 +79,11 @@ describe('Request Adapters', () => {
 
         const expectedRequest2 = new Request('https://example.com');
         expectedRequest2.headers.set('Authorization', 'Bearer token-2');
-        const adaptedRequest2 = await adapter.adapt(transport, request);
+        const adaptedRequest2 = await adapter.adapt(request);
         expect(adaptedRequest2).toEqual(expectedRequest2);
 
         expect(adapter.shouldRefresh()).toBe(false);
-      }
-      finally {
+      } finally {
         setSystemTime();
       }
     });
@@ -69,12 +92,11 @@ describe('Request Adapters', () => {
   describe('StaticHeaderTokenAuthorizingAdapter', () => {
     it('should apply token', async () => {
       const request = new Request('https://example.com');
-      const transport = {} as Transport;
       const adapter = new StaticHeaderTokenAuthorizingAdapter('token-1');
 
       const expectedRequest = new Request('https://example.com');
       expectedRequest.headers.set('Authorization', 'Bearer token-1');
-      const adaptedRequest = await adapter.adapt(transport, request);
+      const adaptedRequest = await adapter.adapt(request);
       expect(adaptedRequest).toEqual(expectedRequest);
     });
   });
