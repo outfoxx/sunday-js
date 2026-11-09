@@ -13,7 +13,11 @@
 // limitations under the License.
 
 import { expect, it } from 'bun:test';
-import { nativeBodyOperation, ownBody } from '../src/util/owned-body';
+import {
+  discardBody,
+  nativeBodyOperation,
+  ownBody,
+} from '../src/util/owned-body';
 import { RequestCancellationError } from '../src/request-cancellation-error';
 
 it('settles an uncooperative native read with its owner failure', async () => {
@@ -50,3 +54,21 @@ it('observes native rejection when the owner stops before the abort callback sta
   expect(await result.catch((error) => error)).toBe(reason);
   await new Promise((resolve) => setTimeout(resolve, 0));
 });
+
+for (const cleanup of ['throw', 'reject', 'pending']) {
+  it(`starts native cancellation immediately without waiting for ${cleanup} cleanup`, async () => {
+    const response = new Response(new ReadableStream<Uint8Array>());
+    const reason = new RequestCancellationError('operation stopped');
+    const cleanupError = new Error('cleanup failed');
+    let received: unknown;
+    response.body!.cancel = (value): Promise<void> => {
+      received = value;
+      if (cleanup === 'throw') throw cleanupError;
+      if (cleanup === 'reject') return Promise.reject(cleanupError);
+      return new Promise(() => {});
+    };
+    discardBody(response, reason);
+    expect(received).toBe(reason);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}

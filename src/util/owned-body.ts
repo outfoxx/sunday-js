@@ -48,7 +48,7 @@ export function inheritBody(
     // Bun leaves a new tee branch on the input. Ownership has transferred, so retire that
     // unused branch immediately to prevent buffering and to let later cancellation reach the source.
     if (previousBody && previousBody !== source && previousBody !== target.body)
-      cancelStream(previousBody);
+      void cancelStream(previousBody);
     bodies.set(target.body, reference);
     if (target instanceof Request) reference.owner?.observe(target.signal);
   }
@@ -139,20 +139,20 @@ export function discardBody(value: Request | Response, reason?: unknown): void {
       reference.owner.stop(reason);
       return;
     }
-    cancelStream(body, reason);
+    void cancelStream(body, reason);
   } catch {
     // Custom body accessors must not replace the operation's error either.
   }
 }
 
-function cancelStream(
+async function cancelStream(
   stream: ReadableStream<Uint8Array>,
   reason?: unknown,
-): void {
+): Promise<void> {
   try {
-    if (!stream.locked) void stream.cancel(reason).catch(() => undefined);
+    if (!stream.locked) await stream.cancel(reason);
   } catch {
-    // Cleanup must not replace the operation's outcome or wait for another native tee branch.
+    // Cleanup failures must not replace the operation's outcome.
   }
 }
 
