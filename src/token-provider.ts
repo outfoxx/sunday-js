@@ -94,8 +94,23 @@ export async function providerCredentials(
   signal: AbortSignal,
 ): Promise<TokenLease> {
   signal.throwIfAborted();
-  if (provider.credentials) return provider.credentials(binding, signal);
   try {
+    if (provider.credentials) {
+      const lease = await provider.credentials(binding, signal);
+      signal.throwIfAborted();
+      return {
+        ...lease,
+        invalidate: lease.invalidate
+          ? async () => {
+              try {
+                return await lease.invalidate!();
+              } catch (error) {
+                throw safeProviderError(error);
+              }
+            }
+          : undefined,
+      };
+    }
     const configuration = provider.configure(binding);
     if (!provider.identity.trim() || !configuration.clientIdentity.trim())
       throw new TokenProviderError();
@@ -130,24 +145,20 @@ export async function providerCredentials(
             (await provider.reject?.(request, tokens.accessToken)) ?? false
           );
         } catch (error) {
-          if (isRequestStopped(error)) throw error;
-          if (
-            error instanceof AuthorizationRequiredError ||
-            error instanceof TokenProviderError
-          )
-            throw error;
-          throw new TokenProviderError();
+          throw safeProviderError(error);
         }
       },
     };
   } catch (error) {
     signal.throwIfAborted();
-    if (isRequestStopped(error)) throw error;
-    if (
-      error instanceof AuthorizationRequiredError ||
-      error instanceof TokenProviderError
-    )
-      throw error;
-    throw new TokenProviderError();
+    throw safeProviderError(error);
   }
+}
+
+function safeProviderError(error: unknown): unknown {
+  return isRequestStopped(error) ||
+    error instanceof AuthorizationRequiredError ||
+    error instanceof TokenProviderError
+    ? error
+    : new TokenProviderError();
 }

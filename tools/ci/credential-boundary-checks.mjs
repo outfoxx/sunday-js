@@ -41,10 +41,10 @@ export async function checkCredentialBoundaries(s, base) {
     scopes: [],
     transport: { location: 'header', name: 'Authorization', prefix: 'Bearer' },
   };
-  const perform = async (client, mode, signal) => {
+  const perform = async (client, mode, signal, path = '/credential-events') => {
     const spec = {
       method: 'GET',
-      pathTemplate: '/credential-events',
+      pathTemplate: path,
       security: [binding],
       signal,
     };
@@ -61,6 +61,105 @@ export async function checkCredentialBoundaries(s, base) {
       await events.return();
     }
   };
+
+  // Receipt providers have the same diagnostic boundary as configure/acquire/reject providers.
+  for (const phase of ['credentials', 'invalidate']) {
+    for (const asynchronous of [false, true]) {
+      for (const intended of [
+        new Error('private credential detail'),
+        new s.RequestCancellationError('receipt stopped'),
+        new DOMException('receipt aborted', 'AbortError'),
+        new s.AuthorizationRequiredError(),
+        new s.TokenProviderError('temporary'),
+      ]) {
+        const fail = () => {
+          if (asynchronous) return Promise.reject(intended);
+          throw intended;
+        };
+        const provider = {
+          identity: 'receipt',
+          configure() {
+            throw new Error('receipt must bypass configure');
+          },
+          acquire() {
+            throw new Error('receipt must bypass acquire');
+          },
+          credentials:
+            phase === 'credentials'
+              ? fail
+              : async () => ({
+                  key: 'original-key',
+                  tokens: { accessToken: 'old' },
+                  invalidate: fail,
+                }),
+        };
+        const operation = async () => {
+          const lease = await s.providerCredentials(
+            provider,
+            binding,
+            new AbortController().signal,
+          );
+          check(
+            lease.key === 'original-key',
+            'receipt retains its cache identity',
+          );
+          return lease.invalidate();
+        };
+        const error = await failure(operation());
+        if (intended.message === 'private credential detail')
+          check(
+            error instanceof s.TokenProviderError &&
+              error !== intended &&
+              !String(error).includes(intended.message) &&
+              error.cause === undefined,
+            `${phase}: ordinary receipt failures are sanitized`,
+          );
+        else check(error === intended, `${phase}: recognized error identity`);
+      }
+    }
+    for (const mode of ['buffered', 'streaming']) {
+      let attempts = 0;
+      const logs = [];
+      const privateError = new Error('private credential detail');
+      const client = new s.FetchTransport(base, {
+        logger: { error: (...values) => logs.push(values) },
+        tokenProviders: {
+          test: {
+            identity: 'receipt',
+            configure: () => ({ clientIdentity: 'receipt' }),
+            acquire: async () => {
+              throw new Error('unused');
+            },
+            credentials: async () => {
+              attempts++;
+              if (phase === 'credentials') throw privateError;
+              return {
+                key: 'receipt',
+                tokens: { accessToken: 'old' },
+                invalidate: async () => {
+                  throw privateError;
+                },
+              };
+            },
+          },
+        },
+      });
+      const error = await within(
+        failure(perform(client, mode, undefined, '/auth-events')),
+        `${mode}/${phase}: receipt failure must terminate`,
+      );
+      check(
+        error instanceof s.TokenProviderError &&
+          error.reason === 'unavailable' &&
+          attempts === 1,
+        `${mode}/${phase}: sanitized receipt error does not retry`,
+      );
+      check(
+        !JSON.stringify(logs).includes(privateError.message),
+        `${mode}/${phase}: logs do not expose provider detail`,
+      );
+    }
+  }
 
   for (const phase of ['acquire', 'refresh']) {
     for (const mode of ['export', 'buffered', 'streaming']) {
