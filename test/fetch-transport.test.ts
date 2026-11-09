@@ -238,7 +238,7 @@ describe('FetchTransport', () => {
       mediaTypeEncoders: specialEncoders,
     });
 
-    expect(
+    await expect(
       fetchTransport.transportRequest({
         method: 'GET',
         pathTemplate: '/api/{id}/contents',
@@ -855,7 +855,7 @@ describe('FetchTransport', () => {
       headers: { 'content-type': MediaType.HTML.value },
     });
 
-    expect(
+    await expect(
       fetchTransport.result({ method: 'GET', pathTemplate: '' }),
     ).rejects.toThrow(Problem.fromStatus(400, 'Bad Request'));
   });

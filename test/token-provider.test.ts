@@ -17,6 +17,7 @@ import {
   providerCredentials,
   TokenProviderError,
   AuthorizationRequiredError,
+  type TokenRequest,
 } from '../src/token-provider';
 import { RequestCancellationError } from '../src/request-cancellation-error';
 import type { SecurityBinding } from '../src/security-binding';
@@ -114,4 +115,24 @@ describe('receipt credential errors', () => {
       ),
     ).toBe(reason);
   });
+});
+
+it('normalizes provider scopes in locale-independent order without changing the binding', async () => {
+  const scopes = ['read', 'Write', 'read', 'admin'];
+  let received: readonly string[] | undefined;
+  await providerCredentials(
+    {
+      identity: 'test',
+      configure: () => ({ clientIdentity: 'test' }),
+      acquire: async (request: TokenRequest) => {
+        received = request.scopes;
+        return { accessToken: 'token' };
+      },
+    },
+    { ...binding, scopes },
+    new AbortController().signal,
+  );
+  expect(received).toEqual(['Write', 'admin', 'read']);
+  expect(Object.isFrozen(received)).toBe(true);
+  expect(scopes).toEqual(['read', 'Write', 'read', 'admin']);
 });

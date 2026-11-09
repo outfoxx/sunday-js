@@ -123,7 +123,13 @@ export async function providerCredentials(
       ),
       clientIdentity: configuration.clientIdentity,
       grantIdentity: configuration.grantIdentity,
-      scopes: Object.freeze([...new Set(binding.scopes)].sort()),
+      scopes: Object.freeze(
+        [...new Set(binding.scopes)].sort((left, right) => {
+          // Credential scope order must not depend on the host locale.
+          if (left === right) return 0;
+          return left < right ? -1 : 1;
+        }),
+      ),
       transport: Object.freeze({ ...binding.transport }),
     });
     const tokens = Object.freeze({
