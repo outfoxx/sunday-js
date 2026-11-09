@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { TokenManager } from './token-manager.js';
-import { TokenProvider } from './token-provider.js';
-
 /**
- * Creates a manager from resolved providers without token acquisition or storage I/O.
- * Supply the native manager's store, expirySkewMs and now options here.
- * Called once for secured settings and never when there are no selected providers.
- * The application owns the returned manager and its store/session lifecycle.
+ * Adapts the response returned by Fetch before Sunday handling. Hidden native intermediate
+ * responses are unavailable. The request is the one submitted to Fetch, not a wire-level trace.
+ * Consumed resources must be replaced before returning; use request.signal for cancellation.
+ * Sunday cancels returned bodies on abort, including while decoding or validation owns their reader.
  */
-export type TokenManagerFactory = (providers: Readonly<Record<string, TokenProvider>>) => TokenManager;
+export interface ResponseAdapter {
+  /** Returns the adapted value; throwing stops the remaining adapters. */
+  adapt(response: Response, request: Request): Response | Promise<Response>;
+}

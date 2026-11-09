@@ -12,195 +12,128 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/** Message fields dispatched at a blank line; ID-only frames update the reconnect cursor. */
 export interface EventInfo {
+  /** Last valid ID in this frame; NUL-containing fields are ignored. */
   id?: string;
   event?: string;
   data?: string;
+}
+
+/** Connection controls reported immediately, independently of message boundaries. */
+export interface EventControl {
+  /** A valid non-negative safe integer, retaining its wire representation. */
   retry?: string;
   keepalive?: string;
   'retry-max'?: string;
 }
 
+/** Incremental UTF-8 SSE parser. Create one instance per connection; incomplete events end with it. */
 export class EventParser {
-  private readonly decoder: TextDecoder = new TextDecoder('utf-8');
-  private unprocessedBuffer?: ArrayBuffer;
+  // Node can strip two consecutive BOMs when the first spans chunks; remove exactly one here.
+  private readonly decoder = new TextDecoder('utf-8', { ignoreBOM: true });
+  private atStart = true;
+  private readonly lineParts: string[] = [];
+  private event: EventInfo = {};
+  private readonly data: string[] = [];
+  private skipLF = false;
 
+  /** Receives each completed control line, even when EOF discards the unfinished message. */
+  constructor(
+    private readonly control: (control: EventControl) => void = () => {},
+  ) {}
+
+  /** Parses complete lines and events, discarding the rest of a chunk when the signal aborts. */
   process(
-    buffer: ArrayBuffer,
+    buffer: ArrayBuffer | ArrayBufferView,
     dispatcher: (eventInfo: EventInfo) => void,
+    signal?: AbortSignal,
   ): void {
-    const availableBuffer = this.buildAvailableBuffer(buffer);
-    if (!availableBuffer) {
+    if (signal?.aborted) {
+      this.discard();
       return;
     }
-
-    const eventStrings = this.extractEventStringsFromBuffer(availableBuffer);
-
-    if (!eventStrings.length) {
-      return;
+    let text = this.decoder.decode(buffer, { stream: true });
+    if (this.atStart && text.length) {
+      this.atStart = false;
+      if (text[0] === '\ufeff') text = text.slice(1);
     }
-
-    EventParser.parseAndDispatchEvents(eventStrings, dispatcher);
-  }
-
-  private buildAvailableBuffer(buffer: ArrayBuffer): ArrayBuffer | undefined {
-    const unprocessedBuffer = this.unprocessedBuffer;
-    this.unprocessedBuffer = undefined;
-
-    if (!buffer.byteLength) {
-      return unprocessedBuffer;
-    } else if (!unprocessedBuffer?.byteLength) {
-      return buffer;
-    }
-
-    const newBuffer = new Uint8Array(
-      unprocessedBuffer.byteLength + buffer.byteLength,
-    );
-    newBuffer.set(new Uint8Array(unprocessedBuffer), 0);
-    newBuffer.set(new Uint8Array(buffer), unprocessedBuffer.byteLength);
-
-    return newBuffer.buffer;
-  }
-
-  private extractEventStringsFromBuffer(buffer: ArrayBuffer): string[] {
-    const eventStrings: string[] = [];
-
-    while (buffer.byteLength) {
-      // Find end of next event separator in buffer, exiting if none found.
-      const eventSeparator = EventParser.findEventSeparator(buffer);
-      if (!eventSeparator) {
-        // Save unprocessed data
-        this.unprocessedBuffer = buffer;
-        break;
-      }
-
-      const [endOfCurrentEventIdx, startOfNextEventIdx] = eventSeparator;
-
-      const eventBuffer = buffer.slice(0, endOfCurrentEventIdx);
-      buffer = buffer.slice(startOfNextEventIdx);
-
-      const eventString = this.decoder.decode(eventBuffer, {
-        stream: true,
-      });
-
-      eventStrings.push(eventString);
-    }
-
-    return eventStrings;
-  }
-
-  private static findEventSeparator(
-    buffer: ArrayBuffer,
-  ): [number, number] | undefined {
-    const bytes = new Uint8Array(buffer);
-
-    for (let idx = 0; idx < bytes.length; ++idx) {
-      const byte = bytes[idx];
-
-      switch (byte) {
-        // line-feed
-        case 0xa: {
-          // if the next byte is the
-          // same, we found a separator
-          if (bytes[idx + 1] == 0xa) {
-            return [idx, idx + 2];
-          }
-          break;
+    let start = 0;
+    for (let index = 0; index < text.length; index++) {
+      const character = text[index];
+      // A CR completes its line immediately; only its optional following LF is skipped.
+      if (this.skipLF) {
+        this.skipLF = false;
+        if (character === '\n') {
+          start = index + 1;
+          continue;
         }
-
-        // carriage-return
-        case 0xd: {
-          // if the next byte is the
-          // same, we found a separator
-          if (bytes[idx + 1] == 0xd) {
-            return [idx, idx + 2];
-          }
-
-          // if next is line-feed, and pattern
-          // repeats, we found a separator.
-          if (
-            bytes[idx + 1] == 0xa &&
-            bytes[idx + 2] == 0xd &&
-            bytes[idx + 3] == 0xa
-          ) {
-            return [idx, idx + 4];
-          }
-
-          break;
-        }
-
-        default:
       }
-    }
-    return undefined;
-  }
-
-  private static parseAndDispatchEvents(
-    eventStrings: string[],
-    dispatcher: (eventInfo: EventInfo) => void,
-  ) {
-    for (const eventString of eventStrings) {
-      if (!eventString.length) {
-        continue;
-      }
-
-      const parsedEvent = EventParser.parseEvent(eventString);
-
-      dispatcher(parsedEvent);
-    }
-  }
-
-  private static parseEvent(eventString: string): EventInfo {
-    const event: EventInfo = {};
-
-    for (const line of eventString.split(lineSeparatorsRegEx)) {
-      const keyValueSeparatorIdx = line.indexOf(':');
-
-      let key: string;
-      let value: string;
-      if (keyValueSeparatorIdx != -1) {
-        key = line.slice(0, keyValueSeparatorIdx);
-        value = line.slice(keyValueSeparatorIdx + 1);
+      if (character !== '\r' && character !== '\n') continue;
+      this.lineParts.push(text.slice(start, index));
+      const line = this.lineParts.join('');
+      this.lineParts.length = 0;
+      this.skipLF = character === '\r';
+      start = index + 1;
+      if (line) {
+        this.processLine(line);
       } else {
-        key = line;
-        value = '';
+        const event = this.event;
+        if (this.data.length) event.data = this.data.join('\n');
+        this.event = {};
+        this.data.length = 0;
+        if (event.data !== undefined || event.id !== undefined)
+          dispatcher(event);
       }
-
-      switch (key) {
-        case 'retry':
-          event.retry = EventParser.trimFieldValue(value);
-          break;
-
-        case 'data': {
-          const data = event.data ?? '';
-          event.data = `${data}${EventParser.trimFieldValue(value)}\n`;
-          break;
-        }
-
-        case '':
-          // comment do nothing
-          break;
-
-        default: {
-          (event as Record<string, string>)[key] =
-            EventParser.trimFieldValue(value);
-        }
+      if (signal?.aborted) {
+        this.discard();
+        return;
       }
     }
-
-    if (event.data?.[event.data?.length - 1] == '\n') {
-      event.data = event.data.slice(0, -1);
-    }
-
-    return event;
+    if (start < text.length) this.lineParts.push(text.slice(start));
   }
 
-  private static trimFieldValue(value: string): string {
-    if (value[0] !== ' ') {
-      return value;
+  private discard(): void {
+    // decode() without stream resets UTF-8/BOM state, including a partial character in the
+    // discarded tail. It must not contaminate a later call after cancellation.
+    this.decoder.decode();
+    this.atStart = true;
+    this.lineParts.length = 0;
+    this.event = {};
+    this.data.length = 0;
+    this.skipLF = false;
+  }
+
+  private processLine(line: string): void {
+    const colon = line.indexOf(':');
+    const key = colon < 0 ? line : line.slice(0, colon);
+    let value = colon < 0 ? '' : line.slice(colon + 1);
+    if (value.startsWith(' ')) value = value.slice(1);
+    switch (key) {
+      case 'data':
+        this.data.push(value);
+        break;
+      case 'id':
+        if (!value.includes('\0')) this.event.id = value;
+        break;
+      case 'retry':
+        if (parseEventMilliseconds(value) !== undefined)
+          this.control({ retry: value });
+        break;
+      case 'event':
+        this.event.event = value;
+        break;
+      case 'keepalive':
+      case 'retry-max':
+        this.control({ [key]: value });
+        break;
     }
-    return value.slice(1);
   }
 }
 
-const lineSeparatorsRegEx = /\r\n|\r|\n/;
+/** @internal Parses bounded SSE millisecond values without accepting partial numbers. */
+export function parseEventMilliseconds(value: string): number | undefined {
+  if (!/^\d+$/.test(value)) return undefined;
+  const milliseconds = Number(value);
+  return Number.isSafeInteger(milliseconds) ? milliseconds : undefined;
+}

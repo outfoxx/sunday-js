@@ -13,14 +13,25 @@
 // limitations under the License.
 
 import * as oauth from 'oauth4webapi';
+import { discardBody } from './util/abort.js';
 
+import { isRequestStopped } from './request-cancellation-error.js';
 import { SecurityBinding } from './security-binding.js';
 import {
-  AuthorizationRequiredError, TokenConfiguration, TokenProvider, TokenProviderError,
-  TokenRequest, TokenSet,
+  AuthorizationRequiredError,
+  TokenConfiguration,
+  TokenProvider,
+  TokenProviderError,
+  TokenRequest,
+  TokenSet,
 } from './token-provider.js';
 
-import { DiscoveryMetadata, TokenSuccessResponse, TokenErrorResponse, endpoint } from './oauth-wire.js';
+import {
+  DiscoveryMetadata,
+  TokenSuccessResponse,
+  TokenErrorResponse,
+  endpoint,
+} from './oauth-wire.js';
 import { OAuthCredentialOptions } from './credentials.js';
 export type { AuthorizationGrant } from './credentials.js';
 
@@ -34,27 +45,52 @@ export interface OAuthProviderOptions extends OAuthCredentialOptions {
 export class FetchOAuthTokenProvider implements TokenProvider {
   readonly identity: string;
   private readonly options: OAuthProviderOptions;
-  private readonly authentication: NonNullable<OAuthProviderOptions['authentication']>;
+  private readonly authentication: NonNullable<
+    OAuthProviderOptions['authentication']
+  >;
   private readonly consumedCodes = new Set<string>();
   private readonly fetch: typeof fetch;
   private readonly now: () => number;
 
   constructor(options: OAuthProviderOptions) {
     this.authentication = options.authentication ?? 'none';
-    if (!['none', 'client_secret_basic', 'client_secret_post'].includes(this.authentication)) throw new TypeError('Unsupported OAuth client authentication; use an application TokenProvider');
-    if (!options.identity.trim() || !options.clientId.trim()) throw new TypeError('OAuth provider and client identities must not be blank');
-    if ((this.authentication === 'none') !== (options.clientSecret === undefined) || options.clientSecret === '') {
-      throw new TypeError('Client secrets require an explicit OAuth client authentication method');
+    if (
+      !['none', 'client_secret_basic', 'client_secret_post'].includes(
+        this.authentication,
+      )
+    )
+      throw new TypeError(
+        'Unsupported OAuth client authentication; use an application TokenProvider',
+      );
+    if (!options.identity.trim() || !options.clientId.trim())
+      throw new TypeError(
+        'OAuth provider and client identities must not be blank',
+      );
+    if (
+      (this.authentication === 'none') !==
+        (options.clientSecret === undefined) ||
+      options.clientSecret === ''
+    ) {
+      throw new TypeError(
+        'Client secrets require an explicit OAuth client authentication method',
+      );
     }
     this.identity = options.identity;
-    this.options = Object.freeze({ ...options, endpoints: options.endpoints && Object.freeze({ ...options.endpoints }) });
+    this.options = Object.freeze({
+      ...options,
+      endpoints: options.endpoints && Object.freeze({ ...options.endpoints }),
+    });
     this.fetch = options.fetch ?? globalThis.fetch;
     this.now = options.now ?? Date.now;
   }
 
   /** Selects the application client and fresh session without changing the generated profile. */
   configure(_binding: SecurityBinding): TokenConfiguration {
-    return { clientIdentity: this.options.clientId, grantIdentity: this.options.grantIdentity, endpoints: this.options.endpoints };
+    return {
+      clientIdentity: this.options.clientId,
+      grantIdentity: this.options.grantIdentity,
+      endpoints: this.options.endpoints,
+    };
   }
 
   /** Acquires a client token or exchanges one application-authorized PKCE grant. */
@@ -65,106 +101,192 @@ export class FetchOAuthTokenProvider implements TokenProvider {
       if (request.flow === 'clientCredentials') {
         if (this.authentication === 'none') throw new TokenProviderError();
         form = new URLSearchParams({ grant_type: 'client_credentials' });
-      }
-      else if (request.flow === 'authorizationCode') {
-        if (!this.options.authorization || this.consumedCodes.size >= 1024) throw new AuthorizationRequiredError();
+      } else if (request.flow === 'authorizationCode') {
+        if (!this.options.authorization || this.consumedCodes.size >= 1024)
+          throw new AuthorizationRequiredError();
         const grant = await this.options.authorization(request, signal);
-        if (!grant.code || !grant.redirectUri || !/^[A-Za-z0-9._~-]{43,128}$/.test(grant.codeVerifier)) throw new AuthorizationRequiredError();
-        const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(grant.code)));
-        const codeKey = Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('');
-        if (this.consumedCodes.size >= 1024 || this.consumedCodes.has(codeKey)) throw new AuthorizationRequiredError();
+        if (
+          !grant.code ||
+          !grant.redirectUri ||
+          !/^[A-Za-z0-9._~-]{43,128}$/.test(grant.codeVerifier)
+        )
+          throw new AuthorizationRequiredError();
+        const digest = new Uint8Array(
+          await crypto.subtle.digest(
+            'SHA-256',
+            new TextEncoder().encode(grant.code),
+          ),
+        );
+        const codeKey = Array.from(digest, (byte) =>
+          byte.toString(16).padStart(2, '0'),
+        ).join('');
+        if (this.consumedCodes.size >= 1024 || this.consumedCodes.has(codeKey))
+          throw new AuthorizationRequiredError();
         this.consumedCodes.add(codeKey);
-        form = new URLSearchParams({ grant_type: 'authorization_code', code: grant.code, redirect_uri: grant.redirectUri, code_verifier: grant.codeVerifier });
-      }
-      else throw new TokenProviderError();
+        form = new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: grant.code,
+          redirect_uri: grant.redirectUri,
+          code_verifier: grant.codeVerifier,
+        });
+      } else throw new TokenProviderError();
       return await this.exchange(request, request.tokenUrl, form, signal);
-    }
-    catch (error) {
+    } catch (error) {
       signal.throwIfAborted();
-      if (error instanceof AuthorizationRequiredError || error instanceof TokenProviderError) throw error;
+      if (isRequestStopped(error)) throw error;
+      if (
+        error instanceof AuthorizationRequiredError ||
+        error instanceof TokenProviderError
+      )
+        throw error;
       throw new TokenProviderError();
     }
   }
 
   /** Rotates refresh credentials without using an authorization code again. */
-  async refresh(request: TokenRequest, refreshToken: string, signal: AbortSignal): Promise<TokenSet> {
+  async refresh(
+    request: TokenRequest,
+    refreshToken: string,
+    signal: AbortSignal,
+  ): Promise<TokenSet> {
     try {
       request = await this.resolveEndpoints(request, signal);
-      return await this.exchange(request, request.refreshUrl ?? request.tokenUrl,
-        new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken }), signal);
-    }
-    catch (error) {
+      return await this.exchange(
+        request,
+        request.refreshUrl ?? request.tokenUrl,
+        new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken,
+        }),
+        signal,
+      );
+    } catch (error) {
       signal.throwIfAborted();
-      if (error instanceof AuthorizationRequiredError || error instanceof TokenProviderError) throw error;
+      if (isRequestStopped(error)) throw error;
+      if (
+        error instanceof AuthorizationRequiredError ||
+        error instanceof TokenProviderError
+      )
+        throw error;
       throw new TokenProviderError();
     }
   }
 
-  private async resolveEndpoints(request: TokenRequest, signal: AbortSignal): Promise<TokenRequest> {
+  private async resolveEndpoints(
+    request: TokenRequest,
+    signal: AbortSignal,
+  ): Promise<TokenRequest> {
     if (!request.discoveryUrl) return request;
     if (!this.options.issuer) throw new TokenProviderError();
     const response = await this.fetchResponse(endpoint(request.discoveryUrl), {
-      headers: { Accept: 'application/json' }, credentials: 'omit', redirect: 'manual', signal,
+      headers: { Accept: 'application/json' },
+      credentials: 'omit',
+      redirect: 'manual',
+      signal,
     });
-    if (response.status !== 200) throw new TokenProviderError();
+    if (response.status !== 200) {
+      const error = new TokenProviderError();
+      discardBody(response, error);
+      throw error;
+    }
     const metadata = DiscoveryMetadata.parse(await response.text());
     if (metadata.issuer !== this.options.issuer) throw new TokenProviderError();
-    const publicCode = this.authentication === 'none' && request.flow === 'authorizationCode';
-    if (!publicCode && !(metadata.methods ?? ['client_secret_basic']).includes(this.authentication)) throw new TokenProviderError();
+    const publicCode =
+      this.authentication === 'none' && request.flow === 'authorizationCode';
+    if (
+      !publicCode &&
+      !(metadata.methods ?? ['client_secret_basic']).includes(
+        this.authentication,
+      )
+    )
+      throw new TokenProviderError();
     const tokenUrl = request.tokenUrl ?? metadata.tokenUrl;
-    const authorizationUrl = request.authorizationUrl ?? metadata.authorizationUrl;
+    const authorizationUrl =
+      request.authorizationUrl ?? metadata.authorizationUrl;
     endpoint(tokenUrl);
     if (authorizationUrl !== undefined) endpoint(authorizationUrl);
-    else if (request.flow === 'authorizationCode') throw new TokenProviderError();
+    else if (request.flow === 'authorizationCode')
+      throw new TokenProviderError();
     if (request.refreshUrl !== undefined) endpoint(request.refreshUrl);
     return { ...request, tokenUrl, authorizationUrl };
   }
 
-  private async fetchResponse(url: string, init: RequestInit): Promise<Response> {
+  private async fetchResponse(
+    url: string,
+    init: RequestInit,
+  ): Promise<Response> {
     let response: Response;
-    try { response = await this.fetch(url, init); }
-    catch {
+    try {
+      response = await this.fetch(url, init);
+    } catch (error) {
       init.signal?.throwIfAborted();
+      if (isRequestStopped(error)) throw error;
       throw new TokenProviderError('temporary');
     }
-    if (response.status === 408 || response.status === 429 || response.status >= 500 && response.status <= 599) {
-      await response.body?.cancel();
-      throw new TokenProviderError('temporary');
+    if (
+      response.status === 408 ||
+      response.status === 429 ||
+      (response.status >= 500 && response.status <= 599)
+    ) {
+      const error = new TokenProviderError('temporary');
+      discardBody(response, error);
+      throw error;
     }
     return response;
   }
 
-  private async exchange(request: TokenRequest, tokenUrl: string | undefined, form: URLSearchParams, signal: AbortSignal): Promise<TokenSet> {
+  private async exchange(
+    request: TokenRequest,
+    tokenUrl: string | undefined,
+    form: URLSearchParams,
+    signal: AbortSignal,
+  ): Promise<TokenSet> {
     if (request.scopes.length) form.set('scope', request.scopes.join(' '));
     if (request.audience !== undefined) form.set('audience', request.audience);
     if (request.resource !== undefined) form.set('resource', request.resource);
     const url = endpoint(tokenUrl);
     let authentication = oauth.None();
-    if (this.authentication === 'client_secret_basic') authentication = oauth.ClientSecretBasic(this.options.clientSecret!);
-    else if (this.authentication === 'client_secret_post') authentication = oauth.ClientSecretPost(this.options.clientSecret!);
+    if (this.authentication === 'client_secret_basic')
+      authentication = oauth.ClientSecretBasic(this.options.clientSecret!);
+    else if (this.authentication === 'client_secret_post')
+      authentication = oauth.ClientSecretPost(this.options.clientSecret!);
     const grantType = form.get('grant_type')!;
     form.delete('grant_type');
     const response = await oauth.genericTokenEndpointRequest(
       { issuer: new URL(url).origin, token_endpoint: url },
-      { client_id: this.options.clientId }, authentication, grantType, form, {
+      { client_id: this.options.clientId },
+      authentication,
+      grantType,
+      form,
+      {
         signal,
         // Intentionally deprecated upstream to discourage non-TLS use; endpoint() has already
         // restricted HTTP to loopback. This is required for the supported local-provider policy.
         [oauth.allowInsecureRequests]: new URL(url).protocol === 'http:',
-        [oauth.customFetch]: (input, init) => this.fetchResponse(String(input), {
-          ...init, credentials: 'omit', redirect: 'manual', signal,
-        }),
-      });
+        [oauth.customFetch]: (input, init) =>
+          this.fetchResponse(String(input), {
+            ...init,
+            credentials: 'omit',
+            redirect: 'manual',
+            signal,
+          }),
+      },
+    );
     const body = await response.text();
     if (response.status !== 200) {
       const code = TokenErrorResponse.parse(body).code;
       if (code === 'invalid_grant') {
-        if (request.flow === 'authorizationCode') throw new AuthorizationRequiredError();
+        if (request.flow === 'authorizationCode')
+          throw new AuthorizationRequiredError();
         throw new TokenProviderError('invalidGrant');
       }
-      if (code === 'temporarily_unavailable' || code === 'server_error') throw new TokenProviderError('temporary');
+      if (code === 'temporarily_unavailable' || code === 'server_error')
+        throw new TokenProviderError('temporary');
       throw new TokenProviderError();
     }
-    return (await TokenSuccessResponse.parse(body)).tokens(request.scopes, this.now());
+    return (await TokenSuccessResponse.parse(body)).tokens(
+      request.scopes,
+      this.now(),
+    );
   }
 }

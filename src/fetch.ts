@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { isRequestStopped } from './request-cancellation-error.js';
 import { MediaType } from './media-type.js';
 import { Logger } from './logger.js';
 import { Problem, ProblemSchema } from './problem.js';
@@ -63,6 +64,7 @@ export async function validate(
     try {
       error = problemRuntime.resolveSchema(problemSchema).decode(problemData);
     } catch (decodeError) {
+      if (isRequestStopped(decodeError)) throw decodeError;
       error = new SundayError(
         `Invalid problem response: ${errorToMessage(decodeError)}`,
         response.url,
@@ -169,6 +171,7 @@ export namespace ResponseExample {
         }
       }
     } catch (error) {
+      if (isRequestStopped(error)) throw error;
       // ignore errors
       const message = errorToMessage(error);
       body = bodyExcerpt = `<<error displaying response data: ${message}>>`;

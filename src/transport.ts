@@ -24,14 +24,9 @@ import { Logger } from './logger.js';
 export interface Transport<NativeRequest = Request> {
   readonly baseUrl: URLTemplate;
 
-  registerProblem(
-    type: URL | string,
-    problemType: SchemaLike<Problem>,
-  ): void;
+  registerProblem(type: URL | string, problemType: SchemaLike<Problem>): void;
 
-  transportRequest(
-    requestSpec: RequestSpec<unknown>,
-  ): Promise<NativeRequest>;
+  transportRequest(requestSpec: RequestSpec<unknown>): Promise<NativeRequest>;
 
   transportResponse(
     request: NativeRequest,
@@ -48,11 +43,12 @@ export interface Transport<NativeRequest = Request> {
     resultType: SchemaLike<R>,
   ): Promise<OperationResponse<R>>;
 
-  response<B>(
-    requestSpec: RequestSpec<B>,
-  ): Promise<OperationResponse<void>>;
+  response<B>(requestSpec: RequestSpec<B>): Promise<OperationResponse<void>>;
 
-  result<B, R>(requestSpec: RequestSpec<B>, resultType: SchemaLike<R>): Promise<R>;
+  result<B, R>(
+    requestSpec: RequestSpec<B>,
+    resultType: SchemaLike<R>,
+  ): Promise<R>;
 
   result<B>(requestSpec: RequestSpec<B>): Promise<void>;
 
@@ -72,6 +68,8 @@ export interface Transport<NativeRequest = Request> {
 
 export interface ExtEventSource extends EventSource {
   connect(): void;
+  /** Stops the subscription and forwards an optional failure to upstream cleanup. */
+  close(reason?: unknown): void;
 }
 
 export type RequestMethod =
@@ -102,6 +100,4 @@ export interface RequestSpec<B> {
   security?: readonly SecurityBinding[];
 }
 
-export interface RequestAdapter {
-  adapt(transport: Transport, request: Request): Promise<Request>;
-}
+export type { RequestAdapter } from './request-adapter.js';

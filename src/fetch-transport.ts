@@ -12,10 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { copyRequest } from './fetch-copy.js';
+import { inheritBody } from './util/owned-body.js';
+import { prepareRequestBody } from './request-body.js';
 import { RequestValidationError } from './request-validation-error.js';
 import { unknownGet } from './util/unknowns.js';
-import { TokenManager } from './token-manager.js';
-import { AuthorizedRequest, authorizeRequest, canRecoverAuthentication, redactSecurityResponse, rejectedBearerLeases } from './request-security.js';
+import { TokenProvider } from './token-provider.js';
+import { RequestExecution } from './request-execution.js';
+import { ResponseAdapter } from './response-adapter.js';
+import {
+  isRequestStopped,
+  requestFailure,
+} from './request-cancellation-error.js';
 import { ZodError } from 'zod';
 import { SchemaLike } from './schema-runtime.js';
 import { mergeHeaders, validate } from './fetch.js';
@@ -45,9 +53,9 @@ import { ClientSettings } from './client-settings.js';
 
 export class FetchTransport implements Transport {
   public baseUrl: URLTemplate;
-  public adapter?: RequestAdapter;
-  public tokenManager?: TokenManager;
-  private readonly authorizedRequests = new WeakMap<Request, AuthorizedRequest>();
+  private readonly execution: RequestExecution;
+  private readonly maxBufferedRequestBytes?: number;
+  public readonly tokenProviders: Readonly<Record<string, TokenProvider>>;
   public mediaTypeEncoders: MediaTypeEncoders;
   public mediaTypeDecoders: MediaTypeDecoders;
   public problemTypes = new Map<string, SchemaLike<Problem>>();
@@ -56,17 +64,28 @@ export class FetchTransport implements Transport {
   constructor(
     baseUrl: string | URLTemplate,
     options?: {
+      /** @deprecated Use requestAdapter. The adapt method now receives only the native request. */
       adapter?: RequestAdapter;
-      tokenManager?: TokenManager;
+      requestAdapter?: RequestAdapter;
+      responseAdapter?: ResponseAdapter;
+      tokenProviders?: Readonly<Record<string, TokenProvider>>;
       mediaTypeEncoders?: MediaTypeEncoders;
       mediaTypeDecoders?: MediaTypeDecoders;
       logger?: Logger;
+      /** Upload fallback buffer limit in bytes; defaults to 16 MiB. */
+      maxBufferedRequestBytes?: number;
     },
   ) {
     this.baseUrl =
       typeof baseUrl === 'string' ? new URLTemplate(baseUrl) : baseUrl;
-    this.adapter = options?.adapter;
-    this.tokenManager = options?.tokenManager;
+    this.maxBufferedRequestBytes = options?.maxBufferedRequestBytes;
+    this.tokenProviders = Object.freeze({ ...options?.tokenProviders });
+    this.execution = new RequestExecution(
+      this.tokenProviders,
+      options?.requestAdapter ?? options?.adapter,
+      options?.responseAdapter,
+      this.maxBufferedRequestBytes,
+    );
     this.mediaTypeEncoders =
       options?.mediaTypeEncoders ?? MediaTypeEncoders.DEFAULT;
     this.mediaTypeDecoders =
@@ -75,58 +94,72 @@ export class FetchTransport implements Transport {
   }
 
   /** Builds a transport from generated settings while retaining application transport options. */
-  static fromSettings(settings: ClientSettings, options?: ConstructorParameters<typeof FetchTransport>[1]): FetchTransport {
+  static fromSettings(
+    settings: ClientSettings,
+    options?: ConstructorParameters<typeof FetchTransport>[1],
+  ): FetchTransport {
     return new FetchTransport(settings.baseUrl, {
       ...options,
-      tokenManager: options?.tokenManager ?? settings.tokenManager,
+      tokenProviders: options?.tokenProviders ?? settings.tokenProviders,
     });
   }
 
-  registerProblem(
-    type: URL | string,
-    problemType: SchemaLike<Problem>,
-  ): void {
+  registerProblem(type: URL | string, problemType: SchemaLike<Problem>): void {
     const typeStr = type instanceof URL ? type.toString() : type;
     this.problemTypes.set(typeStr, problemType);
   }
 
-  async transportRequest(
+  /** Materializes an optionally authorized native request; execution belongs to its consumer. */
+  async transportRequest(requestSpec: RequestSpec<unknown>): Promise<Request> {
+    return this.execution.export(
+      await this.prepareRequest(requestSpec),
+      requestSpec.security ?? [],
+    );
+  }
+
+  private async prepareRequest(
     requestSpec: RequestSpec<unknown>,
   ): Promise<Request> {
+    requestSpec.signal?.throwIfAborted();
     try {
       requestSpec.parameterValidation?.();
     } catch (cause) {
+      if (isRequestStopped(cause)) throw cause;
       throw new RequestValidationError(cause);
     }
+    if (
+      requestSpec.body !== undefined &&
+      ['GET', 'HEAD'].includes(requestSpec.method.toUpperCase())
+    )
+      throw new TypeError('GET and HEAD requests cannot have a body');
     const url = this.baseUrl.complete(
       requestSpec.pathTemplate,
       requestSpec.pathParameters ?? {},
     );
 
     if (requestSpec.queryParameters) {
-      const encoder = this.mediaTypeEncoders.find(
-        MediaType.WWWFormUrlEncoded,
-      );
+      const encoder = this.mediaTypeEncoders.find(MediaType.WWWFormUrlEncoded);
       if (!isURLQueryParamsEncoder(encoder)) {
         throw new Error(
           `MediaTypeEncoder for ${MediaType.WWWFormUrlEncoded} must be an instance of URLQueryParamsEncoder`,
         );
       }
-      url.search = `?${encoder.encodeQueryString(
-        requestSpec.queryParameters,
-      )}`;
+      url.search = `?${encoder.encodeQueryString(requestSpec.queryParameters)}`;
     }
 
     const headers = new Headers(HeaderParameters.encode(requestSpec.headers));
 
     // Determine & add accept header
     if (requestSpec.acceptTypes) {
-      const supportedAcceptTypes = requestSpec.acceptTypes.filter((type) =>
-                                                                    requestSpec.binaryResponse || this.mediaTypeDecoders.supports(type),
+      const supportedAcceptTypes = requestSpec.acceptTypes.filter(
+        (type) =>
+          requestSpec.binaryResponse || this.mediaTypeDecoders.supports(type),
       );
 
       if (!supportedAcceptTypes.length) {
-        throw new Error('None of the provided accept types has a registered decoder');
+        throw new Error(
+          'None of the provided accept types has a registered decoder',
+        );
       }
 
       const accept = supportedAcceptTypes.join(' , ');
@@ -138,13 +171,17 @@ export class FetchTransport implements Transport {
     const streamingBody = isStreamingBody(requestSpec.body)
       ? requestSpec.body
       : undefined;
-    const contentType = requestSpec.contentTypes?.find((type) =>
-      streamingBody !== undefined || this.mediaTypeEncoders.supports(type),
+    const contentType = requestSpec.contentTypes?.find(
+      (type) =>
+        streamingBody !== undefined || this.mediaTypeEncoders.supports(type),
     );
 
     // If matched, add the content type (even if the body is nil,
     // to match any expected server requirements)
-    if (contentType && (streamingBody === undefined || !headers.has('content-type'))) {
+    if (
+      contentType &&
+      (streamingBody === undefined || !headers.has('content-type'))
+    ) {
       headers.set('content-type', contentType.toString());
     }
 
@@ -153,8 +190,7 @@ export class FetchTransport implements Transport {
     if (requestSpec.body !== undefined) {
       if (streamingBody !== undefined) {
         body = streamingBody.toBodyInit();
-      }
-      else {
+      } else {
         if (!contentType) {
           throw new Error(
             'None of the provided content types has a registered encoder',
@@ -162,57 +198,59 @@ export class FetchTransport implements Transport {
         }
 
         body = this.mediaTypeEncoders
-                   .find(contentType)
-                   .encode(requestSpec.body, requestSpec.bodyType, 'request');
+          .find(contentType)
+          .encode(requestSpec.body, requestSpec.bodyType, 'request');
       }
     }
 
-    const init: RequestInit & { duplex?: 'half' } = {
-      headers,
-      body,
-      method: requestSpec.method,
-      signal: requestSpec.signal,
-      redirect: requestSpec.security?.length ? 'manual' : undefined,
-    };
-    if (body instanceof ReadableStream) {
-      init.duplex = 'half';
-    }
+    try {
+      body = await prepareRequestBody(body, {
+        signal: requestSpec.signal,
+        maxBytes: this.maxBufferedRequestBytes,
+      });
 
-    const request = new Request(url.toString(), init);
-    const adapted = (await this.adapter?.adapt(this, request)) ?? request;
-    if (!requestSpec.security?.length) return adapted;
-    const authorized = await authorizeRequest(adapted, requestSpec.security, this.tokenManager);
-    this.authorizedRequests.set(authorized.request, authorized);
-    return authorized.request;
+      const init: RequestInit & { duplex?: 'half' } = {
+        headers,
+        body,
+        method: requestSpec.method,
+        signal: requestSpec.signal,
+        redirect: requestSpec.security?.length ? 'manual' : undefined,
+      };
+      if (body instanceof ReadableStream) {
+        init.duplex = 'half';
+      }
+
+      const request = new Request(url.toString(), init);
+      inheritBody(body instanceof ReadableStream ? body : undefined, request);
+      return request;
+    } catch (error) {
+      if (body instanceof ReadableStream)
+        void body.cancel(error).catch(() => undefined);
+      throw error;
+    }
   }
 
   async transportResponse(
     request: Request | RequestSpec<unknown>,
-    dataExpected?: boolean,
+    dataExpected = false,
   ): Promise<Response> {
-    const req = request instanceof Request ? request : await this.transportRequest(request);
-    const response = await this.sendAuthorized(req, { recovered: false });
-    return await validate(response, dataExpected ?? false, this.problemTypes, this.logger);
+    return this.execute(request, (response) =>
+      validate(response, dataExpected, this.problemTypes, this.logger),
+    );
   }
 
-  private async sendAuthorized(request: Request, budget: { recovered: boolean }): Promise<Response> {
-    let req = request;
-    let authorized = this.authorizedRequests.get(req);
-    if (authorized) {
-      authorized = await authorizeRequest(req, authorized.bindings, this.tokenManager, authorized);
-      req = authorized.request;
-      this.authorizedRequests.set(req, authorized);
-    }
-    let response = await fetch(req);
-    if (authorized && this.tokenManager && !budget.recovered && canRecoverAuthentication(authorized, response)) {
-      budget.recovered = true;
-      await response.body?.cancel();
-      await Promise.all(rejectedBearerLeases(authorized).map(lease => this.tokenManager!.invalidate(lease)));
-      authorized = await authorizeRequest(req, authorized.bindings, this.tokenManager, authorized);
-      this.authorizedRequests.set(authorized.request, authorized);
-      response = await fetch(authorized.request);
-    }
-    return authorized ? redactSecurityResponse(response, authorized.bindings) : response;
+  private async execute<T>(
+    request: Request | RequestSpec<unknown>,
+    consume: (response: Response, request: Request) => T | Promise<T>,
+  ): Promise<T> {
+    const prepared =
+      request instanceof Request ? request : await this.prepareRequest(request);
+    return this.execution.execute(
+      prepared,
+      request instanceof Request ? [] : (request.security ?? []),
+      { recovered: false },
+      consume,
+    );
   }
 
   async response<B, R>(
@@ -226,90 +264,76 @@ export class FetchTransport implements Transport {
     request: RequestSpec<unknown>,
     responseType?: SchemaLike,
   ): Promise<OperationResponse<unknown>> {
-    const response = await this.transportResponse(request, !!responseType);
-    if (!responseType) {
-      return new OperationResponse(undefined, response);
-    }
-
-    try {
-      const contentType = MediaType.from(
-        response.headers.get('content-type'),
-        MediaType.OctetStream,
-      );
-      const decoder = request.binaryResponse ? BinaryDecoder.default : this.mediaTypeDecoders.find(contentType);
-      const result = await decoder.decode(response, responseType);
-      return new OperationResponse(result, response);
-    }
-    catch (error) {
-      throw await SundayError.fromResponse(
-        errorToMessage(error, 'Response Decoding Failed'),
-        response,
-      );
-    }
+    return this.execute(request, async (response, sent) => {
+      await validate(response, !!responseType, this.problemTypes, this.logger);
+      if (!responseType) return new OperationResponse(undefined, response);
+      try {
+        const contentType = MediaType.from(
+          response.headers.get('content-type'),
+          MediaType.OctetStream,
+        );
+        const decoder = request.binaryResponse
+          ? BinaryDecoder.default
+          : this.mediaTypeDecoders.find(contentType);
+        return new OperationResponse(
+          await decoder.decode(response, responseType),
+          response,
+        );
+      } catch (error) {
+        const failure = requestFailure(error, sent.signal);
+        if (sent.signal.aborted || isRequestStopped(failure)) throw failure;
+        throw await SundayError.fromResponse(
+          errorToMessage(error, 'Response Decoding Failed'),
+          response,
+        );
+      }
+    });
   }
 
   async result<B, R>(
     requestSpec: RequestSpec<B>,
     resultType: SchemaLike<R>,
   ): Promise<R>;
-  async result<B>(
-    requestSpec: RequestSpec<B>,
-  ): Promise<void>;
+  async result<B>(requestSpec: RequestSpec<B>): Promise<void>;
   async result(
     request: RequestSpec<unknown>,
     responseType?: SchemaLike,
   ): Promise<unknown> {
-    const response = await this.transportResponse(request, !!responseType);
-
-    if (!responseType) {
-      return undefined;
-    }
-
-    try {
-      const contentType = MediaType.from(
-        response.headers.get('content-type'),
-        MediaType.OctetStream,
-      );
-      const decoder = request.binaryResponse ? BinaryDecoder.default : this.mediaTypeDecoders.find(contentType);
-      return await decoder.decode(response, responseType);
-    }
-    catch (error) {
-      throw await SundayError.fromResponse(
-        errorToMessage(error, 'Response Decoding Failed'),
-        response,
-      );
-    }
+    return (
+      responseType
+        ? await this.response(request, responseType)
+        : await this.response(request)
+    ).result;
   }
 
   eventSource(requestSpec: RequestSpec<void>): ExtEventSource {
     const budget = { recovered: false };
-    //
-    const adapter = async (
-      url: string,
-      requestInit: RequestInit,
-    ): Promise<Request> => {
-      const eventSourceSpec = {
-        ...requestSpec, pathTemplate: url,
-        signal: composeAbortSignals(requestSpec.signal, requestInit.signal ?? undefined),
-      };
-      const request = await this.transportRequest(eventSourceSpec);
-      const authorized = this.authorizedRequests.get(request);
-      const adapted = new Request(request, {
-        ...requestInit,
-        redirect: authorized ? 'manual' : requestInit.redirect,
-        headers: mergeHeaders(request.headers, requestInit.headers),
-        signal: composeAbortSignals(
-          eventSourceSpec.signal,
-          requestInit.signal ?? undefined),
-      });
-      if (authorized) this.authorizedRequests.set(adapted, { ...authorized, request: adapted });
-      return adapted;
-    };
-
     return new FetchEventSource(requestSpec.pathTemplate, {
       logger: this.logger,
-      adapter,
-      fetch: request => this.sendAuthorized(request, budget),
+      adapter: async (url, init) => {
+        const request = await this.prepareRequest({
+          ...requestSpec,
+          pathTemplate: url,
+          signal: AbortSignal.any(
+            [requestSpec.signal, init.signal].filter(
+              (value): value is AbortSignal => !!value,
+            ),
+          ),
+        });
+        return copyRequest(request, {
+          ...init,
+          signal: request.signal,
+          headers: mergeHeaders(request.headers, init.headers),
+        });
+      },
+      fetch: (request, _signal, observeSignal) =>
+        this.execution.execute(
+          request,
+          requestSpec.security ?? [],
+          budget,
+          (response) => response,
+          observeSignal,
+        ),
       signal: requestSpec.signal,
     });
   }
@@ -332,62 +356,46 @@ export class FetchTransport implements Transport {
       MediaType.JSON,
     ) as TextMediaTypeDecoder;
 
-    const createAbortError = (): Error => {
-      if (typeof DOMException !== 'undefined') {
-        return new DOMException('The operation was aborted.', 'AbortError');
-      }
-      const error = new Error('The operation was aborted.');
-      error.name = 'AbortError';
-      return error;
-    };
-
     let connected = false;
     let closed = false;
-    let pending:
-      | {
+    const pending: {
       resolve: (value: IteratorResult<E>) => void;
       reject: (reason?: unknown) => void;
-    }
-      | undefined;
+    }[] = [];
     const queue: E[] = [];
     let error: unknown;
+    let failed = false;
 
     const push = (value: E) => {
-      if (closed || error) {
+      if (closed) {
         return;
       }
-      if (pending) {
-        pending.resolve({ value, done: false });
-        pending = undefined;
+      const next = pending.shift();
+      if (next) {
+        next.resolve({ value, done: false });
         return;
       }
       queue.push(value);
     };
 
-    const fail = (cause: unknown) => {
-      if (closed || error) {
-        return;
-      }
-      error = cause;
-      if (pending) {
-        pending.reject(cause);
-        pending = undefined;
-      }
-    };
-
-    const finish = () => {
-      if (closed) {
-        return;
-      }
+    const terminate = (failure?: { reason: unknown }) => {
+      if (closed) return;
       closed = true;
-      if (pending) {
-        pending.resolve({ value: undefined as unknown as E, done: true });
-        pending = undefined;
+      failed = failure !== undefined;
+      error = failure?.reason;
+      queue.length = 0;
+      if (abortHandler)
+        requestSpec.signal?.removeEventListener('abort', abortHandler);
+      // Settle state before upstream cancellation, which can synchronously call application code.
+      eventSource.close(error);
+      for (const next of pending.splice(0)) {
+        if (failed) next.reject(error);
+        else next.resolve({ value: undefined as unknown as E, done: true });
       }
     };
 
     eventSource.onmessage = (event: MessageEvent<string>) => {
-      if (!event.data) {
+      if (closed || event.data == null) {
         return;
       }
 
@@ -399,15 +407,14 @@ export class FetchTransport implements Transport {
           event.data,
           this.logger,
         );
-        if (!decodedEvent) {
+        if (decodedEvent === undefined) {
           return;
         }
 
         push(decodedEvent);
-      }
-      catch (err) {
-        if (!isEventDecodingError(err)) {
-          fail(err);
+      } catch (err) {
+        if (isRequestStopped(err) || !isEventDecodingError(err)) {
+          terminate({ reason: err });
           return;
         }
 
@@ -423,27 +430,27 @@ export class FetchTransport implements Transport {
       this.logger?.error?.({ event }, 'event source error');
       const cause = unknownGet(event, 'error');
       if (eventSource.readyState === eventSource.CLOSED) {
-        fail(cause ?? new Error('Event source closed with an error'));
-        finish();
+        terminate({
+          reason:
+            'error' in event
+              ? cause
+              : new Error('Event source closed with an error'),
+        });
       }
     };
 
     let abortHandler: (() => void) | undefined;
     if (requestSpec.signal?.aborted) {
-      fail(createAbortError());
-      finish();
-    }
-    else {
+      terminate({ reason: requestSpec.signal.reason });
+    } else {
       abortHandler = () => {
-        fail(createAbortError());
-        finish();
-        eventSource.close();
+        terminate({ reason: requestSpec.signal!.reason });
       };
       requestSpec.signal?.addEventListener('abort', abortHandler);
     }
 
     const ensureConnected = () => {
-      if (connected || closed || error) {
+      if (connected || closed) {
         return;
       }
       connected = true;
@@ -455,40 +462,34 @@ export class FetchTransport implements Transport {
         ensureConnected();
         return {
           next: () => {
-            if (error) {
+            if (failed) {
               return Promise.reject(error);
             }
             if (queue.length > 0) {
-              return Promise.resolve({ value: queue.shift() as E, done: false });
+              return Promise.resolve({
+                value: queue.shift() as E,
+                done: false,
+              });
             }
             if (closed) {
               return Promise.resolve({
-                                       value: undefined as unknown as E,
-                                       done: true,
-                                     });
+                value: undefined as unknown as E,
+                done: true,
+              });
             }
             return new Promise<IteratorResult<E>>((resolve, reject) => {
-              pending = { resolve, reject };
+              pending.push({ resolve, reject });
             });
           },
           return: () => {
-            if (abortHandler) {
-              requestSpec.signal?.removeEventListener('abort', abortHandler);
-            }
-            eventSource.close();
-            finish();
+            terminate();
             return Promise.resolve({
-                                     value: undefined as unknown as E,
-                                     done: true,
-                                   });
+              value: undefined as unknown as E,
+              done: true,
+            });
           },
           throw: (err) => {
-            if (abortHandler) {
-              requestSpec.signal?.removeEventListener('abort', abortHandler);
-            }
-            eventSource.close();
-            fail(err);
-            finish();
+            terminate({ reason: err });
             return Promise.reject(err);
           },
         };
@@ -499,32 +500,4 @@ export class FetchTransport implements Transport {
 
 function isEventDecodingError(error: unknown): error is SyntaxError | ZodError {
   return error instanceof SyntaxError || error instanceof ZodError;
-}
-
-function composeAbortSignals(
-  first?: AbortSignal,
-  second?: AbortSignal,
-): AbortSignal | undefined {
-  if (!first) {
-    return second;
-  }
-  if (!second) {
-    return first;
-  }
-  if (first.aborted || second.aborted) {
-    const controller = new AbortController();
-    controller.abort();
-    return controller.signal;
-  }
-
-  const controller = new AbortController();
-  const abort = () => {
-    first.removeEventListener('abort', abort);
-    second.removeEventListener('abort', abort);
-    controller.abort();
-  };
-  first.addEventListener('abort', abort, { once: true });
-  second.addEventListener('abort', abort, { once: true });
-
-  return controller.signal;
 }
