@@ -72,3 +72,16 @@ for (const cleanup of ['throw', 'reject', 'pending']) {
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
 }
+
+it('preserves an undefined source error through native bulk reading', async () => {
+  const body = ownBody(
+    new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.error();
+      },
+    }),
+  );
+  await expect(
+    nativeBodyOperation(body, () => new Response(body).text()),
+  ).rejects.toBeUndefined();
+});

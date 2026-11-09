@@ -38,6 +38,7 @@ export async function checkBodyOwnership(
     new DOMException('application abort', 'AbortError'),
     new s.RequestCancellationError('application stop'),
     null,
+    undefined,
   ];
   const broken = (error) =>
     new ReadableStream({
@@ -90,6 +91,41 @@ export async function checkBodyOwnership(
         'adapter-selected error must never be replaced by a source error',
       );
     }
+  }
+  // An undefined source failure is an ordinary error, not the default AbortError from abort().
+  {
+    const observed = deferred();
+    const client = new s.FetchTransport(base, {
+      logger: {},
+      responseAdapter: new s.ResponseAdapters(
+        {
+          async adapt(response) {
+            await response.body?.cancel();
+            return new Response(broken(undefined));
+          },
+        },
+        {
+          async adapt(response) {
+            await response.text();
+            return response;
+          },
+        },
+      ),
+    });
+    const source = client.eventSource({ method: 'GET', pathTemplate: '/echo' });
+    source.onerror = (event) => {
+      observed.resolve({
+        error: event.error,
+        terminal: source.readyState === source.CLOSED,
+      });
+      source.close();
+    };
+    source.connect();
+    const result = await observed.promise;
+    check(
+      result.error === undefined && !result.terminal,
+      'undefined source error preserves SSE reconnection policy',
+    );
   }
   // Copies that transfer the same stream retain body-reader behavior, without nested wrappers.
   for (const method of [

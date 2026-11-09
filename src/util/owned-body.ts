@@ -87,7 +87,9 @@ export async function nativeBodyOperation<T>(
       ? withAbort(() => operation, owner.failure.signal)
       : operation);
   } catch (error) {
-    throw owner?.failure.signal.aborted ? owner.failure.signal.reason : error;
+    throw owner?.failure.signal.aborted
+      ? owner.failure.signal.reason.error
+      : error;
   }
 }
 
@@ -158,6 +160,7 @@ async function cancelStream(
 
 class BodyOwner {
   readonly stream: ReadableStream<Uint8Array>;
+  // Wrap the original value because abort(undefined) would create a different AbortError.
   readonly failure = new AbortController();
   private readonly reader:
     | ReadableStreamDefaultReader<Uint8Array>
@@ -220,7 +223,7 @@ class BodyOwner {
 
   stop(reason: unknown): void {
     if (this.closed) return;
-    this.failure.abort(reason);
+    this.failure.abort({ error: reason });
     this.controller.error(reason);
     this.cancel(reason);
   }
@@ -248,7 +251,7 @@ class BodyOwner {
       }
     } catch (error) {
       if (this.closed) return;
-      this.failure.abort(error);
+      this.failure.abort({ error });
       this.controller.error(error);
       this.finish();
     }
