@@ -77,7 +77,20 @@ describe('browser request stream copying', () => {
     if (directory) await rm(directory, { recursive: true, force: true });
   });
 
-  for (const engine of [chromium, firefox, webkit]) {
+  const browsers = [chromium, firefox, webkit];
+  const selected = process.env.SUNDAY_TEST_BROWSERS?.split(',');
+  if (
+    selected?.some(
+      (name) => !browsers.some((browser) => browser.name() === name),
+    )
+  )
+    throw new Error(
+      'SUNDAY_TEST_BROWSERS must name chromium, firefox, or webkit',
+    );
+
+  for (const engine of browsers.filter(
+    (browser) => !selected || selected.includes(browser.name()),
+  )) {
     it(`${engine.name()}: matches native SSE framing across byte boundaries`, async () => {
       const browser = await engine.launch();
       try {
@@ -118,6 +131,7 @@ describe('browser request stream copying', () => {
       const browser = await engine.launch();
       try {
         const page = await browser.newPage({ ignoreHTTPSErrors: true });
+        await page.exposeFunction('collectGarbage', () => page.requestGC());
         await page.goto(base);
         const checks = await page.evaluate(async (base) => {
           const sunday = await import(base + '/runtime.js');
@@ -125,7 +139,13 @@ describe('browser request stream copying', () => {
             base + '/body-ownership-checks.js'
           );
           return sunday.runBrowserChecks((progress: (label: string) => void) =>
-            checkBodyOwnership(sunday, base, progress),
+            checkBodyOwnership(sunday, base, progress, () =>
+              (
+                globalThis as typeof globalThis & {
+                  collectGarbage: () => Promise<void>;
+                }
+              ).collectGarbage(),
+            ),
           );
         }, base);
         expect(checks).toBeGreaterThanOrEqual(120);

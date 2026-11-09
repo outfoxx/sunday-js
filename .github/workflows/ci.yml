@@ -13,6 +13,8 @@ env:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    env:
+      SUNDAY_TEST_BROWSERS: chromium,firefox
 
     steps:
       - uses: actions/setup-java@v5
@@ -37,7 +39,7 @@ jobs:
           bun install --frozen-lockfile
 
       - name: Install Browsers
-        run: bunx playwright install --with-deps chromium firefox webkit
+        run: bunx playwright install --with-deps chromium firefox
 
       - name: Check
         run: bun run check
@@ -67,3 +69,24 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@v7.0.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # WebKit's Linux network backend lacks uploads and reports HTTP/2 resets as aborts.
+  # Exercise the Safari network implementation rather than disabling those contracts.
+  webkit:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Packages
+        run: bun install --frozen-lockfile
+      - name: Install WebKit
+        run: bunx playwright install webkit
+      - name: WebKit Adapter Contracts
+        env:
+          SUNDAY_TEST_BROWSERS: webkit
+        run: bun test -r ./test/setup.ts test/adapter-browser-streaming.test.ts

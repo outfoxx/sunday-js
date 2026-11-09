@@ -285,6 +285,11 @@ recovery, refresh coordination, and concurrent SSE iterator reads. The ownership
 native byte-stream capabilities, adapter-selected errors, upload failures, and late resource cleanup.
 The lifecycle matrix also checks atomic credential setup, unhandled rejections, nested application
 errors, truncated SSE reconnections, and suppression of callbacks after termination.
+CI runs WebKit on macOS to exercise Safari's network implementation; Chromium, Firefox, Node, and Bun
+run on Linux. Playwright's Linux WebKit backend advertises streaming uploads but cannot send them,
+and reports remote HTTP/2 resets as aborts. The constructor-only capability probe cannot detect those
+backend limitations. Applications targeting that backend can explicitly use `bufferToBlob` for uploads.
+`SUNDAY_TEST_BROWSERS=webkit` selects a browser suite locally (a comma-separated list is also accepted).
 See the [ownership and failure audit](documentation/adapter-ownership-audit.md) for the recurring causes,
 pre-existing defects versus refactor regressions, and the checks to carry into other runtimes.
 

@@ -168,15 +168,17 @@ class BodyOwner {
   private closed = false;
   private readonly listeners = new Map<AbortSignal, () => void>();
 
-  constructor(source: ReadableStream<Uint8Array>) {
+  // WebKit can recreate a native Request.body wrapper if only its reader remains reachable.
+  // Keep the source handle alive so ownership lookups survive garbage collection during reads.
+  constructor(private readonly source: ReadableStream<Uint8Array>) {
     // Keep the selected reader: some byte producers can only fill a supplied BYOB view.
     let bytes = false;
     try {
-      this.reader = source.getReader({ mode: 'byob' });
+      this.reader = this.source.getReader({ mode: 'byob' });
       bytes = true;
     } catch (error) {
-      if (source.locked) throw error;
-      this.reader = source.getReader();
+      if (this.source.locked) throw error;
+      this.reader = this.source.getReader();
     }
     const underlying = {
       start: (

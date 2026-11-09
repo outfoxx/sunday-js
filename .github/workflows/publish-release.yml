@@ -20,6 +20,9 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    env:
+      SUNDAY_TEST_BROWSERS: chromium,firefox
+    needs: webkit
     environment: npm
 
     steps:
@@ -42,7 +45,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Install Browsers
-        run: bunx playwright install --with-deps chromium firefox webkit
+        run: bunx playwright install --with-deps chromium firefox
 
       - name: Stamp Package Version
         run: bun pm pkg set version=${{ steps.version.outputs.full_without_prefix }}
@@ -92,3 +95,24 @@ jobs:
           generate_release_notes: true
           prerelease: ${{ steps.version.outputs.is_stable != 'true' }}
           draft: false
+
+  # WebKit's Linux network backend lacks uploads and reports HTTP/2 resets as aborts.
+  # Exercise the Safari network implementation rather than disabling those contracts.
+  webkit:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Packages
+        run: bun install --frozen-lockfile
+      - name: Install WebKit
+        run: bunx playwright install webkit
+      - name: WebKit Adapter Contracts
+        env:
+          SUNDAY_TEST_BROWSERS: webkit
+        run: bun test -r ./test/setup.ts test/adapter-browser-streaming.test.ts

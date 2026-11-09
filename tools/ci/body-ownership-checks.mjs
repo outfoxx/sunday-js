@@ -1,5 +1,10 @@
 // Run unchanged against real HTTP peers in browsers, Node, and Bun.
-export async function checkBodyOwnership(s, base, progress = () => {}) {
+export async function checkBodyOwnership(
+  s,
+  base,
+  progress = () => {},
+  collectGarbage = async () => {},
+) {
   let checks = 0;
   const check = (condition, message) => {
     if (!condition) throw new Error(message);
@@ -1019,6 +1024,13 @@ export async function checkBodyOwnership(s, base, progress = () => {}) {
                     (error) => ({ error }),
                   );
                   await tick();
+                  // Native stream wrappers must remain identifiable while their readers are active.
+                  if (
+                    !managed &&
+                    outcome === 'read-stop' &&
+                    cleanup === 'throw'
+                  )
+                    await collectGarbage();
                 }
                 if (outcome.endsWith('abort')) {
                   intended = stop;
