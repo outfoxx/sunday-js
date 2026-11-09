@@ -1,9 +1,10 @@
 // Run unchanged against real HTTP peers in browsers, Node, and Bun.
-export async function checkBodyOwnership(s, base) {
+export async function checkBodyOwnership(s, base, progress = () => {}) {
   let checks = 0;
   const check = (condition, message) => {
     if (!condition) throw new Error(message);
     checks++;
+    progress(message);
   };
   const deferred = () => {
     let resolve;
@@ -916,6 +917,7 @@ export async function checkBodyOwnership(s, base) {
     }
     inputs.push(request);
     const client = new s.FetchTransport(base, { logger: {} });
+    progress(`${managed ? 'managed' : 'raw'}: successful upload started`);
     const response = await client.transportResponse(request);
     check(
       (await response.json()) === chunkSize * chunkCount,

@@ -3,11 +3,12 @@ import { checkSSEControls } from './sse-control-checks.mjs';
 import { checkCredentialBoundaries } from './credential-boundary-checks.mjs';
 
 // Lifecycle contracts shared unchanged by Chromium, Firefox, WebKit, Node, and Bun.
-export async function checkLifecycle(s, base) {
+export async function checkLifecycle(s, base, progress = () => {}) {
   let checks = 0;
   const check = (condition, message) => {
     if (!condition) throw new Error(message);
     checks++;
+    progress(message);
   };
   const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
   const failure = (promise) =>
@@ -50,6 +51,7 @@ export async function checkLifecycle(s, base) {
     }
   };
   // This suite captures intentional native observer reports, including rejected promises.
+  progress('observer notifications');
   checks += await checkNotifications(s, base);
   const unhandled = [];
   const onUnhandled = (error) => unhandled.push(error);
@@ -62,7 +64,9 @@ export async function checkLifecycle(s, base) {
   if (node) process.on('unhandledRejection', onUnhandled);
   else globalThis.addEventListener('unhandledrejection', onBrowserUnhandled);
   try {
+    progress('credential boundaries');
     checks += await checkCredentialBoundaries(s, base);
+    progress('SSE controls');
     checks += await checkSSEControls(s, base);
     // Setup must be atomic, not just fail-fast once acquisition is already running.
     for (const mode of ['export', 'buffered', 'streaming']) {

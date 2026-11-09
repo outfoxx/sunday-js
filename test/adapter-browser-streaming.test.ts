@@ -69,7 +69,7 @@ describe('browser request stream copying', () => {
   }, 15000);
 
   afterAll(async () => {
-    if (server && server.exitCode === null) {
+    if (server && server.exitCode === null && server.signalCode === null) {
       const exited = once(server, 'exit');
       server.kill();
       await exited;
@@ -105,7 +105,9 @@ describe('browser request stream copying', () => {
           const { checkLifecycle } = await import(
             base + '/lifecycle-checks.js'
           );
-          return checkLifecycle(sunday, base);
+          return sunday.runBrowserChecks((progress: (label: string) => void) =>
+            checkLifecycle(sunday, base, progress),
+          );
         }, base);
         expect(checks).toBeGreaterThanOrEqual(80);
       } finally {
@@ -122,7 +124,9 @@ describe('browser request stream copying', () => {
           const { checkBodyOwnership } = await import(
             base + '/body-ownership-checks.js'
           );
-          return checkBodyOwnership(sunday, base);
+          return sunday.runBrowserChecks((progress: (label: string) => void) =>
+            checkBodyOwnership(sunday, base, progress),
+          );
         }, base);
         expect(checks).toBeGreaterThanOrEqual(120);
       } finally {

@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { withAbort } from './abort.js';
+
 // Ownership follows the stream through native Request copies; no request execution state is attached.
 interface BodyReference {
   readonly source: ReadableStream<Uint8Array>;
@@ -76,9 +78,16 @@ export async function nativeBodyOperation<T>(
 ): Promise<T> {
   const owner = body && bodies.get(body)?.owner;
   try {
-    return await action();
+    // Start the native operation immediately to retain synchronous bodyUsed/locking behavior.
+    const operation = action();
+    // A stop can win before withAbort invokes its callback; observe the native result regardless.
+    void operation.catch(() => undefined);
+    // WebKit can leave an in-flight native bulk read pending after its stream errors.
+    return await (owner && !owner.failure.signal.aborted
+      ? withAbort(() => operation, owner.failure.signal)
+      : operation);
   } catch (error) {
-    throw owner?.failed ? owner.failure : error;
+    throw owner?.failure.signal.aborted ? owner.failure.signal.reason : error;
   }
 }
 
@@ -149,8 +158,7 @@ function cancelStream(
 
 class BodyOwner {
   readonly stream: ReadableStream<Uint8Array>;
-  failed = false;
-  failure: unknown;
+  readonly failure = new AbortController();
   private readonly reader:
     | ReadableStreamDefaultReader<Uint8Array>
     | ReadableStreamBYOBReader;
@@ -210,8 +218,7 @@ class BodyOwner {
 
   stop(reason: unknown): void {
     if (this.closed) return;
-    this.failed = true;
-    this.failure = reason;
+    this.failure.abort(reason);
     this.controller.error(reason);
     this.cancel(reason);
   }
@@ -239,8 +246,7 @@ class BodyOwner {
       }
     } catch (error) {
       if (this.closed) return;
-      this.failed = true;
-      this.failure = error;
+      this.failure.abort(error);
       this.controller.error(error);
       this.finish();
     }
