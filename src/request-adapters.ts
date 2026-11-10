@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import {
+  requestSecurityBindings,
+  setRequestSecurityBindings,
+} from './request-security-bindings.js';
 import { bodyReads } from './util/owned-body.js';
 import { TokenManager, TokenLease } from './token-manager.js';
 import { TokenProviderError, TokenSet } from './token-provider.js';
@@ -185,11 +189,13 @@ export async function adaptRequest(
   try {
     bodyReads(request);
     for (const adapter of adapters) {
+      const bindings = requestSecurityBindings(request);
       request = await withAbort(
         () => adapter.adapt(request),
         signal,
         discardBody,
       );
+      setRequestSecurityBindings(request, bindings);
       if (request.signal !== signal)
         request = copyRequest(request, {
           signal: AbortSignal.any([signal, request.signal]),

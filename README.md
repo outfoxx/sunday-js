@@ -304,3 +304,15 @@ media decoder. Manually constructed binary request specs can set the same flag.
 Mixed binary/non-binary unions and binary fields inside structured documents continue to
 use media decoding. Successful 200 responses may contain an empty `ArrayBuffer`; typed
 204/205 responses retain the existing empty-response error behavior.
+
+### Application-owned authentication adapters
+
+A transport with `requestAdapter` and no `tokenProviders` delegates protected requests directly to the adapter.
+Use `requestSecurityBindings(request)` to inspect the generated operation's audience, scopes, and credential
+placement. Bindings are immutable metadata, preserved by `copyRequest` and adapter composition; they are not
+sent as headers and contain no token receipts. Both adapters run for public and protected operations, so the
+application must select the requests and responses it owns and return usable body streams.
+
+Standalone adapters do not activate Sunday's token-recovery retry policy. They may throw
+`RequestCancellationError` to stop the exchange, or return a response for ordinary handling. Installing the
+optional token-provider machinery retains its existing recovery behavior.

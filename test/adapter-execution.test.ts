@@ -392,7 +392,7 @@ describe('native Fetch adapter execution', () => {
       expect(fetchMock.callHistory.calls()).toHaveLength(2);
     });
 
-    it(`${mode}: explicitly composes authentication feedback and an additional observer`, async () => {
+    it(`${mode}: composes authentication feedback without implicit token retries`, async () => {
       let renewals = 0,
         observations = 0,
         calls = 0;
@@ -418,6 +418,10 @@ describe('native Fetch adapter execution', () => {
           },
         }),
       });
+      await expect(perform(client, streaming)).rejects.toMatchObject({
+        status: 401,
+      });
+      expect(calls).toBe(1);
       expect(await perform(client, streaming)).toBe('body');
       expect([renewals, observations]).toEqual([2, 2]);
     });

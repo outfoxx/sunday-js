@@ -18,6 +18,7 @@ import { RequestAdapter } from './request-adapter.js';
 import { RequestAdapters, adaptRequest } from './request-adapters.js';
 import { ResponseAdapter } from './response-adapter.js';
 import { ResponseAdapters, adaptResponse } from './response-adapters.js';
+import { setRequestSecurityBindings } from './request-security-bindings.js';
 import { requestFailure } from './request-cancellation-error.js';
 import {
   authorizeRequest,
@@ -56,7 +57,11 @@ export class RequestExecution {
     bindings: readonly SecurityBinding[],
   ): Promise<Request> {
     try {
-      if (bindings.length)
+      setRequestSecurityBindings(request, bindings);
+      if (
+        bindings.length &&
+        (Object.keys(this.providers).length || !this.requests.adapters.length)
+      )
         request = (
           await withAbort(
             () =>
@@ -93,9 +98,15 @@ export class RequestExecution {
     try {
       while (true) {
         signal.throwIfAborted();
-        sent = copyRequest(prepared, { signal });
+        sent = setRequestSecurityBindings(
+          copyRequest(prepared, { signal }),
+          bindings,
+        );
         let authorized: AuthorizedRequest | undefined;
-        if (bindings.length) {
+        if (
+          bindings.length &&
+          (Object.keys(this.providers).length || !this.requests.adapters.length)
+        ) {
           const request = sent;
           authorized = await withAbort(
             () =>
@@ -152,6 +163,7 @@ export class RequestExecution {
           true,
         );
         if (
+          authorized !== undefined &&
           !budget.recovered &&
           isBodylessRequest(prepared) &&
           canRecoverAuthentication(request, response)

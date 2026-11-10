@@ -78,3 +78,5 @@ export * from './request-cancellation-error.js';
 export * from './fetch-copy.js';
 
 export * from './request-body.js';
+
+export { requestSecurityBindings } from './request-security-bindings.js';
