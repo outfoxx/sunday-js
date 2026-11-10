@@ -21,10 +21,6 @@ import {
 import { discardBody, withAbort } from './util/abort.js';
 import { RequestValidationError } from './request-validation-error.js';
 import {
-  AuthorizationRequiredError,
-  TokenProviderError,
-} from './token-provider.js';
-import {
   EventInfo,
   EventControl,
   EventParser,
@@ -108,7 +104,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
     url: string,
     eventSourceInit?: EventSourceInit & {
       adapter?: (url: string, requestInit: RequestInit) => Promise<Request>;
-      /** Executes one connection using a subscription-owned authentication recovery budget. */
+      /** Executes one connection through the application adapters. */
       fetch?: (
         request: Request,
         signal: AbortSignal,
@@ -250,10 +246,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
         if (
           signal.aborted ||
           isRequestStopped(failure) ||
-          failure instanceof RequestValidationError ||
-          (failure instanceof TokenProviderError &&
-            failure.reason !== 'temporary') ||
-          failure instanceof AuthorizationRequiredError
+          failure instanceof RequestValidationError
         ) {
           this.receivedFatalError(failure);
         } else {

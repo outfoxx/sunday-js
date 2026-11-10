@@ -14,11 +14,15 @@
 
 import { Credentials, validateCredentials } from './credentials.js';
 import { SecurityBinding } from './security-binding.js';
+import { AuthenticationAdapter } from './authentication-adapter.js';
 import { TokenProvider } from './token-provider.js';
 
 /** Resolved, transport-independent inputs supplied to an application's transport factory. */
 export class ClientSettings {
   readonly baseUrl: string;
+  /** Explicit HTTP integration for transports created from these settings. */
+  readonly requestAdapter: AuthenticationAdapter;
+  readonly responseAdapter: AuthenticationAdapter;
   /** Providers shared by this configuration's operations; caching requires an explicit TokenManager. */
   readonly tokenProviders: Readonly<Record<string, TokenProvider>>;
   readonly bindings: Readonly<Record<string, readonly SecurityBinding[]>>;
@@ -105,6 +109,8 @@ export class ClientSettings {
       validateCredentials(credential, binding);
     }
     this.tokenProviders = this.prepareTokenProviders();
+    this.requestAdapter = new AuthenticationAdapter(this.tokenProviders);
+    this.responseAdapter = this.requestAdapter;
     Object.freeze(this);
   }
 

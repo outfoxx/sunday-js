@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { authenticationAdapters } from '../src/authentication-adapter.js';
 import { beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import fetchMock from 'fetch-mock';
 import {
@@ -55,7 +56,11 @@ function transport() {
   };
   return {
     client: new FetchTransport('https://api.example', {
-      tokenProviders: { identity: new TokenManager(provider) },
+      ...authenticationAdapters(
+        { identity: new TokenManager(provider) },
+        undefined,
+        undefined,
+      ),
     }),
     counts: () => [acquisitions, refreshes],
   };
@@ -66,7 +71,7 @@ describe('operation security', () => {
     fetchMock.hardReset().mockGlobal();
   });
 
-  it('adds credentials only to selected operations and recovers invalid tokens once', async () => {
+  it('adds credentials only to selected operations and refreshes on the next explicit call', async () => {
     const { client, counts } = transport();
     const headers: (string | null)[] = [];
     fetchMock.get('https://api.example/items', (call) => {
@@ -80,6 +85,13 @@ describe('operation security', () => {
           }
         : 204;
     });
+    await expect(
+      client.result({
+        method: 'GET',
+        pathTemplate: '/items',
+        security: [binding],
+      }),
+    ).rejects.toMatchObject({ status: 401 });
     await client.result({
       method: 'GET',
       pathTemplate: '/items',
@@ -101,11 +113,11 @@ describe('operation security', () => {
     expect(counts()).toEqual([1, 1]);
   });
 
-  it('does not retry forbidden or unsafe requests and caps repeated invalid-token responses', async () => {
+  it('does not implicitly retry any authentication response', async () => {
     for (const [method, status, attempts] of [
       ['GET', 403, 1],
       ['POST', 401, 1],
-      ['GET', 401, 2],
+      ['GET', 401, 1],
     ] as const) {
       fetchMock.hardReset().mockGlobal();
       const { client } = transport();
@@ -141,14 +153,17 @@ describe('operation security', () => {
   });
 
   it('rejects missing bindings and conflicting headers before sending', async () => {
-    const client = new FetchTransport('https://api.example');
+    const client = new FetchTransport(
+      'https://api.example',
+      authenticationAdapters({}),
+    );
     await expect(
       client.transportRequest({
         method: 'GET',
         pathTemplate: '/items',
         security: [binding],
       }),
-    ).rejects.toBeInstanceOf(TokenProviderError);
+    ).rejects.toBeInstanceOf(RequestCancellationError);
     const configured = transport().client;
     await expect(
       configured.transportRequest({
@@ -157,7 +172,7 @@ describe('operation security', () => {
         security: [binding],
         headers: { Authorization: 'application' },
       }),
-    ).rejects.toBeInstanceOf(TokenProviderError);
+    ).rejects.toBeInstanceOf(RequestCancellationError);
     expect(fetchMock.callHistory.calls()).toHaveLength(0);
   });
 
@@ -334,57 +349,33 @@ describe('operation security', () => {
     }
   });
 
-  it('shares one authentication recovery across event reconnects', async () => {
+  it('returns a rejected event connection without an authentication retry', async () => {
     const { client, counts } = transport();
-    const credentials: (string | null)[] = [];
-    fetchMock.get('https://api.example/events', (call) => {
-      credentials.push(new Headers(call.options.headers).get('Authorization'));
-      expect(call.request?.redirect).toBe('manual');
-      return credentials.length === 2
-        ? {
-            status: 200,
-            headers: { 'Content-Type': 'text/event-stream' },
-            body: 'retry: 1\ndata: first\n\n',
-          }
-        : {
-            status: 401,
-            headers: { 'WWW-Authenticate': 'Bearer error=invalid_token' },
-          };
+    fetchMock.get('https://api.example/events', {
+      status: 401,
+      headers: { 'WWW-Authenticate': 'Bearer error=invalid_token' },
     });
     const source = client.eventSource({
       method: 'GET',
       pathTemplate: '/events',
       security: [binding],
     });
-    const messages: string[] = [];
-    await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
+    await new Promise<void>((resolve) => {
+      source.onerror = () => {
         source.close();
-        reject(new Error('Event recovery did not terminate'));
-      }, 2000);
-      source.onmessage = (event) => {
-        messages.push(event.data);
-      };
-      source.onerror = (event) => {
-        clearTimeout(timeout);
-        if (messages.length === 0)
-          reject((event as Event & { error: unknown }).error);
-        else resolve();
+        resolve();
       };
       source.connect();
     });
-    source.close();
-    expect(messages).toEqual(['first']);
-    expect(credentials).toEqual([
-      'Bearer first',
-      'Bearer second',
-      'Bearer second',
-    ]);
-    expect(counts()).toEqual([1, 1]);
+    expect(fetchMock.callHistory.calls()).toHaveLength(1);
+    expect(counts()).toEqual([1, 0]);
   });
 
   it('terminates event acquisition failures without reconnecting', async () => {
-    const client = new FetchTransport('https://api.example');
+    const client = new FetchTransport(
+      'https://api.example',
+      authenticationAdapters({}),
+    );
     const source = client.eventSource({
       method: 'GET',
       pathTemplate: '/events',
@@ -431,7 +422,11 @@ describe('operation security', () => {
         }),
     };
     const client = new FetchTransport('https://api.example', {
-      tokenProviders: { identity: new TokenManager(provider) },
+      ...authenticationAdapters(
+        { identity: new TokenManager(provider) },
+        undefined,
+        undefined,
+      ),
     });
     const source = client.eventSource({
       method: 'GET',
@@ -463,7 +458,11 @@ describe('operation security', () => {
       body: 'data: recovered\n\n',
     });
     const client = new FetchTransport('https://api.example', {
-      tokenProviders: { identity: new TokenManager(provider) },
+      ...authenticationAdapters(
+        { identity: new TokenManager(provider) },
+        undefined,
+        undefined,
+      ),
     });
     const source = client.eventSource({
       method: 'GET',
@@ -501,7 +500,7 @@ describe('operation security', () => {
       },
     };
     const client = new FetchTransport('https://api.example', {
-      tokenProviders: { identity: provider },
+      ...authenticationAdapters({ identity: provider }, undefined, undefined),
     });
     const received: (string | null)[] = [];
     fetchMock.get('https://api.example/items', (call) => {
@@ -523,6 +522,7 @@ describe('operation security', () => {
     token = 'replacement';
     await client.result(spec);
     token = 'rejected';
+    await expect(client.result(spec)).rejects.toMatchObject({ status: 401 });
     await client.result(spec);
     expect([acquired, rejected]).toEqual([4, 1]);
     expect(received).toEqual([
@@ -533,7 +533,7 @@ describe('operation security', () => {
     ]);
     token = undefined;
     await expect(client.result(spec)).rejects.toBeInstanceOf(
-      TokenProviderError,
+      RequestCancellationError,
     );
     expect(received).toHaveLength(4);
   });
@@ -553,7 +553,7 @@ describe('operation security', () => {
       headers: { 'WWW-Authenticate': 'Bearer error=invalid_token' },
     });
     const client = new FetchTransport('https://api.example', {
-      tokenProviders: { identity: provider },
+      ...authenticationAdapters({ identity: provider }, undefined, undefined),
     });
     await expect(
       client.result({
@@ -588,7 +588,7 @@ describe('operation security', () => {
       },
     };
     const client = new FetchTransport('https://api.example', {
-      tokenProviders: { identity: provider },
+      ...authenticationAdapters({ identity: provider }, undefined, undefined),
     });
     const fetch = spyOn(globalThis, 'fetch').mockResolvedValue(response);
     try {
@@ -598,7 +598,7 @@ describe('operation security', () => {
           pathTemplate: '/items',
           security: [binding],
         }),
-      ).rejects.toBeInstanceOf(TokenProviderError);
+      ).rejects.toBeInstanceOf(RequestCancellationError);
       expect(cancelled).toBe(true);
     } finally {
       fetch.mockRestore();

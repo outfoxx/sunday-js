@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { authenticationAdapters } from '../src/authentication-adapter.js';
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { createServer, Server } from 'node:http';
 import fetchMock from 'fetch-mock';
@@ -80,13 +81,17 @@ describe('secured streaming requests', () => {
         },
       };
       const client = new FetchTransport(`http://127.0.0.1:${address.port}`, {
-        tokenProviders: {
-          application: new TokenManager({
-            identity: 'test',
-            configure: () => ({ clientIdentity: 'test' }),
-            acquire: async () => ({ accessToken: 'secret' }),
-          }),
-        },
+        ...authenticationAdapters(
+          {
+            application: new TokenManager({
+              identity: 'test',
+              configure: () => ({ clientIdentity: 'test' }),
+              acquire: async () => ({ accessToken: 'secret' }),
+            }),
+          },
+          undefined,
+          undefined,
+        ),
       });
       const payload = new Uint8Array(196608).fill(123);
       let iterations = 0;

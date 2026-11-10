@@ -12,10 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {
-  requestSecurityBindings,
-  setRequestSecurityBindings,
-} from './request-security-bindings.js';
+import { inheritRequestContext } from './request-context.js';
 import { inheritBody } from './util/owned-body.js';
 
 /**
@@ -58,7 +55,7 @@ export function copyRequest(
     result,
     body === originalBody ? request.body : undefined,
   );
-  return setRequestSecurityBindings(result, requestSecurityBindings(request));
+  return inheritRequestContext(request, result);
 }
 
 /**

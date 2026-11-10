@@ -20,16 +20,7 @@ import { ResponseAdapter } from './response-adapter.js';
 import { ResponseAdapters, adaptResponse } from './response-adapters.js';
 import { setRequestSecurityBindings } from './request-security-bindings.js';
 import { requestFailure } from './request-cancellation-error.js';
-import {
-  authorizeRequest,
-  AuthorizedRequest,
-  canRecoverAuthentication,
-  isBodylessRequest,
-  rejectCredentials,
-  redactSecurityResponse,
-} from './request-security.js';
 import { SecurityBinding } from './security-binding.js';
-import { TokenProvider } from './token-provider.js';
 import { discardBody, withAbort } from './util/abort.js';
 
 /** @internal Shared configuration; receipts, cancellation, and retry state belong to each invocation. */
@@ -38,10 +29,8 @@ export class RequestExecution {
   private readonly responses: ResponseAdapters;
 
   constructor(
-    private readonly providers: Readonly<Record<string, TokenProvider>>,
     requestAdapter?: RequestAdapter,
     responseAdapter?: ResponseAdapter,
-    private readonly maxBufferedRequestBytes?: number,
   ) {
     this.requests = new RequestAdapters(
       ...(requestAdapter ? [requestAdapter] : []),
@@ -58,23 +47,6 @@ export class RequestExecution {
   ): Promise<Request> {
     try {
       setRequestSecurityBindings(request, bindings);
-      if (
-        bindings.length &&
-        (Object.keys(this.providers).length || !this.requests.adapters.length)
-      )
-        request = (
-          await withAbort(
-            () =>
-              authorizeRequest(
-                request,
-                bindings,
-                this.providers,
-                this.maxBufferedRequestBytes,
-              ),
-            request.signal,
-            (value, reason) => discardBody(value.request, reason),
-          )
-        ).request;
       return await this.requests.adapt(request);
     } catch (error) {
       discardBody(request, error);
@@ -86,7 +58,6 @@ export class RequestExecution {
   async execute<T>(
     prepared: Request,
     bindings: readonly SecurityBinding[],
-    budget: { recovered: boolean },
     consume: (response: Response, request: Request) => T | Promise<T>,
     observeSignal: (signal: AbortSignal) => void = () => {},
   ): Promise<T> {
@@ -96,89 +67,44 @@ export class RequestExecution {
     let sent = prepared;
     let response: Response | undefined;
     try {
-      while (true) {
-        signal.throwIfAborted();
-        sent = setRequestSecurityBindings(
-          copyRequest(prepared, { signal }),
-          bindings,
-        );
-        let authorized: AuthorizedRequest | undefined;
-        if (
-          bindings.length &&
-          (Object.keys(this.providers).length || !this.requests.adapters.length)
-        ) {
-          const request = sent;
-          authorized = await withAbort(
-            () =>
-              authorizeRequest(
-                request,
-                bindings,
-                this.providers,
-                this.maxBufferedRequestBytes,
-              ),
-            signal,
-            (value, reason) => discardBody(value.request, reason),
-          );
-          sent = authorized.request;
-        }
-        sent = await adaptRequest(this.requests.adapters, sent, (effective) => {
-          signal = effective;
-          observeSignal(signal);
-        });
-        // Fetch does not expose intermediate redirect responses in browsers. Credentialed calls
-        // must return the redirect instead of forwarding credentials beyond their selected origin.
-        if (
-          bindings.length ||
-          sent.headers.has('Authorization') ||
-          sent.headers.has('Cookie')
-        ) {
-          sent = copyRequest(sent, { redirect: 'manual', credentials: 'omit' });
-        }
-        const request = sent;
-        response = await withAbort(
-          // Keep cleanup cancellation separate from caller/adapter cancellation so an ordinary
-          // network failure remains eligible for the event source's reconnect policy.
-          () =>
-            nativeFetch(
-              request,
-              AbortSignal.any([request.signal, controller.signal]),
-            ),
-          request.signal,
-          discardBody,
-        );
-        if (authorized) {
-          authorized = { ...authorized, request };
-          const original = response;
-          const receipts = authorized;
-          await withAbort(
-            () => rejectCredentials(receipts, original),
-            request.signal,
-          );
-          response = redactSecurityResponse(response, bindings);
-        }
-        response = await adaptResponse(
-          this.responses.adapters,
-          response,
-          request,
-          true,
-        );
-        if (
-          authorized !== undefined &&
-          !budget.recovered &&
-          isBodylessRequest(prepared) &&
-          canRecoverAuthentication(request, response)
-        ) {
-          budget.recovered = true;
-          discardBody(response);
-          response = undefined;
-          continue;
-        }
-        const accepted = response;
-        return await withAbort(
-          () => consume(accepted, request),
-          request.signal,
-        );
+      signal.throwIfAborted();
+      sent = setRequestSecurityBindings(
+        copyRequest(prepared, { signal }),
+        bindings,
+      );
+      sent = await adaptRequest(this.requests.adapters, sent, (effective) => {
+        signal = effective;
+        observeSignal(signal);
+      });
+      // Fetch does not expose intermediate redirect responses in browsers. Credentialed calls
+      // must return the redirect instead of forwarding credentials beyond their selected origin.
+      if (
+        bindings.length ||
+        sent.headers.has('Authorization') ||
+        sent.headers.has('Cookie')
+      ) {
+        sent = copyRequest(sent, { redirect: 'manual', credentials: 'omit' });
       }
+      const request = sent;
+      response = await withAbort(
+        // Keep cleanup cancellation separate from caller/adapter cancellation so an ordinary
+        // network failure remains eligible for the event source's reconnect policy.
+        () =>
+          nativeFetch(
+            request,
+            AbortSignal.any([request.signal, controller.signal]),
+          ),
+        request.signal,
+        discardBody,
+      );
+      response = await adaptResponse(
+        this.responses.adapters,
+        response,
+        request,
+        true,
+      );
+      const accepted = response;
+      return await withAbort(() => consume(accepted, request), request.signal);
     } catch (error) {
       const failure = requestFailure(error, signal);
       controller.abort(failure);

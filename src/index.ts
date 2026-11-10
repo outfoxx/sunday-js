@@ -52,10 +52,9 @@ export {
   HeaderTokenAuthorizingAdapter,
   StaticHeaderTokenAuthorizingAdapter,
   RefreshingHeaderTokenAuthorizingAdapter,
-  RequestAdapters,
-  chainRequestAdapters,
-} from './request-adapters.js';
-export type { TokenAuthorization } from './request-adapters.js';
+} from './header-token-adapters.js';
+export { RequestAdapters, chainRequestAdapters } from './request-adapters.js';
+export type { TokenAuthorization } from './header-token-adapters.js';
 
 // Select exports from util
 export * from './util/errors.js';
@@ -80,3 +79,9 @@ export * from './fetch-copy.js';
 export * from './request-body.js';
 
 export { requestSecurityBindings } from './request-security-bindings.js';
+
+export {
+  AuthenticationAdapter,
+  authenticationAdapters,
+} from './authentication-adapter.js';
+export { requestContext } from './request-context.js';

@@ -14,14 +14,20 @@
 
 import type { SecurityBinding } from './security-binding.js';
 
-const bindings = new WeakMap<Request, readonly SecurityBinding[]>();
+import { requestContext } from './request-context.js';
+
+const bindings = Symbol('operationSecurityBindings');
 const empty: readonly SecurityBinding[] = Object.freeze([]);
 
 /** Returns operation security metadata for application-owned HTTP adapters, without token state. */
 export function requestSecurityBindings(
   request: Request,
 ): readonly SecurityBinding[] {
-  return bindings.get(request) ?? empty;
+  return (
+    (requestContext(request).get(bindings) as
+      | readonly SecurityBinding[]
+      | undefined) ?? empty
+  );
 }
 
 /** @internal Snapshots metadata without adding wire headers or credential receipts. */
@@ -29,8 +35,8 @@ export function setRequestSecurityBindings(
   request: Request,
   values: readonly SecurityBinding[],
 ): Request {
-  bindings.set(
-    request,
+  requestContext(request).set(
+    bindings,
     Object.freeze(
       values.map((value) =>
         Object.freeze({

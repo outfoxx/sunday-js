@@ -39,7 +39,7 @@ Package Name:
 ## Profiled credentials
 
 Generated request specifications select `SecurityBinding` entries. Register application providers with
-named providers directly as `new FetchTransport(baseUrl, {tokenProviders: {external: provider}})`. Client secrets,
+providers through `new FetchTransport(baseUrl, authenticationAdapters({external: provider}))`. Client secrets,
 authorization codes, token storage, and interactive login remain application bindings.
 
 `FetchOAuthTokenProvider` exchanges `clientCredentials` and application-authorized `authorizationCode`
@@ -102,8 +102,9 @@ including explicit null or undefined values that remove a stored value for that 
 
 ## Application-owned token lifecycle
 
-Transports accept named `TokenProvider` instances directly. Settings preserve supplied providers and
-never add a token cache. Every managed network attempt asks its provider for current credentials.
+Transports accept only request and response adapters; they have no token-provider option or authentication retry logic.
+The optional `AuthenticationAdapter` bridges named providers to these contracts. Settings factories compose it explicitly
+without adding a cache. External authentication frameworks can implement the adapters directly.
 An external framework (for example Auth0) remains responsible for storage, renewal and logout.
 Return only its access token and optional expiry; keep its refresh token inside that framework.
 
@@ -138,10 +139,11 @@ manager on rejection, serializing concurrent rejection handling without maintain
 
 Request export materializes an optionally authorized native request once and hands its lifecycle to
 the consumer. Exported requests retain no Sunday-managed recovery state. Executing an operation through
-Sunday acquires once per attempt and retains the bounded safe-request recovery and SSE reconnect budget.
+Sunday invokes the request adapter once per attempt. Authentication responses do not trigger an implicit retry;
+an application may make another request after its credential owner handles the rejection.
 
-Migration: replace transport `tokenManager`/`token_manager` arguments with named
-`tokenProviders`/`token_providers` maps. Replace `TokenManagerFactory` hooks with explicitly constructed
+Migration: replace transport `tokenManager`/`token_manager` and `tokenProviders`/`token_providers` arguments
+with explicit request/response adapters. Replace `TokenManagerFactory` hooks with explicitly constructed
 managers supplied through provider credentials. Direct built-in OAuth providers are not implicitly cached;
 wrap them explicitly when Sunday should retain and refresh their tokens. For logout, stop outstanding
 requests and settle refresh commits before clearing the owning framework's or application's storage.
@@ -175,13 +177,10 @@ its response capability. `RequestAdapters` and `ResponseAdapters` also provide `
 flattens existing chains. Plain objects need no inheritance or prototype extensions.
 
 Adapters run once per Sunday-managed Fetch call, with response adaptation before validation or body
-consumption. Authentication receipts and retry budgets remain local to the operation. Provider rejection
-runs for every matching `401 invalid_token`, including unsafe methods and exhausted retry budgets; a
-provider declining recovery raises `RequestCancellationError`. Sunday permits one authentication retry
-for a bodyless GET, HEAD, or OPTIONS, reapplying request adapters. An SSE subscription shares that budget
-across reconnects. GET and HEAD are intrinsically bodyless; OPTIONS recovery requires an inspectable
-empty body, so it remains disabled where `Request.body` is unavailable. `TokenProvider` implementations
-own their cache and refresh behavior; wrapping one in `TokenManager` explicitly opts into Sunday's caching.
+consumption. Transports do not recognize token types, classify bearer rejection, or retry authentication.
+`AuthenticationAdapter` reports matching rejections to the credential owner; a provider declining recovery
+raises `RequestCancellationError`. A later explicit request acquires credentials again. Generic SSE
+reconnection and native Fetch behavior remain independent of token handling.
 
 Fetch retains its native redirects and recovery. Adapters cannot observe hidden intermediate responses
 or wire-level changes from service workers/custom Fetch implementations. The response adapter receives
@@ -307,7 +306,7 @@ use media decoding. Successful 200 responses may contain an empty `ArrayBuffer`;
 
 ### Application-owned authentication adapters
 
-A transport with `requestAdapter` and no `tokenProviders` delegates protected requests directly to the adapter.
+Transports delegate requests directly to `requestAdapter` and responses to `responseAdapter`.
 Use `requestSecurityBindings(request)` to inspect the generated operation's audience, scopes, and credential
 placement. Bindings are immutable metadata, preserved by `copyRequest` and adapter composition; they are not
 sent as headers and contain no token receipts. Both adapters run for public and protected operations, so the

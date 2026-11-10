@@ -153,7 +153,7 @@ describe('browser request stream copying', () => {
           );
           return checkAsyncExecution(sunday, base);
         }, base);
-        expect(checks).toBe(110);
+        expect(checks).toBe(112);
       } finally {
         await browser.close();
       }
@@ -167,6 +167,7 @@ describe('browser request stream copying', () => {
         const result = await page.evaluate(async (base) => {
           const {
             copyRequest,
+            authenticationAdapters,
             FetchTransport,
             StreamingBody,
             StringSchema,
@@ -236,24 +237,27 @@ describe('browser request stream copying', () => {
           for (const queryCredentials of [false, true]) {
             for (const adapter of [false, true]) {
               const client = new FetchTransport(base, {
-                logger: {},
-                tokenProviders: {
-                  application: {
-                    identity: 'browser',
-                    configure: () => ({ clientIdentity: 'test' }),
-                    acquire: async () => ({ accessToken: 'secret' }),
+                ...authenticationAdapters(
+                  {
+                    application: {
+                      identity: 'browser',
+                      configure: () => ({ clientIdentity: 'test' }),
+                      acquire: async () => ({ accessToken: 'secret' }),
+                    },
                   },
-                },
-                requestAdapter: adapter
-                  ? {
-                      async adapt(request) {
-                        const body = await prepareRequestBody(makeStream(), {
-                          signal: request.signal,
-                        });
-                        return copyRequest(request, { body, duplex: 'half' });
-                      },
-                    }
-                  : undefined,
+                  adapter
+                    ? {
+                        async adapt(request) {
+                          const body = await prepareRequestBody(makeStream(), {
+                            signal: request.signal,
+                          });
+                          return copyRequest(request, { body, duplex: 'half' });
+                        },
+                      }
+                    : undefined,
+                  undefined,
+                ),
+                logger: {},
               });
               compatibilityUploads.push(
                 await client.result(

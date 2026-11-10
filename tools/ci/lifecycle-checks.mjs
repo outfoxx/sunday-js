@@ -91,15 +91,16 @@ export async function checkLifecycle(s, base, progress = () => {}) {
             ]),
         );
         const client = new s.FetchTransport(base, {
+          ...s.authenticationAdapters(providers, undefined, undefined),
           logger: {},
-          tokenProviders: providers,
         });
         const error = await failure(
           perform(client, mode, { security: bindings }),
         );
         await tick();
         check(
-          error instanceof s.TokenProviderError,
+          error instanceof s.RequestCancellationError &&
+            error.cause instanceof s.TokenProviderError,
           `${mode}: missing provider result`,
         );
         check(
@@ -137,8 +138,12 @@ export async function checkLifecycle(s, base, progress = () => {}) {
             throw reason;
           };
         const client = new s.FetchTransport(base, {
+          ...s.authenticationAdapters(
+            { a: sibling, b: broken },
+            undefined,
+            undefined,
+          ),
           logger: {},
-          tokenProviders: { a: sibling, b: broken },
         });
         check(
           (await failure(
@@ -270,12 +275,16 @@ export async function checkLifecycle(s, base, progress = () => {}) {
             cancelledWith,
             source;
           const client = new s.FetchTransport(base, {
+            ...s.authenticationAdapters(
+              {
+                a: provider(async () => {
+                  throw reason;
+                }),
+              },
+              undefined,
+              undefined,
+            ),
             logger: {},
-            tokenProviders: {
-              a: provider(async () => {
-                throw reason;
-              }),
-            },
           });
           const body = s.StreamingBody.stream(
             () =>

@@ -96,7 +96,7 @@ describe('client settings', () => {
     expect(transport.baseUrl.complete('', {}).href).toBe(
       'https://api.example/v1',
     );
-    expect(transport.tokenProviders.identity).toBeDefined();
+    expect(settings.requestAdapter).toBe(settings.responseAdapter);
     expect(JSON.stringify(settings)).not.toContain('private-token');
   });
 
