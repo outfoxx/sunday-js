@@ -91,6 +91,12 @@ jobs:
       - name: Build Documentation
         run: bun run docs -- --out docs/${{ github.ref_name }}
 
+      # The Playwright image omits rsync, which the Pages deployment action requires.
+      - name: Install Documentation Deployment Tools
+        run: |
+          apt-get update
+          apt-get install --yes --no-install-recommends rsync
+
       - name: Publish Documentation
         uses: JamesIves/github-pages-deploy-action@v4
         with:
