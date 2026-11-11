@@ -25,7 +25,7 @@ import {
 } from '../src';
 import {
   authorizeRequest,
-  canRecoverAuthentication,
+  isBearerTokenRejection,
   redactSecurityResponse,
 } from '../src/request-security';
 
@@ -308,7 +308,7 @@ describe('operation security', () => {
       'Basic error="invalid_token"',
     ])
       expect(
-        canRecoverAuthentication(
+        isBearerTokenRejection(
           authorized.request,
           new Response(null, {
             status: 401,
@@ -317,7 +317,7 @@ describe('operation security', () => {
         ),
       ).toBe(false);
     expect(
-      canRecoverAuthentication(
+      isBearerTokenRejection(
         authorized.request,
         new Response(null, {
           status: 401,
@@ -343,9 +343,7 @@ describe('operation security', () => {
         status: 401,
         headers: { 'WWW-Authenticate': value },
       });
-      expect(canRecoverAuthentication(authorized.request, response)).toBe(
-        false,
-      );
+      expect(isBearerTokenRejection(authorized.request, response)).toBe(false);
     }
   });
 

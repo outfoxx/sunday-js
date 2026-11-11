@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { isRequestStopped } from './request-cancellation-error.js';
+import {
+  RequestCancellationError,
+  isRequestStopped,
+} from './request-cancellation-error.js';
 import { SecurityBinding, SecurityEndpoints } from './security-binding.js';
 import type { TokenLease } from './token-manager.js';
 
@@ -66,7 +69,7 @@ export interface TokenStore {
 }
 
 /** Signals that an interactive application must supply a fresh authorization session. */
-export class AuthorizationRequiredError extends Error {
+export class AuthorizationRequiredError extends RequestCancellationError {
   constructor() {
     super('Fresh application authorization is required');
     this.name = 'AuthorizationRequiredError';

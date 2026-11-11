@@ -85,20 +85,12 @@ export class FetchTransport implements Transport {
     this.logger = options?.logger ?? console;
   }
 
-  /** Builds a transport from generated settings while retaining application transport options. */
+  /** Uses a generated endpoint with only the adapters explicitly supplied by the caller. */
   static fromSettings(
-    settings: {
-      baseUrl: string;
-      requestAdapter?: RequestAdapter;
-      responseAdapter?: ResponseAdapter;
-    },
+    settings: { baseUrl: string },
     options?: ConstructorParameters<typeof FetchTransport>[1],
   ): FetchTransport {
-    return new FetchTransport(settings.baseUrl, {
-      ...options,
-      requestAdapter: options?.requestAdapter ?? settings.requestAdapter,
-      responseAdapter: options?.responseAdapter ?? settings.responseAdapter,
-    });
+    return new FetchTransport(settings.baseUrl, options);
   }
 
   registerProblem(type: URL | string, problemType: SchemaLike<Problem>): void {

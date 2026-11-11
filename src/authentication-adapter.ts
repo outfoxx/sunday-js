@@ -43,6 +43,7 @@ export class AuthenticationAdapter implements RequestAdapter, ResponseAdapter {
     request?: Request,
   ): Promise<Request | Response> {
     if (request) {
+      if (!requestSecurityBindings(request).length) return value;
       const authorized = requestContext(request).get(this.receipt) as
         | AuthorizedRequest
         | undefined;

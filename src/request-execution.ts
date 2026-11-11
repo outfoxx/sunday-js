@@ -47,7 +47,7 @@ export class RequestExecution {
   ): Promise<Request> {
     try {
       setRequestSecurityBindings(request, bindings);
-      return await this.requests.adapt(request);
+      return setRequestSecurityBindings(await this.requests.adapt(request), []);
     } catch (error) {
       discardBody(request, error);
       throw error;

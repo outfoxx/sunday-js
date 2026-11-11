@@ -98,25 +98,13 @@ export async function authorizeRequest(
   return { request: authorized, bindings, leases };
 }
 
-/** Proves body absence without treating an unavailable Request.body property as an empty body. */
-export function isBodylessRequest(request: Request): boolean {
-  // Fetch forbids bodies on GET/HEAD. Other methods require an inspectable null body.
-  return (
-    request.method === 'GET' ||
-    request.method === 'HEAD' ||
-    request.body === null
-  );
-}
-
-/** Requires a safe, replayable request and an explicit bearer invalid-token challenge. */
-export function canRecoverAuthentication(
+/** Recognizes explicit rejection of the bearer credential sent on this request. */
+export function isBearerTokenRejection(
   request: Request,
   response: Response,
 ): boolean {
   return (
     response.status === 401 &&
-    ['GET', 'HEAD', 'OPTIONS'].includes(request.method) &&
-    isBodylessRequest(request) &&
     /^Bearer[ \t]+[^ \t]+$/i.test(request.headers.get('Authorization') ?? '') &&
     hasInvalidBearerChallenge(response.headers.get('WWW-Authenticate') ?? '')
   );
