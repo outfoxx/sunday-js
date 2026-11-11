@@ -87,3 +87,8 @@ export {
 export { requestContext } from './request-context.js';
 
 export { BearerTokenRejectionAdapter } from './bearer-token-rejection-adapter.js';
+
+export {
+  StandardAuthenticationAdapter,
+  standardTransportFromSettings,
+} from './standard-authentication-adapter.js';

@@ -100,6 +100,43 @@ undefined `id` produces `/items`. An empty collection is undefined; a list conta
 an empty string has a defined member. Per-call values override stored template parameters,
 including explicit null or undefined values that remove a stored value for that expansion.
 
+## Explicit standard authentication
+
+Choose standard authentication once in the transport factory supplied to generated clients.
+`StandardAuthenticationAdapter` composes credential attachment, missing-provider checks, rejection
+feedback, and terminal bearer-rejection cancellation. It delegates to the existing adapters, including
+their body ownership rules, and ignores public/detached operation responses. Feedback runs before
+cancellation. There is no hidden replay; a later explicit request can obtain renewed credentials.
+
+The standard settings helper selects this policy on both sides. Lower-level `AuthenticationAdapter`
+remains available when an application wants feedback without the standard stop policy. Ordinary
+transport constructors perform no authentication and do not install this composition.
+
+```typescript
+// Pass this factory to the generated configuration-based client factory.
+const standardFactory = standardTransportFromSettings;
+// Customize codecs or append application adapters through its second argument.
+
+// Or construct the generated service with this caller-owned transport.
+const customTransport = new FetchTransport(baseUrl, {
+  requestAdapter: auth0Link, responseAdapter: auth0Link,
+});
+```
+
+Caching is a separate explicit choice: construct `TokenManager` around a Sunday OAuth provider and
+supply that manager through provider credentials to the generated factory. This retains expiry renewal,
+refresh rotation, and application-selected storage. A provider returned by an OAuth credential factory
+can likewise be an explicitly constructed manager. Supplied external providers are used unchanged;
+standard composition never wraps them, creates a second cache, closes them, or clears their storage.
+Keep managers at application/session scope, share them across clients using the same credential lifecycle,
+and settle outstanding requests before closing managers or clearing credentials.
+
+Static bearer, basic, and API-key credentials use their declared placement without an OAuth cache.
+Only an explicit Bearer `invalid_token` challenge for a sent bearer credential invokes the bearer stop
+policy; 403s and unrelated challenges retain ordinary response handling. Authentication selection and
+credential validation in generated settings remain active for the standard path. The direct-transport
+path lets a custom adapter own those choices using operation metadata.
+
 ## Application-owned token lifecycle
 
 Transport constructors perform no authentication or authorization by default. They accept request and response
@@ -131,9 +168,7 @@ const settings = ClientSettings.resolve(baseUrl, alternatives, {
   identity: { kind: 'provider', provider: tokens },
 });
 // Supply an external framework's provider directly instead to keep its lifecycle authoritative.
-const transport = FetchTransport.fromSettings(
-  settings, authenticationAdapters(settings.tokenProviders),
-);
+const transport = standardTransportFromSettings(settings);
 ```
 
 Managers retain expiry skew, coalesced renewal, refresh rotation and application-selected persistence.
@@ -325,7 +360,8 @@ placement. Bindings are immutable metadata, preserved by `copyRequest` and adapt
 sent as headers and contain no token receipts. Both adapters run for public and protected operations, so the
 application must select the requests and responses it owns and return usable body streams.
 
-`FetchTransport.fromSettings` reads only the endpoint; it does not install authentication. Use
+`FetchTransport.fromSettings` reads only the endpoint; it does not install authentication.
+`standardTransportFromSettings` explicitly selects the complete standard policy. Use
 `authenticationAdapters(settings.tokenProviders, customRequestAdapter, customResponseAdapter)` to compose
 provider integration explicitly before application adapters. The deprecated `adapter` option retains its
 usual precedence when `requestAdapter` is absent.
