@@ -28,7 +28,7 @@ describe('OAuth infrastructure', () => {
     }
     for (const ci of ['1', 'true', 'yes', 'github']) {
       expect(backend('live', 'darwin', ci)).toBe('keycloak-java');
-      expect(backend('live', 'linux', ci)).toBe('keycloak-container');
+      expect(backend('live', 'linux', ci)).toBe('keycloak-java');
       expect(backend('replay', 'darwin', ci)).toBe('wiremock-java');
     }
     expect(() => backend('automatic', 'darwin', 'true')).toThrow('replay or live');
@@ -76,9 +76,9 @@ test('bounded process timeout kills and reaps the owned process', async () => {
   expect(child.signalCode).toBe('SIGKILL');
 });
 
-test('macOS CI cache failure cannot fall back to Docker or replay', async () => {
+test.each(['darwin', 'linux'])('%s CI cache failure cannot fall back to Docker or replay', async (system) => {
   const cache = await mkdtemp(join(tmpdir(), 'oauth-java-failure-'));
-  const provider = new Provider('live', cache, 0, 'darwin', 'true');
+  const provider = new Provider('live', cache, 0, system, 'true');
   try {
     await writeFile(join(cache, 'keycloak-26.2.5.tar.gz'), 'tampered');
     await expect(provider.start()).rejects.toThrow('OAuth infrastructure startup failed (keycloak-java)');

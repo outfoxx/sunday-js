@@ -29,7 +29,7 @@ export function backend(mode: string, system: string, ci: string | undefined): s
   if (mode !== 'replay' && mode !== 'live') throw new Error('SUNDAY_OAUTH_TEST_MODE must be replay or live');
   if (mode === 'replay') return 'wiremock-java';
   const enabled = ci !== undefined && !['', '0', 'false'].includes(ci.toLowerCase());
-  return system === 'darwin' && enabled ? 'keycloak-java' : 'keycloak-container';
+  return enabled && ['darwin', 'linux'].includes(system) ? 'keycloak-java' : 'keycloak-container';
 }
 
 export async function artifact(cache: string, url: string, checksum: string): Promise<string> {
@@ -54,7 +54,7 @@ export async function artifact(cache: string, url: string, checksum: string): Pr
   }
 }
 
-/** Suite-owned provider; backend selection never discovers Docker on macOS CI. */
+/** Suite-owned provider; CI uses Java so it also works inside browser containers. */
 export class Provider {
   readonly backend: string;
   readonly realm = 'sunday-' + randomUUID();
