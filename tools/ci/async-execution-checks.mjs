@@ -324,14 +324,18 @@ export async function checkAsyncExecution(sunday, base) {
         );
       });
       const client = new FetchTransport(base, {
+        ...sunday.authenticationAdapters(
+          {
+            application: managed ? new TokenManager(slow) : slow,
+            failing: provider(async () => {
+              await entered.promise;
+              throw stop;
+            }),
+          },
+          undefined,
+          undefined,
+        ),
         logger: {},
-        tokenProviders: {
-          application: managed ? new TokenManager(slow) : slow,
-          failing: provider(async () => {
-            await entered.promise;
-            throw stop;
-          }),
-        },
       });
       const result = failure(
         perform(client, mode, {
@@ -371,11 +375,15 @@ export async function checkAsyncExecution(sunday, base) {
         );
       });
       const client = new FetchTransport(base, {
+        ...sunday.authenticationAdapters(
+          {
+            application: managed ? new TokenManager(pending) : pending,
+            second: managed ? new TokenManager(pending) : pending,
+          },
+          undefined,
+          undefined,
+        ),
         logger: {},
-        tokenProviders: {
-          application: managed ? new TokenManager(pending) : pending,
-          second: managed ? new TokenManager(pending) : pending,
-        },
       });
       const result = failure(
         perform(client, mode, {
@@ -416,9 +424,21 @@ export async function checkAsyncExecution(sunday, base) {
       return true;
     };
     const client = new FetchTransport(base, {
+      ...sunday.authenticationAdapters(
+        { application: credentials },
+        undefined,
+        undefined,
+      ),
       logger: {},
-      tokenProviders: { application: credentials },
     });
+    const spec = {
+      pathTemplate: mode === 'streaming' ? '/auth-events' : '/auth',
+      security: [binding],
+    };
+    check(
+      (await failure(perform(client, mode, spec))).status === 401,
+      `${mode}: rejection is not retried`,
+    );
     check(
       (await perform(client, mode, {
         pathTemplate: mode === 'streaming' ? '/auth-events' : '/auth',
@@ -442,8 +462,12 @@ export async function checkAsyncExecution(sunday, base) {
     }));
     credentials.reject = async () => true;
     const client = new FetchTransport(base, {
+      ...sunday.authenticationAdapters(
+        { application: credentials },
+        undefined,
+        undefined,
+      ),
       logger: {},
-      tokenProviders: { application: credentials },
     });
     const nativeFailure =
       body === undefined
@@ -469,11 +493,8 @@ export async function checkAsyncExecution(sunday, base) {
           return { status: 401 };
         throw error;
       });
-    const safe =
-      method === 'HEAD' ||
-      (body === undefined && new Request(base, { method }).body === null);
     check(
-      response.status === (safe ? 200 : 401) && acquisitions === (safe ? 2 : 1),
+      response.status === 401 && acquisitions === 1,
       `${method}/${body}: conservative body replay safety`,
     );
     await response.body?.cancel();

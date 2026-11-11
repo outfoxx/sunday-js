@@ -14,6 +14,10 @@
       "types": "./build/*.d.ts",
       "import": "./build/*.js"
     },
+    "./request-adapters": {
+      "types": "./build/request-adapters-compat.d.ts",
+      "import": "./build/request-adapters-compat.js"
+    },
     "./package.json": "./package.json",
     "./oauth-wire": null
   },
@@ -44,7 +48,8 @@
     "smoke:esm:node": "node ./tools/ci/esm-smoke.mjs",
     "build:stub": "dts-bundle-generator --project tools/stub/tsconfig.json --no-check --out-file tools/stub/out/index.d.ts tools/stub/index.ts",
     "smoke:adapters:node": "node ./tools/ci/adapters-smoke.mjs",
-    "smoke:adapters:bun": "bun ./tools/ci/adapters-smoke.mjs"
+    "smoke:adapters:bun": "bun ./tools/ci/adapters-smoke.mjs",
+    "prepare": "tsc -p tsconfig.build.json"
   },
   "husky": {
     "hooks": {

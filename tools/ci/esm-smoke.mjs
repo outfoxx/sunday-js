@@ -4,6 +4,10 @@ import { z } from 'zod';
 
 const rootModule = await import('@outfoxx/sunday');
 const nullifyModule = await import('@outfoxx/sunday/util/nullify');
+const adapters = await import('@outfoxx/sunday/request-adapters');
+for (const name of ['RequestAdapters', 'HeaderTokenAuthorizingAdapter', 'StaticHeaderTokenAuthorizingAdapter', 'RefreshingHeaderTokenAuthorizingAdapter']) {
+  assert.equal(adapters[name], rootModule[name], `expected compatible subpath export: ${name}`);
+}
 
 assert.ok(rootModule, 'expected root module import to succeed');
 assert.equal(typeof rootModule.FetchTransport, 'function', 'expected FetchTransport export');

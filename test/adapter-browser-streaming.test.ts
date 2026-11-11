@@ -153,7 +153,90 @@ describe('browser request stream copying', () => {
           );
           return checkAsyncExecution(sunday, base);
         }, base);
-        expect(checks).toBe(110);
+        expect(checks).toBe(112);
+      } finally {
+        await browser.close();
+      }
+    }, 30000);
+
+    it(`${engine.name()}: query authentication honors configured upload buffering limits`, async () => {
+      const browser = await engine.launch();
+      try {
+        const page = await browser.newPage({ ignoreHTTPSErrors: true });
+        await page.goto(base);
+        const result = await page.evaluate(async (base) => {
+          // Exercise engines that expose request bodies but cannot send streaming uploads.
+          const NativeRequest = globalThis.Request;
+          globalThis.Request = class extends NativeRequest {
+            constructor(input: RequestInfo | URL, init?: RequestInit) {
+              if (init?.body instanceof ReadableStream)
+                throw new TypeError('Streaming uploads unavailable');
+              super(input, init);
+            }
+          };
+          const {
+            standardTransportFromSettings,
+            AuthenticationAdapter,
+            FetchTransport,
+            StreamingBody,
+            MediaType,
+            supportsStreamingUploads,
+          } = await import(base + '/runtime.js');
+          if (
+            supportsStreamingUploads() ||
+            new Request(base, { method: 'POST', body: 'probe' }).body ===
+              undefined
+          )
+            return { fallback: false, sizes: [] };
+          const providers = {
+            application: {
+              identity: 'browser',
+              configure: () => ({ clientIdentity: 'test' }),
+              acquire: async () => ({ accessToken: 'secret' }),
+            },
+          };
+          const options = { maxBufferedRequestBytes: 18 * 1024 * 1024 };
+          const authentication = new AuthenticationAdapter(providers, options);
+          const clients = [
+            standardTransportFromSettings(
+              { baseUrl: base, tokenProviders: providers },
+              options,
+            ),
+            new FetchTransport(base, {
+              ...options,
+              requestAdapter: authentication,
+            }),
+          ];
+          const sizes: number[] = [];
+          for (const client of clients) {
+            const request = await client.transportRequest({
+              method: 'POST',
+              pathTemplate: '/echo',
+              signal: AbortSignal.timeout(5000),
+              body: StreamingBody.bytes(async function* () {
+                yield new Uint8Array(17 * 1024 * 1024);
+              }),
+              contentTypes: [MediaType.OctetStream],
+              security: [
+                {
+                  scheme: 'auth',
+                  provider: 'application',
+                  flow: 'external',
+                  scopes: [],
+                  transport: { location: 'query', name: 'token' },
+                },
+              ],
+            });
+            if (new URL(request.url).searchParams.get('token') !== 'secret')
+              throw new Error('Missing query credential');
+            sizes.push((await request.blob()).size);
+          }
+          return { fallback: true, sizes };
+        }, base);
+        if (engine.name() !== 'firefox') expect(result.fallback).toBe(true);
+        expect(result.sizes).toEqual(
+          result.fallback ? [17 * 1024 * 1024, 17 * 1024 * 1024] : [],
+        );
       } finally {
         await browser.close();
       }
@@ -167,6 +250,7 @@ describe('browser request stream copying', () => {
         const result = await page.evaluate(async (base) => {
           const {
             copyRequest,
+            authenticationAdapters,
             FetchTransport,
             StreamingBody,
             StringSchema,
@@ -236,24 +320,27 @@ describe('browser request stream copying', () => {
           for (const queryCredentials of [false, true]) {
             for (const adapter of [false, true]) {
               const client = new FetchTransport(base, {
-                logger: {},
-                tokenProviders: {
-                  application: {
-                    identity: 'browser',
-                    configure: () => ({ clientIdentity: 'test' }),
-                    acquire: async () => ({ accessToken: 'secret' }),
+                ...authenticationAdapters(
+                  {
+                    application: {
+                      identity: 'browser',
+                      configure: () => ({ clientIdentity: 'test' }),
+                      acquire: async () => ({ accessToken: 'secret' }),
+                    },
                   },
-                },
-                requestAdapter: adapter
-                  ? {
-                      async adapt(request) {
-                        const body = await prepareRequestBody(makeStream(), {
-                          signal: request.signal,
-                        });
-                        return copyRequest(request, { body, duplex: 'half' });
-                      },
-                    }
-                  : undefined,
+                  adapter
+                    ? {
+                        async adapt(request) {
+                          const body = await prepareRequestBody(makeStream(), {
+                            signal: request.signal,
+                          });
+                          return copyRequest(request, { body, duplex: 'half' });
+                        },
+                      }
+                    : undefined,
+                  undefined,
+                ),
+                logger: {},
               });
               compatibilityUploads.push(
                 await client.result(

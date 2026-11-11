@@ -17,7 +17,6 @@ import { inheritBody } from './util/owned-body.js';
 import { prepareRequestBody } from './request-body.js';
 import { RequestValidationError } from './request-validation-error.js';
 import { unknownGet } from './util/unknowns.js';
-import { TokenProvider } from './token-provider.js';
 import { RequestExecution } from './request-execution.js';
 import { ResponseAdapter } from './response-adapter.js';
 import {
@@ -49,13 +48,10 @@ import { isStreamingBody } from './streaming-body.js';
 import { URLTemplate } from './url-template.js';
 import { errorToMessage } from './util/errors.js';
 
-import { ClientSettings } from './client-settings.js';
-
 export class FetchTransport implements Transport {
   public baseUrl: URLTemplate;
   private readonly execution: RequestExecution;
   private readonly maxBufferedRequestBytes?: number;
-  public readonly tokenProviders: Readonly<Record<string, TokenProvider>>;
   public mediaTypeEncoders: MediaTypeEncoders;
   public mediaTypeDecoders: MediaTypeDecoders;
   public problemTypes = new Map<string, SchemaLike<Problem>>();
@@ -68,7 +64,6 @@ export class FetchTransport implements Transport {
       adapter?: RequestAdapter;
       requestAdapter?: RequestAdapter;
       responseAdapter?: ResponseAdapter;
-      tokenProviders?: Readonly<Record<string, TokenProvider>>;
       mediaTypeEncoders?: MediaTypeEncoders;
       mediaTypeDecoders?: MediaTypeDecoders;
       logger?: Logger;
@@ -79,12 +74,9 @@ export class FetchTransport implements Transport {
     this.baseUrl =
       typeof baseUrl === 'string' ? new URLTemplate(baseUrl) : baseUrl;
     this.maxBufferedRequestBytes = options?.maxBufferedRequestBytes;
-    this.tokenProviders = Object.freeze({ ...options?.tokenProviders });
     this.execution = new RequestExecution(
-      this.tokenProviders,
       options?.requestAdapter ?? options?.adapter,
       options?.responseAdapter,
-      this.maxBufferedRequestBytes,
     );
     this.mediaTypeEncoders =
       options?.mediaTypeEncoders ?? MediaTypeEncoders.DEFAULT;
@@ -93,15 +85,12 @@ export class FetchTransport implements Transport {
     this.logger = options?.logger ?? console;
   }
 
-  /** Builds a transport from generated settings while retaining application transport options. */
+  /** Uses a generated endpoint with only the adapters explicitly supplied by the caller. */
   static fromSettings(
-    settings: ClientSettings,
+    settings: { baseUrl: string },
     options?: ConstructorParameters<typeof FetchTransport>[1],
   ): FetchTransport {
-    return new FetchTransport(settings.baseUrl, {
-      ...options,
-      tokenProviders: options?.tokenProviders ?? settings.tokenProviders,
-    });
+    return new FetchTransport(settings.baseUrl, options);
   }
 
   registerProblem(type: URL | string, problemType: SchemaLike<Problem>): void {
@@ -248,7 +237,6 @@ export class FetchTransport implements Transport {
     return this.execution.execute(
       prepared,
       request instanceof Request ? [] : (request.security ?? []),
-      { recovered: false },
       consume,
     );
   }
@@ -307,7 +295,6 @@ export class FetchTransport implements Transport {
   }
 
   eventSource(requestSpec: RequestSpec<void>): ExtEventSource {
-    const budget = { recovered: false };
     return new FetchEventSource(requestSpec.pathTemplate, {
       logger: this.logger,
       adapter: async (url, init) => {
@@ -330,7 +317,6 @@ export class FetchTransport implements Transport {
         this.execution.execute(
           request,
           requestSpec.security ?? [],
-          budget,
           (response) => response,
           observeSignal,
         ),

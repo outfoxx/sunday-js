@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { inheritRequestContext } from './request-context.js';
 import { inheritBody } from './util/owned-body.js';
 
 /**
@@ -54,7 +55,7 @@ export function copyRequest(
     result,
     body === originalBody ? request.body : undefined,
   );
-  return result;
+  return inheritRequestContext(request, result);
 }
 
 /**

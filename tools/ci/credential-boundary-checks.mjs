@@ -122,35 +122,40 @@ export async function checkCredentialBoundaries(s, base) {
       const logs = [];
       const privateError = new Error('private credential detail');
       const client = new s.FetchTransport(base, {
-        logger: { error: (...values) => logs.push(values) },
-        tokenProviders: {
-          test: {
-            identity: 'receipt',
-            configure: () => ({ clientIdentity: 'receipt' }),
-            acquire: async () => {
-              throw new Error('unused');
-            },
-            credentials: async () => {
-              attempts++;
-              if (phase === 'credentials') throw privateError;
-              return {
-                key: 'receipt',
-                tokens: { accessToken: 'old' },
-                invalidate: async () => {
-                  throw privateError;
-                },
-              };
+        ...s.authenticationAdapters(
+          {
+            test: {
+              identity: 'receipt',
+              configure: () => ({ clientIdentity: 'receipt' }),
+              acquire: async () => {
+                throw new Error('unused');
+              },
+              credentials: async () => {
+                attempts++;
+                if (phase === 'credentials') throw privateError;
+                return {
+                  key: 'receipt',
+                  tokens: { accessToken: 'old' },
+                  invalidate: async () => {
+                    throw privateError;
+                  },
+                };
+              },
             },
           },
-        },
+          undefined,
+          undefined,
+        ),
+        logger: { error: (...values) => logs.push(values) },
       });
       const error = await within(
         failure(perform(client, mode, undefined, '/auth-events')),
         `${mode}/${phase}: receipt failure must terminate`,
       );
       check(
-        error instanceof s.TokenProviderError &&
-          error.reason === 'unavailable' &&
+        error instanceof s.RequestCancellationError &&
+          error.cause instanceof s.TokenProviderError &&
+          error.cause.reason === 'unavailable' &&
           attempts === 1,
         `${mode}/${phase}: sanitized receipt error does not retry`,
       );
@@ -219,8 +224,12 @@ export async function checkCredentialBoundaries(s, base) {
           if (phase === 'refresh')
             await manager.invalidate(await manager.credentials(binding));
           const client = new s.FetchTransport(base, {
+            ...s.authenticationAdapters(
+              { test: manager },
+              undefined,
+              undefined,
+            ),
             logger: {},
-            tokenProviders: { test: manager },
           });
           const first = failure(perform(client, mode, abort.signal));
           await started.promise;
@@ -394,45 +403,48 @@ export async function checkCredentialBoundaries(s, base) {
           transport: { location, name: 'api-key' },
         };
         const client = new s.FetchTransport(base, {
+          ...s.authenticationAdapters(
+            {
+              test: {
+                identity: 'test',
+                configure: () => ({ clientIdentity: 'test' }),
+                acquire: async () => ({ accessToken: 'secret' }),
+              },
+            },
+            undefined,
+            {
+              adapt(response) {
+                adaptations++;
+                check(
+                  response.status === expectedStatus &&
+                    response.type === expectedType,
+                  `${mode}/${location}: native redirect metadata`,
+                );
+                check(
+                  !response.url.includes('secret'),
+                  `${mode}/${location}: credential URL redaction`,
+                );
+                if (location === 'query')
+                  check(
+                    new URL(response.url).searchParams.get('api-key') ===
+                      '[redacted]',
+                    'query credential replaced',
+                  );
+                if (response.status === 0)
+                  check(
+                    !!response.body === !!nativeBody &&
+                      (response.body === null) === (nativeBody === null),
+                    'opaque body availability matches native Fetch',
+                  );
+                if (stop) throw marker;
+                void response.body?.cancel();
+                return new Response(
+                  mode === 'streaming' ? 'data: handled\n\n' : 'handled',
+                );
+              },
+            },
+          ),
           logger: {},
-          tokenProviders: {
-            test: {
-              identity: 'test',
-              configure: () => ({ clientIdentity: 'test' }),
-              acquire: async () => ({ accessToken: 'secret' }),
-            },
-          },
-          responseAdapter: {
-            adapt(response) {
-              adaptations++;
-              check(
-                response.status === expectedStatus &&
-                  response.type === expectedType,
-                `${mode}/${location}: native redirect metadata`,
-              );
-              check(
-                !response.url.includes('secret'),
-                `${mode}/${location}: credential URL redaction`,
-              );
-              if (location === 'query')
-                check(
-                  new URL(response.url).searchParams.get('api-key') ===
-                    '[redacted]',
-                  'query credential replaced',
-                );
-              if (response.status === 0)
-                check(
-                  !!response.body === !!nativeBody &&
-                    (response.body === null) === (nativeBody === null),
-                  'opaque body availability matches native Fetch',
-                );
-              if (stop) throw marker;
-              void response.body?.cancel();
-              return new Response(
-                mode === 'streaming' ? 'data: handled\n\n' : 'handled',
-              );
-            },
-          },
         });
         const spec = {
           method: 'GET',

@@ -13,6 +13,13 @@ env:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    # Keep the image version aligned with package.json; browsers and OS dependencies are preinstalled.
+    container:
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
+      options: --ipc=host
+    defaults:
+      run:
+        shell: bash
     env:
       SUNDAY_TEST_BROWSERS: chromium,firefox
 
@@ -26,20 +33,20 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.4.4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
 
+      - name: Install Bun
+        run: npm install --global bun@1.4.4
+
+      # Firefox requires the mounted home directory to belong to the container user.
+      - name: Prepare Browser Home
+        run: chown "$(id -u):$(id -g)" "$HOME"
+
       - name: Install Packages
         run: |
           bun install --frozen-lockfile
-
-      - name: Install Browsers
-        run: bunx playwright install --with-deps chromium firefox
 
       - name: Check
         run: bun run check
@@ -62,8 +69,10 @@ jobs:
       - name: Node ESM Smoke
         run: node ./tools/ci/esm-smoke.mjs
 
-      - name: Prepare ESLint Report
-        run: sed -i 's+/home/runner/work/sunday-js/sunday-js+/github/workspace+g' reports/lint.json
+      - name: Install Scanner Dependencies
+        run: |
+          apt-get update -o Acquire::Retries=3
+          apt-get install -y --no-install-recommends unzip
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v7.0.0

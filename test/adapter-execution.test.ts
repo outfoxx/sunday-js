@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { authenticationAdapters } from '../src/authentication-adapter.js';
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import fetchMock from 'fetch-mock';
 import {
@@ -360,7 +361,7 @@ describe('native Fetch adapter execution', () => {
       }
     }
 
-    it(`${mode}: invalidates rejected tokens even after the retry budget is spent`, async () => {
+    it(`${mode}: invalidates a rejected token without a transport retry`, async () => {
       const acquired: string[] = [],
         rejected: string[] = [];
       const provider: TokenProvider = {
@@ -381,18 +382,22 @@ describe('native Fetch adapter execution', () => {
         headers: { 'WWW-Authenticate': 'Bearer error=invalid_token' },
       });
       const client = new FetchTransport('https://api.example', {
+        ...authenticationAdapters(
+          { application: provider },
+          undefined,
+          undefined,
+        ),
         logger: {},
-        tokenProviders: { application: provider },
       });
       await expect(
         perform(client, streaming, undefined, [binding]),
       ).rejects.toMatchObject({ status: 401 });
-      expect(acquired).toEqual(['token-0', 'token-1']);
+      expect(acquired).toEqual(['token-0']);
       expect(rejected).toEqual(acquired);
-      expect(fetchMock.callHistory.calls()).toHaveLength(2);
+      expect(fetchMock.callHistory.calls()).toHaveLength(1);
     });
 
-    it(`${mode}: explicitly composes authentication feedback and an additional observer`, async () => {
+    it(`${mode}: composes authentication feedback without implicit token retries`, async () => {
       let renewals = 0,
         observations = 0,
         calls = 0;
@@ -418,6 +423,10 @@ describe('native Fetch adapter execution', () => {
           },
         }),
       });
+      await expect(perform(client, streaming)).rejects.toMatchObject({
+        status: 401,
+      });
+      expect(calls).toBe(1);
       expect(await perform(client, streaming)).toBe('body');
       expect([renewals, observations]).toEqual([2, 2]);
     });
@@ -501,24 +510,27 @@ describe('native Fetch adapter execution', () => {
         headers: { 'WWW-Authenticate': 'Bearer error=invalid_token' },
       });
       const client = new FetchTransport('https://api.example', {
-        tokenProviders: {
-          application: {
-            identity: 'external',
-            configure: () => ({ clientIdentity: 'test' }),
-            acquire: async () => ({ accessToken: 'original' }),
-            reject: async () => {
-              rejected++;
-              return true;
+        ...authenticationAdapters(
+          {
+            application: {
+              identity: 'external',
+              configure: () => ({ clientIdentity: 'test' }),
+              acquire: async () => ({ accessToken: 'original' }),
+              reject: async () => {
+                rejected++;
+                return true;
+              },
             },
           },
-        },
-        requestAdapter: {
-          adapt(request) {
-            if (replace)
-              request.headers.set('Authorization', 'Bearer replacement');
-            return request;
+          {
+            adapt(request) {
+              if (replace)
+                request.headers.set('Authorization', 'Bearer replacement');
+              return request;
+            },
           },
-        },
+          undefined,
+        ),
       });
       await expect(
         client.transportResponse({
