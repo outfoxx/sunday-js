@@ -13,6 +13,13 @@ env:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    # Keep the image version aligned with package.json; browsers and OS dependencies are preinstalled.
+    container:
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
+      options: --ipc=host
+    defaults:
+      run:
+        shell: bash
     env:
       SUNDAY_TEST_BROWSERS: chromium,firefox
 
@@ -38,9 +45,6 @@ jobs:
         run: |
           bun install --frozen-lockfile
 
-      - name: Install Browsers
-        run: bunx playwright install --with-deps chromium firefox
-
       - name: Check
         run: bun run check
 
@@ -63,7 +67,7 @@ jobs:
         run: node ./tools/ci/esm-smoke.mjs
 
       - name: Prepare ESLint Report
-        run: sed -i 's+/home/runner/work/sunday-js/sunday-js+/github/workspace+g' reports/lint.json
+        run: sed -i "s+${GITHUB_WORKSPACE}+/github/workspace+g" reports/lint.json
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v7.0.0

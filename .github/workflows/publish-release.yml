@@ -20,6 +20,13 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # Keep the image version aligned with package.json; browsers and OS dependencies are preinstalled.
+    container:
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
+      options: --ipc=host
+    defaults:
+      run:
+        shell: bash
     env:
       SUNDAY_TEST_BROWSERS: chromium,firefox
     needs: webkit
@@ -43,9 +50,6 @@ jobs:
 
       - name: Install Packages
         run: bun install --frozen-lockfile
-
-      - name: Install Browsers
-        run: bunx playwright install --with-deps chromium firefox
 
       - name: Stamp Package Version
         run: bun pm pkg set version=${{ steps.version.outputs.full_without_prefix }}
