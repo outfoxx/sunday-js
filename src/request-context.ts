@@ -17,7 +17,10 @@ const contexts = new WeakMap<Request, Map<symbol, unknown>>();
 /** Application-owned metadata retained across Sunday request copies and adapter replacements. */
 export function requestContext(request: Request): Map<symbol, unknown> {
   let context = contexts.get(request);
-  if (!context) contexts.set(request, (context = new Map()));
+  if (!context) {
+    context = new Map();
+    contexts.set(request, context);
+  }
   return context;
 }
 

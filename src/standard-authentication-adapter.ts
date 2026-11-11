@@ -14,6 +14,7 @@
 
 import { AuthenticationAdapter } from './authentication-adapter.js';
 import { BearerTokenRejectionAdapter } from './bearer-token-rejection-adapter.js';
+import { isRequestStopped } from './request-cancellation-error.js';
 import type { ClientSettings } from './client-settings.js';
 import { FetchTransport } from './fetch-transport.js';
 import type { RequestAdapter } from './request-adapter.js';
@@ -48,7 +49,14 @@ export class StandardAuthenticationAdapter
   ): Promise<Request | Response> {
     if (!request) return this.authentication.adapt(value as Request);
     if (!requestSecurityBindings(request).length) return value;
-    return this.responses.adapt(value as Response, request);
+    try {
+      return await this.responses.adapt(value as Response, request);
+    } catch (error) {
+      if (request.signal.aborted || isRequestStopped(error)) throw error;
+      // Feedback failure must not bypass the explicitly selected stop policy.
+      await new BearerTokenRejectionAdapter().adapt(value as Response, request);
+      throw error;
+    }
   }
 }
 

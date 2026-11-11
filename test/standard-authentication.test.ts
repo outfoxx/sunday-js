@@ -20,6 +20,7 @@ import {
   StandardAuthenticationAdapter,
   standardTransportFromSettings,
   TokenManager,
+  TokenProviderError,
   RequestCancellationError,
   type SecurityBinding,
   type TokenProvider,
@@ -150,4 +151,60 @@ it('the same generated operation supports custom or no authentication, and expli
   );
   expect(fetchMock.callHistory.calls()).toHaveLength(2);
   await missing.transportResponse({ ...spec, security: [] });
+});
+
+it('standard rejection stops despite failed feedback and preserves provider cancellation', async () => {
+  for (const failure of [
+    new TokenProviderError('temporary'),
+    new RequestCancellationError('stop'),
+    new DOMException('stop', 'AbortError'),
+  ]) {
+    fetchMock.hardReset().mockGlobal();
+    let rejected = 0;
+    let failAcquisition = false;
+    const provider: TokenProvider = {
+      identity: 'feedback',
+      configure: () => ({ clientIdentity: 'client' }),
+      acquire: async () => {
+        if (failAcquisition) throw new TokenProviderError('temporary');
+        return { accessToken: 'access' };
+      },
+      reject: async () => {
+        rejected++;
+        throw failure;
+      },
+    };
+    const adapter = new StandardAuthenticationAdapter({ identity: provider });
+    const transport = new FetchTransport('https://example.test', {
+      requestAdapter: adapter,
+      responseAdapter: adapter,
+    });
+    fetchMock.get(
+      'https://example.test/value',
+      {
+        status: 401,
+        headers: { 'WWW-Authenticate': 'Bearer error=invalid_token' },
+      },
+      { name: 'value' },
+    );
+    if (failure instanceof TokenProviderError) {
+      await expect(transport.transportResponse(spec)).rejects.toBeInstanceOf(
+        RequestCancellationError,
+      );
+    } else {
+      await expect(transport.transportResponse(spec)).rejects.toBe(failure);
+    }
+    expect(rejected).toBe(1);
+    expect(fetchMock.callHistory.calls()).toHaveLength(1);
+    fetchMock.modifyRoute('value', { response: 403 });
+    await expect(transport.transportResponse(spec)).rejects.toMatchObject({
+      status: 403,
+    });
+    expect(rejected).toBe(1);
+    failAcquisition = true;
+    await expect(transport.transportResponse(spec)).rejects.toBeInstanceOf(
+      TokenProviderError,
+    );
+    expect(fetchMock.callHistory.calls()).toHaveLength(2);
+  }
 });

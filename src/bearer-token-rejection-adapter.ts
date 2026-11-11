@@ -19,9 +19,11 @@ import { isBearerTokenRejection } from './request-security.js';
 /** Opt-in stop policy for explicit bearer rejection. Does not acquire, invalidate, refresh, or replay. */
 export class BearerTokenRejectionAdapter implements ResponseAdapter {
   /** Leaves unrelated responses and all bodies untouched. Compose after provider feedback when used. */
-  async adapt(response: Response, request: Request): Promise<Response> {
+  adapt(response: Response, request: Request): Promise<Response> {
     if (isBearerTokenRejection(request, response))
-      throw new RequestCancellationError('Access token rejected');
-    return response;
+      return Promise.reject(
+        new RequestCancellationError('Access token rejected'),
+      );
+    return Promise.resolve(response);
   }
 }

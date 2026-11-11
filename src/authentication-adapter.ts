@@ -42,29 +42,7 @@ export class AuthenticationAdapter implements RequestAdapter, ResponseAdapter {
     value: Request | Response,
     request?: Request,
   ): Promise<Request | Response> {
-    if (request) {
-      if (!requestSecurityBindings(request).length) return value;
-      const authorized = requestContext(request).get(this.receipt) as
-        | AuthorizedRequest
-        | undefined;
-      if (authorized) {
-        try {
-          await rejectCredentials(
-            { ...authorized, request },
-            value as Response,
-          );
-        } catch (error) {
-          if (
-            error instanceof TokenProviderError &&
-            error.reason !== 'temporary'
-          )
-            throw new RequestCancellationError(error.message, { cause: error });
-          throw error;
-        }
-        return redactSecurityResponse(value as Response, authorized.bindings);
-      }
-      return value;
-    }
+    if (request) return this.adaptResponse(value as Response, request);
     const original = value as Request;
     const bindings = requestSecurityBindings(original);
     if (!bindings.length) return original;
@@ -81,6 +59,25 @@ export class AuthenticationAdapter implements RequestAdapter, ResponseAdapter {
         throw new RequestCancellationError(error.message, { cause: error });
       throw error;
     }
+  }
+
+  private async adaptResponse(
+    response: Response,
+    request: Request,
+  ): Promise<Response> {
+    if (!requestSecurityBindings(request).length) return response;
+    const authorized = requestContext(request).get(this.receipt) as
+      | AuthorizedRequest
+      | undefined;
+    if (!authorized) return response;
+    try {
+      await rejectCredentials({ ...authorized, request }, response);
+    } catch (error) {
+      if (error instanceof TokenProviderError && error.reason !== 'temporary')
+        throw new RequestCancellationError(error.message, { cause: error });
+      throw error;
+    }
+    return redactSecurityResponse(response, authorized.bindings);
   }
 }
 
