@@ -69,9 +69,6 @@ jobs:
       - name: Node ESM Smoke
         run: node ./tools/ci/esm-smoke.mjs
 
-      - name: Prepare ESLint Report
-        run: sed -i "s+${GITHUB_WORKSPACE}+/github/workspace+g" reports/lint.json
-
       - name: Install Scanner Dependencies
         run: |
           apt-get update -o Acquire::Retries=3
