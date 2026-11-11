@@ -72,6 +72,11 @@ jobs:
       - name: Prepare ESLint Report
         run: sed -i "s+${GITHUB_WORKSPACE}+/github/workspace+g" reports/lint.json
 
+      - name: Install Scanner Dependencies
+        run: |
+          apt-get update -o Acquire::Retries=3
+          apt-get install -y --no-install-recommends unzip
+
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v7.0.0
         env:
