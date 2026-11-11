@@ -159,6 +159,89 @@ describe('browser request stream copying', () => {
       }
     }, 30000);
 
+    it(`${engine.name()}: query authentication honors configured upload buffering limits`, async () => {
+      const browser = await engine.launch();
+      try {
+        const page = await browser.newPage({ ignoreHTTPSErrors: true });
+        await page.goto(base);
+        const result = await page.evaluate(async (base) => {
+          // Exercise engines that expose request bodies but cannot send streaming uploads.
+          const NativeRequest = globalThis.Request;
+          globalThis.Request = class extends NativeRequest {
+            constructor(input: RequestInfo | URL, init?: RequestInit) {
+              if (init?.body instanceof ReadableStream)
+                throw new TypeError('Streaming uploads unavailable');
+              super(input, init);
+            }
+          };
+          const {
+            standardTransportFromSettings,
+            AuthenticationAdapter,
+            FetchTransport,
+            StreamingBody,
+            MediaType,
+            supportsStreamingUploads,
+          } = await import(base + '/runtime.js');
+          if (
+            supportsStreamingUploads() ||
+            new Request(base, { method: 'POST', body: 'probe' }).body ===
+              undefined
+          )
+            return { fallback: false, sizes: [] };
+          const providers = {
+            application: {
+              identity: 'browser',
+              configure: () => ({ clientIdentity: 'test' }),
+              acquire: async () => ({ accessToken: 'secret' }),
+            },
+          };
+          const options = { maxBufferedRequestBytes: 18 * 1024 * 1024 };
+          const authentication = new AuthenticationAdapter(providers, options);
+          const clients = [
+            standardTransportFromSettings(
+              { baseUrl: base, tokenProviders: providers },
+              options,
+            ),
+            new FetchTransport(base, {
+              ...options,
+              requestAdapter: authentication,
+            }),
+          ];
+          const sizes: number[] = [];
+          for (const client of clients) {
+            const request = await client.transportRequest({
+              method: 'POST',
+              pathTemplate: '/echo',
+              signal: AbortSignal.timeout(5000),
+              body: StreamingBody.bytes(async function* () {
+                yield new Uint8Array(17 * 1024 * 1024);
+              }),
+              contentTypes: [MediaType.OctetStream],
+              security: [
+                {
+                  scheme: 'auth',
+                  provider: 'application',
+                  flow: 'external',
+                  scopes: [],
+                  transport: { location: 'query', name: 'token' },
+                },
+              ],
+            });
+            if (new URL(request.url).searchParams.get('token') !== 'secret')
+              throw new Error('Missing query credential');
+            sizes.push((await request.blob()).size);
+          }
+          return { fallback: true, sizes };
+        }, base);
+        if (engine.name() !== 'firefox') expect(result.fallback).toBe(true);
+        expect(result.sizes).toEqual(
+          result.fallback ? [17 * 1024 * 1024, 17 * 1024 * 1024] : [],
+        );
+      } finally {
+        await browser.close();
+      }
+    }, 30000);
+
     it(`${engine.name()}: compares native and Sunday copying and actual upload support`, async () => {
       const browser = await engine.launch();
       try {

@@ -371,3 +371,11 @@ to stop the exchange, or return a response for ordinary handling. `Authorization
 that marker, so terminal credential failure cannot reconnect SSE. There is no implicit authentication replay.
 Exported native requests retain their materialized headers but detach operation security bindings;
 re-executing an export does not reuse its old provider rejection receipt.
+
+The standard settings factory forwards `maxBufferedRequestBytes` to query-credential adaptation as
+well as upload preparation. When installing `AuthenticationAdapter` directly, pass the same limit
+in its optional second argument. The `authenticationAdapters` convenience accepts these options as
+its fourth argument. This keeps buffering limits explicit without giving transports token responsibilities.
+
+The original `@outfoxx/sunday/request-adapters` subpath retains its header-token adapter exports through
+a compatibility entry point. Internal transports continue importing only the token-independent adapter chain.

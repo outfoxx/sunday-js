@@ -32,8 +32,10 @@ import {
 export class AuthenticationAdapter implements RequestAdapter, ResponseAdapter {
   private readonly receipt = Symbol('authenticationReceipt');
 
+  /** Uses caller-owned providers and the explicit buffer bound when query credentials require a body copy. */
   constructor(
     private readonly providers: Readonly<Record<string, TokenProvider>>,
+    private readonly options?: { maxBufferedRequestBytes?: number },
   ) {}
 
   adapt(request: Request): Promise<Request>;
@@ -51,6 +53,7 @@ export class AuthenticationAdapter implements RequestAdapter, ResponseAdapter {
         original,
         bindings,
         this.providers,
+        this.options?.maxBufferedRequestBytes,
       );
       requestContext(authorized.request).set(this.receipt, authorized);
       return authorized.request;
@@ -86,8 +89,9 @@ export function authenticationAdapters(
   providers: Readonly<Record<string, TokenProvider>>,
   requestAdapter?: RequestAdapter,
   responseAdapter?: ResponseAdapter,
+  options?: ConstructorParameters<typeof AuthenticationAdapter>[1],
 ): { requestAdapter: RequestAdapter; responseAdapter: ResponseAdapter } {
-  const authentication = new AuthenticationAdapter(providers);
+  const authentication = new AuthenticationAdapter(providers, options);
   return {
     requestAdapter: new RequestAdapters(
       authentication,

@@ -14,6 +14,10 @@
       "types": "./build/*.d.ts",
       "import": "./build/*.js"
     },
+    "./request-adapters": {
+      "types": "./build/request-adapters-compat.d.ts",
+      "import": "./build/request-adapters-compat.js"
+    },
     "./package.json": "./package.json",
     "./oauth-wire": null
   },

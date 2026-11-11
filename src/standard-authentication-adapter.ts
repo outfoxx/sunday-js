@@ -32,8 +32,11 @@ export class StandardAuthenticationAdapter
   private readonly responses: ResponseAdapters;
 
   /** Uses caller-owned providers; supply TokenManager explicitly for Sunday-managed caching and refresh. */
-  constructor(providers: Readonly<Record<string, TokenProvider>>) {
-    this.authentication = new AuthenticationAdapter(providers);
+  constructor(
+    providers: Readonly<Record<string, TokenProvider>>,
+    options?: ConstructorParameters<typeof AuthenticationAdapter>[1],
+  ) {
+    this.authentication = new AuthenticationAdapter(providers, options);
     this.responses = new ResponseAdapters(
       this.authentication,
       new BearerTokenRejectionAdapter(),
@@ -67,6 +70,7 @@ export function standardTransportFromSettings(
 ): FetchTransport {
   const authentication = new StandardAuthenticationAdapter(
     settings.tokenProviders,
+    options,
   );
   const request = options?.requestAdapter ?? options?.adapter;
   const response = options?.responseAdapter;
