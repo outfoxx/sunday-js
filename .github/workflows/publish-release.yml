@@ -47,6 +47,10 @@ jobs:
         id: version
         uses: nowsprinting/check-version-format-action@v3
 
+      # Firefox requires the mounted home directory to belong to the container user.
+      - name: Prepare Browser Home
+        run: chown "$(id -u):$(id -g)" "$HOME"
+
       - name: Install Packages
         run: bun install --frozen-lockfile
 

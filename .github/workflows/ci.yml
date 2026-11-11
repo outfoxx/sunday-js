@@ -40,6 +40,10 @@ jobs:
       - name: Install Bun
         run: npm install --global bun@1.4.4
 
+      # Firefox requires the mounted home directory to belong to the container user.
+      - name: Prepare Browser Home
+        run: chown "$(id -u):$(id -g)" "$HOME"
+
       - name: Install Packages
         run: |
           bun install --frozen-lockfile
