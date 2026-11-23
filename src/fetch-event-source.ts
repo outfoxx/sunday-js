@@ -212,6 +212,7 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
           if (active()) {
             // Classify the HTTP response, not a possibly different status in its problem body.
             if (
+              !signal.aborted &&
               !isRequestStopped(failure) &&
               [408, 429, 500, 502, 503, 504].includes(response.status)
             ) {
