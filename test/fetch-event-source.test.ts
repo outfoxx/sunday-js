@@ -390,27 +390,209 @@ describe('FetchEventSource', () => {
     eventSource.close();
   });
 
-  it('fails non-successful responses without reconnecting', async () => {
-    fetchMock.get('http://example.com', { status: 400 });
-
-    const eventSource = createEventSource('http://example.com');
-
-    await waitForEvent((resolve, reject) => {
-      eventSource.onerror = (event) => {
-        try {
-          expect(unknownGet(event, 'error')).toBeInstanceOf(Problem);
-          expect(eventSource.readyState).toBe(eventSource.CLOSED);
-          expect(
-            unknownGet(eventSource, 'reconnectTimeoutHandle'),
-          ).toBeUndefined();
-          resolve();
-        } catch (error) {
-          reject(error as Error);
+  it.each([408, 429, 500, 502, 503, 504])(
+    'reconnects after HTTP %s while retaining the cursor and retry controls',
+    async (status) => {
+      let calls = 0;
+      const headers: HeadersInit[] = [];
+      fetchMock.get('http://example.com', (call) => {
+        headers.push(call.options.headers ?? {});
+        calls += 1;
+        if (calls === 1) {
+          return new Response(
+            'retry: 10\nretry-max: 30\nid: checkpoint\ndata: before\n\n',
+          );
         }
+        if (calls === 2)
+          return new Response('temporarily unavailable', { status });
+        return new Response('data: recovered\n\n');
+      });
+      const source = createEventSource('http://example.com');
+      let errors = 0;
+      await waitForEvent((resolve, reject) => {
+        source.onerror = (event) => {
+          errors += 1;
+          if (source.readyState === source.CLOSED) {
+            reject(new Error(`Unexpected terminal error: ${String(event)}`));
+          }
+        };
+        source.onmessage = (event) => {
+          if (event.data === 'recovered') {
+            source.close();
+            resolve();
+          }
+        };
+        source.connect();
+      });
+      expect(calls).toBe(3);
+      expect(errors).toBe(1);
+      expect(source.retryTime).toBe(10);
+      expect(unknownGet<number>(source, 'internalRetryMax')).toBe(30);
+      expect(new Headers(headers[0]).has('last-event-id')).toBe(false);
+      expect(new Headers(headers[1]).get('last-event-id')).toBe('checkpoint');
+      expect(new Headers(headers[2]).get('last-event-id')).toBe('checkpoint');
+    },
+  );
+
+  it.each([
+    [503, 401],
+    [401, 503],
+  ])(
+    'classifies HTTP %s independently of problem status %s',
+    async (status, problemStatus) => {
+      let calls = 0;
+      fetchMock.get('http://example.com', (call) => {
+        calls += 1;
+        if (calls === 1) {
+          return new Response('retry: 10\nid: checkpoint\ndata: before\n\n');
+        }
+        expect(new Headers(call.options.headers).get('last-event-id')).toBe(
+          'checkpoint',
+        );
+        if (calls === 2) {
+          return new Response(
+            JSON.stringify({
+              title: 'Conflicting status',
+              status: problemStatus,
+            }),
+            {
+              status,
+              headers: { 'content-type': 'application/problem+json' },
+            },
+          );
+        }
+        return new Response('data: recovered\n\n');
+      });
+      const source = createEventSource('http://example.com');
+      let errors = 0;
+      await waitForEvent((resolve, reject) => {
+        source.onerror = (event) => {
+          try {
+            errors += 1;
+            expect(unknownGet<Problem>(event, 'error').status).toBe(
+              problemStatus,
+            );
+            if (status === 401) {
+              expect(source.readyState).toBe(source.CLOSED);
+              resolve();
+            } else {
+              expect(source.readyState).not.toBe(source.CLOSED);
+            }
+          } catch (error) {
+            reject(error as Error);
+          }
+        };
+        source.onmessage = (event) => {
+          if (event.data === 'recovered') {
+            source.close();
+            resolve();
+          }
+        };
+        source.connect();
+      });
+      expect(errors).toBe(1);
+      expect(calls).toBe(status === 503 ? 3 : 2);
+      expect(unknownGet(source, 'reconnectTimeoutHandle')).toBeUndefined();
+    },
+  );
+
+  it.each([new Error('adapter stopped'), 'adapter stopped'])(
+    'keeps adapter cancellation terminal during HTTP validation: %s',
+    async (reason) => {
+      const abort = new AbortController();
+      let adaptations = 0;
+      let requests = 0;
+      let bodyController!: ReadableStreamDefaultController<Uint8Array>;
+      const response = new Response(
+        new ReadableStream<Uint8Array>(
+          {
+            start(controller) {
+              bodyController = controller;
+            },
+            pull() {
+              abort.abort(reason);
+            },
+          },
+          { highWaterMark: 0 },
+        ),
+        {
+          status: 503,
+          headers: { 'content-type': 'application/problem+json' },
+        },
+      );
+      const source = createEventSource('http://example.com', {
+        adapter: async (url, init) => {
+          adaptations += 1;
+          return new Request(url, { ...init, signal: abort.signal });
+        },
+        fetch: async () => {
+          requests += 1;
+          return response;
+        },
+      });
+      try {
+        await waitForEvent((resolve, reject) => {
+          source.onerror = (event) => {
+            try {
+              expect(response.bodyUsed).toBe(true);
+              expect(unknownGet<unknown>(event, 'error')).toBe(reason);
+              expect(source.readyState).toBe(source.CLOSED);
+              resolve();
+            } catch (error) {
+              reject(error as Error);
+            }
+          };
+          source.connect();
+        });
+        expect(unknownGet(source, 'reconnectTimeoutHandle')).toBeUndefined();
+        expect(adaptations).toBe(1);
+        expect(requests).toBe(1);
+      } finally {
+        source.close();
+        bodyController.close();
+      }
+    },
+  );
+
+  it('does not reconnect when the error callback closes a temporary failure', async () => {
+    fetchMock.get('http://example.com', { status: 503 });
+    const source = createEventSource('http://example.com');
+    await waitForEvent((resolve) => {
+      source.onerror = () => {
+        source.close();
+        resolve();
       };
-      eventSource.connect();
+      source.connect();
     });
+    expect(source.readyState).toBe(source.CLOSED);
+    expect(unknownGet(source, 'reconnectTimeoutHandle')).toBeUndefined();
+    expect(fetchMock.callHistory.calls()).toHaveLength(1);
   });
+
+  it.each([400, 401, 403, 404, 501])(
+    'fails permanent HTTP %s without reconnecting',
+    async (status) => {
+      fetchMock.get('http://example.com', { status });
+
+      const eventSource = createEventSource('http://example.com');
+
+      await waitForEvent((resolve, reject) => {
+        eventSource.onerror = (event) => {
+          try {
+            expect(unknownGet(event, 'error')).toBeInstanceOf(Problem);
+            expect(eventSource.readyState).toBe(eventSource.CLOSED);
+            expect(
+              unknownGet(eventSource, 'reconnectTimeoutHandle'),
+            ).toBeUndefined();
+            resolve();
+          } catch (error) {
+            reject(error as Error);
+          }
+        };
+        eventSource.connect();
+      });
+    },
+  );
 
   it('stops reconnecting after a 204 response', async () => {
     fetchMock.get('http://example.com', { status: 204 });

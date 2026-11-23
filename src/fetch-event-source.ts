@@ -209,7 +209,18 @@ export class FetchEventSource extends EventTarget implements ExtEventSource {
         } catch (error) {
           const failure = requestFailure(error, signal);
           discardBody(response, failure);
-          if (active()) this.receivedFatalError(failure);
+          if (active()) {
+            // Classify the HTTP response, not a possibly different status in its problem body.
+            if (
+              !signal.aborted &&
+              !isRequestStopped(failure) &&
+              [408, 429, 500, 502, 503, 504].includes(response.status)
+            ) {
+              this.receivedError(failure);
+            } else {
+              this.receivedFatalError(failure);
+            }
+          }
           return;
         }
         if (!active()) {
